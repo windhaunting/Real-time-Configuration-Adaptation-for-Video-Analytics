@@ -36,3 +36,20 @@ def get_variable_name(strVar):
     strVarName = [ k for k,v in locals().items() if v == strVar][0]
     
     return strVarName
+
+
+class cls_fifo:
+    def __init__(self):
+        self.data = {}
+        self.nextin = 0
+        self.nextout = 0
+    def append(self, data):
+        self.nextin += 1
+        self.data[self.nextin] = data
+    def pop(self):
+        self.nextout += 1
+        result = self.data[self.nextout]
+        del self.data[self.nextout]
+        return result
+    def length(self):
+        return len(self.data)

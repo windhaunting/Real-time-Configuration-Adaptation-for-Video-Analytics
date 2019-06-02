@@ -10,11 +10,13 @@ Created on Fri May 31 09:17:06 2019
 
 import os
 import pandas as pd
+import copy
 
 from plot import plotTwoDimensionScatter
 from plot import plotTwoDimensionMultiLines
 
 from common import retrieve_name
+from common import cls_fifo
 
 dataDir = "input_output/"
 
@@ -125,7 +127,7 @@ def video_streaming_simulation(df_config):
             y_acc_lsts_diff_ACC_MIN = []             # y axis is acc
 
             for ACC_MIN in ACC_MIN_LST:
-                last_buffer_size = 0       # initial buffer size = 0
+                last_buffer_lst = cls_fifo()      # initial buffer size = 0
                 segIndex = 1
                 seg_Index_lst = []
                 buffer_size_lst = []        # each index is a segment index
@@ -134,16 +136,16 @@ def video_streaming_simulation(df_config):
                 while (True):           # video streaming
                             
                     print ("ACC_MIN: ", ACC_MIN)
-                    ans_config_index, ans_current_buffer_size, ans_acc = greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_config, last_buffer_size)
+                    ans_config_index, ans_current_buffer, ans_acc = greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_config, last_buffer_lst)
                     
-                    print ("ans_config_index: ", seg_time_len, BUFF_FRM_MIN, ACC_MIN, ans_config_index, ans_current_buffer_size, ans_acc)
+                    print ("ans_config_index, ans_current_buffer: ", seg_time_len, BUFF_FRM_MIN, ACC_MIN, ans_config_index, ans_current_buffer.length(), ans_acc)
                     
-                    buffer_size_lst.append(ans_current_buffer_size)
+                    buffer_size_lst.append(ans_current_buffer.length())
                     acc_lst.append(ans_acc)
                     
                     seg_Index_lst.append(segIndex)
 
-                    last_buffer_size = ans_current_buffer_size             # update buffer size
+                    last_buffer_lst = ans_current_buffer             # update buffer size
 
                     segIndex += 1
                     if segIndex >= m:  # test only
@@ -164,7 +166,6 @@ def video_streaming_simulation(df_config):
             #plot acc vs sgement
             plot_streaming_acc(seg_Index_lst, y_acc_lsts_diff_ACC_MIN, flagChange, ACC_MIN_LST, seg_time_len, BUFF_FRM_MIN)                
 
-    
     '''
     
     #2nd consider  fixed set_time_len  and ACC_MIN for each plt
@@ -216,7 +217,29 @@ def video_streaming_simulation(df_config):
             plot_streaming_acc(seg_Index_lst, y_acc_lsts_diff_BUFF_FRM_MIN, flagChange, BUFF_FRM_MIN_LST, seg_time_len, ACC_MIN)                
     '''
 
-def greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_config, last_buffer_size):
+def processBufferedFrames(current_buffer_lst, seg_time_len):
+    '''
+    process buffered frames in last buffer lst and current buffer lst 
+    total time a video seg_time_len
+    '''
+    p = 1
+    
+    total_size = current_buffer_lst.length()
+    
+    acc_time = 0
+    while (p <= total_size):
+        
+        info = current_buffer_lst.pop()
+        time = 1/info[1]         # each frame process time
+        acc_time += time
+        if acc_time >= seg_time_len:
+            break
+    
+    return current_buffer_lst
+
+    
+    
+def greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_config, last_buffer_lst):
     '''
     select a config
     last_buffer_size: last segment buffer size
@@ -232,7 +255,7 @@ def greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_confi
     ans_current_buffer_size  = 0
     ans_acc = 0
     
-    
+    current_buffer_lst = cls_fifo() 
     for row in df_config.itertuples(index=False, name='Pandas'):
         #print (getattr(row, "c1"), getattr(row, "c2"))
         #print ("row: ", row[0])
@@ -250,21 +273,29 @@ def greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_confi
             break
         
         # calculate buffer size
-        current_buffer_size = max(seg_time_len * STANDARD_FPS - seg_time_len * spf + last_buffer_size, 0)
+        #current_buffer_size = max(seg_time_len * STANDARD_FPS - seg_time_len * spf + last_buffer_size, 0)
         #current_buffer_size = current_seg_extra
+        # assume we put all the frames in the video segment into the buffer queue
         
-        print (" current_buffer_size: ", ACC_MIN, BUFF_FRM_MIN, seg_time_len, last_buffer_size, current_buffer_size)
+        current_buffer_lst = copy.deepcopy(last_buffer_lst)       # copy into current buffer 
+        for i in range (seg_time_len*STANDARD_FPS):
+            current_buffer_lst.append((i, spf))        
+        # process buffer frame
+        current_buffer_lst = processBufferedFrames(current_buffer_lst)
+        
+        
+        print (" current_buffer_size: ", ACC_MIN, BUFF_FRM_MIN, seg_time_len, last_buffer_lst.length(), current_buffer_lst.data, current_buffer_lst.length())
         
         ans_config_index = confIndex
-        ans_current_buffer_size = current_buffer_size
+        ans_current_buffer_size = current_buffer_lst.length()
         ans_acc = acc
         
-        if current_buffer_size > BUFF_FRM_MIN:
+        if current_buffer_lst.length() > BUFF_FRM_MIN:
             continue
         else:
             #print ("configIndex: ", acc, confIndex, current_buffer_size)        
             ans_config_index = confIndex
-            ans_current_buffer_size = current_buffer_size
+            ans_current_buffer_size = current_buffer_lst.length()
             ans_acc = acc
             #print (" enter here,  find suitable config: ", ACC_MIN, BUFF_FRM_MIN, seg_time_len, ans_config_index, ans_current_buffer_size, ans_acc)
             break             # find the answer
