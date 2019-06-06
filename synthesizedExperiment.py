@@ -6,7 +6,7 @@ Created on Fri May 31 09:17:06 2019
 @author: fubao
 """
 
-# synthesize to verify the greedy heuristic
+# synthesize to verify the greedy heuristic method 01
 
 import os
 import pandas as pd
@@ -65,7 +65,7 @@ def plot_streaming_buffer(x_segments, y_buffer_lsts, flagChange, changeLengendLs
         
         
     xlabel = "Segment"
-    ylabel = "Buffer (frames)"
+    ylabel = "Lag (second)"
     subDir = outPlotDir + '/' +  flagChange + '_change'
     if not os.path.exists(subDir):
         os.mkdir(subDir)
@@ -97,37 +97,53 @@ def plot_streaming_acc(x_segments, y_acc_lsts, flagChange, changeLengendLst,  fi
     plotTwoDimensionMultiLines(x_segments, y_acc_lsts, xlabel, ylabel, changeLengendLst, outputPlotPdf)
     
     
-        
+def getBufferLag(ans_current_buffer):
+    '''
+    calculate how many lags (s) from how many frames stored in the buffer
+    according to STANDARD_FPS
+    '''
+    buf_len = ans_current_buffer.length()
+    lag = buf_len/STANDARD_FPS
+    
+    return lag
+    
+
+#def writeAverageBufferAcc(ACC_MIN, BUFF_FRM_MAX, seg_time_len, buffer_size_lst, acc_lst):
+#    '''
+#    write the accuracy and buffer into file
+#    '''
+    
+    
 def video_streaming_simulation(df_config):
     '''
-    simulation video streaming 
+    simulation video streaming with greedy heuristic
     '''
     
     
     
     ACC_MIN_LST = [0.7, 0.75, 0.8, 0.85, 0.9, 0.95]                  # 0.8, 0.9 lower bound of accuracy 
 
-    BUFF_FRM_MIN_LST =  [i*STANDARD_FPS for i in range(0, 11)]       # 1, 2, 3s, 5s and 8s, lower bound Buffer size of frames
+    BUFF_FRM_MAX_LST =  [i*STANDARD_FPS for i in range(0, 11)]       # 1, 2, 3s, 5s and 8s, lower bound Buffer size of frames
 
-    print ("BUFF_FRM_MIN_LST: ", BUFF_FRM_MIN_LST)
+    print ("BUFF_FRM_MAX_LST: ", BUFF_FRM_MAX_LST)
     #mLst = [1, 2, 3]      # 20, 30, number of m segment  to do a statistic
     
     seg_time_len_lst = [3, 4, 6, 8, 10, 12, 16]        #  4s, 6s,8s, 10s, 12s, 16s  segment time length
-    
     
     
     # simulate video streaming to switch configuration
 
     m = 31   # segment
     
-    #1st consider  fixed set_time_len  and BUFF_FRM_MIN for each plt
-    for seg_time_len in seg_time_len_lst[:1]:
-        for BUFF_FRM_MIN in BUFF_FRM_MIN_LST[2:3]:
+    '''
+    #1st consider  fixed set_time_len  and BUFF_FRM_MAX for each plt
+    for seg_time_len in seg_time_len_lst:
+        for BUFF_FRM_MAX in BUFF_FRM_MAX_LST:
             
             y_buffer_lsts_diff_ACC_MIN = []          # y axis is buffer
             y_acc_lsts_diff_ACC_MIN = []             # y axis is acc
 
-            for ACC_MIN in ACC_MIN_LST[:1]:
+            for ACC_MIN in ACC_MIN_LST:
                 last_buffer_lst = cls_fifo()      # initial buffer size = 0
                 segIndex = 1
                 seg_Index_lst = []
@@ -137,16 +153,17 @@ def video_streaming_simulation(df_config):
                 while (True):           # video streaming
                             
                     #print ("ACC_MIN: ", ACC_MIN)
-                    ans_config_index, ans_current_buffer, ans_acc = greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_config, last_buffer_lst)
+                    ans_config_index, ans_current_buffer, ans_acc = greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MAX, seg_time_len, df_config, last_buffer_lst)
                     
-                    print ("ans_config_index, ans_current_buffer: ", seg_time_len, BUFF_FRM_MIN, ACC_MIN, ans_config_index, last_buffer_lst.length(), ans_current_buffer.length(), ans_acc)
+                    #print ("ans_config_index, ans_current_buffer: ", seg_time_len, BUFF_FRM_MAX, ACC_MIN, ans_config_index, last_buffer_lst.length(), ans_current_buffer.length(), ans_acc)
                     
-                    buffer_size_lst.append(ans_current_buffer.length())
+                    #buffer_size_lst.append(ans_current_buffer.length())
+                    buffer_size_lst.append(getBufferLag(ans_current_buffer))
                     acc_lst.append(ans_acc)
                     
                     seg_Index_lst.append(segIndex)
 
-                    last_buffer_lst = ans_current_buffer             # update buffer size
+                    last_buffer_lst = ans_current_buffer             # update buffer 
 
                     segIndex += 1
                     if segIndex >= m:  # test only
@@ -156,26 +173,26 @@ def video_streaming_simulation(df_config):
                                         
                 y_acc_lsts_diff_ACC_MIN.append(acc_lst)
                     
-                #print ("final buffer size:", seg_time_len, BUFF_FRM_MIN, ACC_MIN, buffer_size_lst, seg_Index_lst, acc_lst)         
+                #print ("final buffer size:", seg_time_len, BUFF_FRM_MAX, ACC_MIN, buffer_size_lst, seg_Index_lst, acc_lst)         
             
-            #print ("final buffer size:",seg_time_len, BUFF_FRM_MIN, ACC_MIN, y_acc_lsts_diff_ACC_MIN)
+            #print ("final buffer size:",seg_time_len, BUFF_FRM_MAX, ACC_MIN, y_acc_lsts_diff_ACC_MIN)
 
             flagChange = 'ACC_MIN'
             #plot buffer vs sgement
-            plot_streaming_buffer(seg_Index_lst, y_buffer_lsts_diff_ACC_MIN, flagChange, ACC_MIN_LST, seg_time_len, BUFF_FRM_MIN)
+            plot_streaming_buffer(seg_Index_lst, y_buffer_lsts_diff_ACC_MIN, flagChange, ACC_MIN_LST, seg_time_len, BUFF_FRM_MAX)
             
             #plot acc vs sgement
-            plot_streaming_acc(seg_Index_lst, y_acc_lsts_diff_ACC_MIN, flagChange, ACC_MIN_LST, seg_time_len, BUFF_FRM_MIN)                
-
+            plot_streaming_acc(seg_Index_lst, y_acc_lsts_diff_ACC_MIN, flagChange, ACC_MIN_LST, seg_time_len, BUFF_FRM_MAX)                
     '''
+    
     
     #2nd consider  fixed set_time_len  and ACC_MIN for each plt
     for seg_time_len in seg_time_len_lst:        
         for ACC_MIN in ACC_MIN_LST:
     
-            y_buffer_lsts_diff_BUFF_FRM_MIN = []          # y axis is buffer
-            y_acc_lsts_diff_BUFF_FRM_MIN = []             # y axis is acc
-            for BUFF_FRM_MIN in BUFF_FRM_MIN_LST:
+            y_buffer_lsts_diff_BUFF_FRM_MAX = []          # y axis is buffer
+            y_acc_lsts_diff_BUFF_FRM_MAX = []             # y axis is acc
+            for BUFF_FRM_MAX in BUFF_FRM_MAX_LST:
                 last_buffer_lst = cls_fifo()      # initial buffer size = 0
                 segIndex = 1               # set segment index
                 seg_Index_lst = []
@@ -185,38 +202,91 @@ def video_streaming_simulation(df_config):
                 while (True):               # video streaming
                             
                     #print ("ACC_MIN: ", ACC_MIN)
-                    ans_config_index, ans_current_buffer, ans_acc = greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_config, last_buffer_size)
+                    ans_config_index, ans_current_buffer, ans_acc = greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MAX, seg_time_len, df_config, last_buffer_lst)
                     
-                    #print ("ans_config_index: ", seg_time_len, ACC_MIN, BUFF_FRM_MIN, ans_config_index, ans_current_buffer_size, ans_acc)
+                    #print ("ans_config_index: ", seg_time_len, ACC_MIN, BUFF_FRM_MAX, ans_config_index, ans_current_buffer_size, ans_acc)
                     
-                    buffer_size_lst.append(ans_current_buffer_size)
+                    #buffer_size_lst.append(ans_current_buffer.length())
+                    buffer_size_lst.append(getBufferLag(ans_current_buffer))
                     acc_lst.append(ans_acc)
                     
                     seg_Index_lst.append(segIndex)
                     
-                    last_buffer_size = ans_current_buffer_size             # update buffer size
+                    last_buffer_lst = ans_current_buffer             # update buffer 
                     
                     segIndex += 1
                     if segIndex >= m:       # test only
                         break
                 
                     
-                y_buffer_lsts_diff_BUFF_FRM_MIN.append(buffer_size_lst)           
+                y_buffer_lsts_diff_BUFF_FRM_MAX.append(buffer_size_lst)           
                                         
-                y_acc_lsts_diff_BUFF_FRM_MIN.append(acc_lst)
+                y_acc_lsts_diff_BUFF_FRM_MAX.append(acc_lst)
                     
-                #print ("final buffer size:", seg_time_len, BUFF_FRM_MIN, ACC_MIN, buffer_size_lst, seg_Index_lst, acc_lst)         
+                #print ("final buffer size:", seg_time_len, BUFF_FRM_MAX, ACC_MIN, buffer_size_lst, seg_Index_lst, acc_lst)         
             
-            #print ("final buffer size:",seg_time_len, BUFF_FRM_MIN, ACC_MIN, y_acc_lsts_diff_BUFF_FRM_MIN)
-            #print ("final seg_time_len, ACC_MIN, BUFF_FRM_MIN :",seg_time_len, ACC_MIN, BUFF_FRM_MIN, len(y_buffer_lsts_diff_BUFF_FRM_MIN), y_buffer_lsts_diff_BUFF_FRM_MIN, y_acc_lsts_diff_BUFF_FRM_MIN)
+            #print ("final buffer size:",seg_time_len, BUFF_FRM_MAX, ACC_MIN, y_acc_lsts_diff_BUFF_FRM_MAX)
+            #print ("final seg_time_len, ACC_MIN, BUFF_FRM_MAX :",seg_time_len, ACC_MIN, BUFF_FRM_MAX, len(y_buffer_lsts_diff_BUFF_FRM_MAX), y_buffer_lsts_diff_BUFF_FRM_MAX, y_acc_lsts_diff_BUFF_FRM_MAX)
 
-            flagChange = 'BUFF_FRM_MIN'
+            flagChange = 'BUFF_FRM_MAX'
             #plot buffer vs sgement
-            plot_streaming_buffer(seg_Index_lst, y_buffer_lsts_diff_BUFF_FRM_MIN, flagChange, BUFF_FRM_MIN_LST, seg_time_len, ACC_MIN)
+            changeLengend = [i/STANDARD_FPS for i in BUFF_FRM_MAX_LST]
+            plot_streaming_buffer(seg_Index_lst, y_buffer_lsts_diff_BUFF_FRM_MAX, flagChange, changeLengend, seg_time_len, ACC_MIN)
             
             #plot acc vs sgement
-            plot_streaming_acc(seg_Index_lst, y_acc_lsts_diff_BUFF_FRM_MIN, flagChange, BUFF_FRM_MIN_LST, seg_time_len, ACC_MIN)                
+            plot_streaming_acc(seg_Index_lst, y_acc_lsts_diff_BUFF_FRM_MAX, flagChange, changeLengend, seg_time_len, ACC_MIN)                
+    
     '''
+    #3rd consider  fixed set_time_len  and ACC_MIN for each plt
+    for BUFF_FRM_MAX  in BUFF_FRM_MAX_LST:        
+        for ACC_MIN in ACC_MIN_LST:
+    
+            y_buffer_lsts_diff_BUFF_FRM_MAX = []          # y axis is buffer
+            y_acc_lsts_diff_BUFF_FRM_MAX = []             # y axis is acc
+            for seg_time_len in seg_time_len_lst:
+                last_buffer_lst = cls_fifo()      # initial buffer size = 0
+                segIndex = 1               # set segment index
+                seg_Index_lst = []
+                buffer_size_lst = []        # each index is a segment index
+                acc_lst = []                # accumulated accuracy
+                
+                while (True):               # video streaming
+                            
+                    #print ("ACC_MIN: ", ACC_MIN)
+                    ans_config_index, ans_current_buffer, ans_acc = greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MAX, seg_time_len, df_config, last_buffer_lst)
+                    
+                    #print ("ans_config_index: ", seg_time_len, ACC_MIN, BUFF_FRM_MAX, ans_config_index, ans_current_buffer_size, ans_acc)
+                    
+                    #buffer_size_lst.append(ans_current_buffer.length())
+                    buffer_size_lst.append(getBufferLag(ans_current_buffer))
+                    acc_lst.append(ans_acc)
+                    
+                    seg_Index_lst.append(segIndex)
+                    
+                    last_buffer_lst = ans_current_buffer             # update buffer 
+                    
+                    segIndex += 1
+                    if segIndex >= m:       # test only
+                        break
+                
+                    
+                y_buffer_lsts_diff_BUFF_FRM_MAX.append(buffer_size_lst)           
+                                        
+                y_acc_lsts_diff_BUFF_FRM_MAX.append(acc_lst)
+                    
+                #print ("final buffer size:", seg_time_len, BUFF_FRM_MAX, ACC_MIN, buffer_size_lst, seg_Index_lst, acc_lst)         
+            
+            #print ("final buffer size:",seg_time_len, BUFF_FRM_MAX, ACC_MIN, y_acc_lsts_diff_BUFF_FRM_MAX)
+            #print ("final seg_time_len, ACC_MIN, BUFF_FRM_MAX :",seg_time_len, ACC_MIN, BUFF_FRM_MAX, len(y_buffer_lsts_diff_BUFF_FRM_MAX), y_buffer_lsts_diff_BUFF_FRM_MAX, y_acc_lsts_diff_BUFF_FRM_MAX)
+
+            flagChange = 'SEG_TIME_LEN'
+            #plot buffer vs sgement
+            plot_streaming_buffer(seg_Index_lst, y_buffer_lsts_diff_BUFF_FRM_MAX, flagChange, seg_time_len_lst, BUFF_FRM_MAX, ACC_MIN)
+            
+            #plot acc vs sgement
+            plot_streaming_acc(seg_Index_lst, y_acc_lsts_diff_BUFF_FRM_MAX, flagChange, seg_time_len_lst, BUFF_FRM_MAX, ACC_MIN)                
+    '''
+    
 
 def processBufferedFrames(current_buffer_lst, seg_time_len):
     '''
@@ -243,7 +313,7 @@ def processBufferedFrames(current_buffer_lst, seg_time_len):
 
     
     
-def greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_config, last_buffer_lst):
+def greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MAX, seg_time_len, df_config, last_buffer_lst):
     '''
     select a config
     last_buffer_size: last segment buffer size
@@ -282,27 +352,27 @@ def greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_confi
         # assume we put all the frames in the video segment into the buffer queue
         
         current_buffer_lst = copy.deepcopy(last_buffer_lst)       # copy into current buffer 
-        print (" greedy_heuristic_select_config current_buffer_lst here: ", current_buffer_lst.length())
+        #print (" greedy_heuristic_select_config current_buffer_lst here: ", current_buffer_lst.length())
         for i in range (seg_time_len*STANDARD_FPS):
             current_buffer_lst.append((i, spf))        
         # process buffer frame
         current_buffer_lst = processBufferedFrames(current_buffer_lst, seg_time_len)
         
         
-        print (" greedy_heuristic_select_config current_buffer_size: ", confIndex, ACC_MIN, BUFF_FRM_MIN, seg_time_len, last_buffer_lst.length(), current_buffer_lst.length())
+        #print (" greedy_heuristic_select_config current_buffer_size: ", confIndex, ACC_MIN, BUFF_FRM_MAX, seg_time_len, last_buffer_lst.length(), current_buffer_lst.length())
         
         ans_config_index = confIndex
         ans_current_buffer = current_buffer_lst
         ans_acc = acc
         
-        if current_buffer_lst.length() > BUFF_FRM_MIN:
+        if current_buffer_lst.length() > BUFF_FRM_MAX:
             continue
         else:
             #print ("configIndex: ", acc, confIndex, current_buffer_size)        
             ans_config_index = confIndex
             ans_current_buffer = current_buffer_lst
             ans_acc = acc
-            print ("greedy_heuristic_select_config enter here,  find suitable config: ", ACC_MIN, BUFF_FRM_MIN, seg_time_len, ans_config_index, last_buffer_lst.length(), ans_current_buffer.length(), ans_acc)
+            #print ("greedy_heuristic_select_config enter here,  find suitable config: ", ACC_MIN, BUFF_FRM_MAX, seg_time_len, ans_config_index, last_buffer_lst.length(), ans_current_buffer.length(), ans_acc)
             break             # find the answer
 
    
@@ -311,6 +381,13 @@ def greedy_heuristic_select_config(ACC_MIN, BUFF_FRM_MIN, seg_time_len, df_confi
 
             
 
+def getMostExpensiveConfig():
+    '''
+    get the most expensive config
+    most expensive
+    '''
+    x = 1
+    
 def exec_simulation_video_analytic():
     '''
     main entry to execute video streaming

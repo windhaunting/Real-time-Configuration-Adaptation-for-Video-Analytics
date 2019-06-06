@@ -30,13 +30,16 @@ def plotTwoDimensionScatter(xList, yList, xlabel, ylabel, outputPlotPdf):
 def plotTwoDimensionMultiLines(xList, yLists, xlabel, ylabel, changeLengendLst, outputPlotPdf):
     
     fig=plt.figure()
+    plt.rcParams["axes.titlesize"] = 8
 
     #plt.title('Moving speed of the cat')
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     #print ('changeLengendLst: ', len(changeLengendLst), len(yLists))
+    averageYLst = []
     for i, ylst in enumerate(yLists):
         plt.plot(xList, ylst, label=[changeLengendLst[i]])
+        averageYLst.append(sum(ylst) / len(ylst) )
     plt.xticks(xList)
     #xmarks=[i for i in range(1,len(xList)+1, 2)]
     #plt.xticks(xmarks)
@@ -44,7 +47,7 @@ def plotTwoDimensionMultiLines(xList, yLists, xlabel, ylabel, changeLengendLst, 
     #ax = plt.axes()
     #plt.setp(ax.get_xticklabels(), fontsize=10, rotation='vertical')
 
-
+    plt.title("__".join(str(round(e,3)) for e in averageYLst))
     plt.legend(loc='upper right')
 
     plt.grid(True)
