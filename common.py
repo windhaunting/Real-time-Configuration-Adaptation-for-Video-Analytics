@@ -7,7 +7,7 @@ Created on Fri May 31 09:14:18 2019
 """
 
 import inspect
-
+import pandas as pd
 
 # define a class including each clip's profile result
 class cls_profile_video(object):
@@ -53,3 +53,26 @@ class cls_fifo:
         return result
     def length(self):
         return len(self.data)
+    
+    
+def getBufferedLag(current_buffer, PLAYOUT_RATE):
+    '''
+    current_buffer: cls_fifo type
+    calculate how many lags (s) from how many frames stored in the buffer
+    according to STANDARD_FPS
+    '''
+    buf_len = current_buffer.length()
+    lag = buf_len/PLAYOUT_RATE
+    
+    return lag
+
+
+def read_profile_data(dataFile):
+    '''
+    read the synthesized profile data
+    '''
+    df_config = pd.read_csv(dataFile, delimiter='\t', index_col=False)
+    
+    #print (df_config.columns)
+    
+    return df_config
