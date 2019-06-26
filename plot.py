@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 
 
 
-def plotThreeSubplots(x_lst, y_lst_1, y_lst_2, y_lst_3, x_label, y_label_1, y_label_2, y_label_3, title_name, outputPlotPdf):
+def plotThreeSubplots(x_lst, y_lst_1, y_lst_2, y_lst_3, x_label, y_label_1, y_label_2, y_label_3, title_name_1, title_name_2):
     '''
     plot two suplots 3X1 structure
     '''
@@ -36,8 +36,12 @@ def plotThreeSubplots(x_lst, y_lst_1, y_lst_2, y_lst_3, x_label, y_label_1, y_la
     
     #axes[0].legend([sc1], ["Admitted"])
     #axes[1].legend([sc2], ["Not-Admitted"])
-    axes[0].set_title(title_name)
+    axes[0].set_title(title_name_1)
+    axes[1].set_title(title_name_2)
     #plt.show()
+    
+    fig.tight_layout()
+
     return fig
 
 
@@ -59,6 +63,7 @@ def plotTwoSubplots(x_lst, y_lst_1, y_lst_2, x_label, y_label_1, y_label_2, titl
     axes[0].set_title(title_name)
     #plt.show()
     #plt.savefig(outputPlotPdf)
+    fig.tight_layout()
     
     return fig
 
@@ -83,7 +88,8 @@ def plotUpsideDownTwoFigures(x_lst, y_lst_1, y_lst_2, x_label, y_label_1, y_labe
     ax.set_xlabel(x_label)
     plt.show()
     plt.savefig(outputPlotPdf)
-
+    
+    
 
 def plotTwoDimensionScatterLine(xList, yList, xlabel, ylabel, outputPlotPdf):
     plt.figure()

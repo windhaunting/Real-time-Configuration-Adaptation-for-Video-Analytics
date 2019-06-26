@@ -162,16 +162,17 @@ def greedilyGetConfigFromProfileLagThreshold(df_config, proc_speed_min, lagThres
         rest_lag = getBufferedLag(last_buffer_lst, PLAYOUT_RATE)
         if rest_lag <= lagThreshold:       # because sorted accuracy
             series_selected_config = row
-            print ("greedilyGetConfigFromProfileLagThreshold found the config: ", series_selected_config, rest_lag, lagThreshold)
+            #print ("greedilyGetConfigFromProfileLagThreshold found the config: ", series_selected_config, rest_lag, lagThreshold)
             return series_selected_config, rest_lag, end_frm_ind_cpy, stream_flag, last_buffer_lst
     
     return series_selected_config, rest_lag, end_frm_ind, stream_flag, last_buffer_lst
     
 
     
-def getMaxAccuracyLagThresholdInEachSegment(dataDir, lagThreshold):
+def runVideoSimulationForAllSegments(dataDir, lagThreshold):
     '''
-    assume we want to achieve maximum accuracy 1, plot the accumulated lags in each video segment    
+    run video simulation
+    find the config to satisfy the goal that acchieve max accuracy within the lag threshold in each segment
     '''    
     
     segmentTime = 4     #4s
@@ -278,10 +279,11 @@ def plotSimulateResultMaxAccuracyInEachSegment(segmentNo, acc_seg_lst,  curr_seg
     y_label_2 = 'Lag time (s)'
     y_label_3 = 'Profiling_time (s)'
     
-    title_name = 'Lag_Trheshold:' + str(lagThre) + '_-Average acc: ' + str(sum(acc_seg_lst)/len(acc_seg_lst))
+    title_name_1 = 'Lag_Threshold:' + str(lagThre) + 's--Average_acc: ' + str(round(sum(acc_seg_lst)/len(acc_seg_lst),3))
     
+    title_name_2 = "Average_lag: " + str(round(sum(curr_seg_lag_lst)/len(curr_seg_lag_lst),3))
 
-    fig = plotThreeSubplots(x_lst, y_lst_1, y_lst_2, y_lst_3, x_label, y_label_1, y_label_2, y_label_3, title_name, outputPlotPdf)
+    fig = plotThreeSubplots(x_lst, y_lst_1, y_lst_2, y_lst_3, x_label, y_label_1, y_label_2, y_label_3, title_name_1, title_name_2)
     return fig
     
 
@@ -303,7 +305,7 @@ def executeLagThresholds(dataDir):
     yList = []
     for lagThres in lagThresholds:
         
-        segmentNo, acc_seg_lst, curr_seg_lag_lst, profiling_seg_time_lst = getMaxAccuracyLagThresholdInEachSegment(dataDir, lagThres)
+        segmentNo, acc_seg_lst, curr_seg_lag_lst, profiling_seg_time_lst = runVideoSimulationForAllSegments(dataDir, lagThres)
         
         yList.append(sum(acc_seg_lst)/len(acc_seg_lst))
         fig = plotSimulateResultMaxAccuracyInEachSegment(segmentNo, acc_seg_lst, curr_seg_lag_lst, profiling_seg_time_lst, lagThres)
@@ -328,19 +330,18 @@ if __name__== "__main__":
 
     '''
     dataDir = dataDir2 + '001_output_video_dancing_01/profiling_result/'
-    
     executeLagThresholds(dataDir)
-    '''
     
     '''
+    
     dataDir = dataDir2 + '002_output_video_soccer_01/profiling_result/'
     executeLagThresholds(dataDir)
+    
+    
     '''
-    
-    
     dataDir = dataDir2 + '003-output_bike_race-20mins_01/profiling_result/'
     executeLagThresholds(dataDir)
-    
+    '''
     
     
     

@@ -98,6 +98,10 @@ def round_int(val):
 def transfer_coco_keyPoint_format(humanDict, image_w, image_h):
     '''
     transfer to coco format of keypoint
+    
+    https://www.tensorflow.org/lite/models/pose_estimation/overview
+    
+    https://www.learnopencv.com/deep-learning-based-human-pose-estimation-using-opencv-cpp-python/
     '''
     
     keypoints = []

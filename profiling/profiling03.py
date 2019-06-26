@@ -64,12 +64,11 @@ class cls_profile_video(object):
 frameRates = [25, 15, 10, 5, 2, 1]    # test only [25, 10, 5, 2, 1]   # [5]   #          #  [25]    #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
 resoStrLst= ["1120x832", "960x720", "640x480",  "480x352", "320x240"]   #  [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
 resolutions = [(int(res.split("x")[0]), int(res.split("x")[1])) for res in resoStrLst]
-modelMethods = ['cmu', 'mobilenet_v2_small']  #  ['mobilenet_v2_small']      # ['mobilenet_thin']  # ['cmu']  #  ["openPose"]
+# a_cpn,   "a" is just to make it alphabetically order first, to make it as ground truth conviniently for programming
+modelMethods = ['a_cpn', 'cmu', 'mobilenet_v2_small']  #  ['mobilenet_v2_small']      # ['mobilenet_thin']  # ['cmu']  #  ["openPose"]
 
 
 
-    
-    
 def profilingOneVideoWithMaxFrameRateFrameByFrame(inputDir, outDir):
     '''
     frame by frame first
@@ -120,7 +119,7 @@ def profilingOneVideoWithMaxFrameRateFrameByFrame(inputDir, outDir):
                     
                     #if mod == "cmu": # "openPose":
                     #output_lst, elapsedTime = openPose_estimation_one_image(imgPath, res) #mulitple person
-                    output_lst, elapsedTime = tf_open_pose_inference(imgPath, mod, res, e, w, h)
+                    output_lst, elapsedTime = tf_open_pose_inference(imgPath, res, e, w, h)
                     
                     if frmCnt % (25*4) == 0:        # every other 4s to print only
                         print ("profilingOneVideoWithMaxFrameRate 00 frames finished inference result: ", imgPath, mod, res, elapsedTime)
@@ -313,13 +312,13 @@ def executeProfiling():
     getEachSegmentProfilingAPTime(inputDir, segment_time, outDir)
     '''
     
-    '''
+    
     inputDir = dataDir2 + '003-bike_race-20mins_frames/'
     outDir = dataDir2 + '003-output_bike_race-20mins_01/' 
     if not os.path.exists(outDir):
         os.mkdir(outDir)
     profilingOneVideoWithMaxFrameRateFrameByFrame(inputDir, outDir)
-    '''
+    
     inputDir =  dataDir2 + '003-output_bike_race-20mins_01/' 
     outDir =inputDir + 'profiling_result/' 
     if not os.path.exists(outDir):
