@@ -92,18 +92,16 @@ def extractVideoFrames(inputVideoPath, outFramesPath):
     else:
         return None
 
+'''
 def round_int(val):
     return int(round(val))
 
 def transfer_coco_keyPoint_format(humanDict, image_w, image_h):
-    '''
-    transfer to coco format of keypoint
     
-    https://www.tensorflow.org/lite/models/pose_estimation/overview
-    
-    https://www.learnopencv.com/deep-learning-based-human-pose-estimation-using-opencv-cpp-python/
-    '''
-    
+    #transfer to coco format of keypoint
+    #https://www.tensorflow.org/lite/models/pose_estimation/overview
+    #https://www.learnopencv.com/deep-learning-based-human-pose-estimation-using-opencv-cpp-python/
+        
     keypoints = []
     coco_ids = [0, 15, 14, 17, 16, 5, 2, 6, 3, 7, 4, 11, 8, 12, 9, 13, 10]
     for coco_id in coco_ids:
@@ -116,11 +114,10 @@ def transfer_coco_keyPoint_format(humanDict, image_w, image_h):
     
 
 def oneHumanToDicthuman(human, w, h):
-    '''
-    one human ; transfer to dictionary of body parts, score
-    BodyPart:0-(0.77, 0.25) score=0.80 BodyPart:1-(0.79, 0.28) score=0.75 BodyPart:2-(0.77, 0.29) score=0.58...
+    
+    #one human ; transfer to dictionary of body parts, score
+    #BodyPart:0-(0.77, 0.25) score=0.80 BodyPart:1-(0.79, 0.28) score=0.75 BodyPart:2-(0.77, 0.29) score=0.58...
 
-    '''
     
     humBodyPartsDict = defaultdict()
     bodyPartsLst = human.split(' Body')
@@ -163,11 +160,11 @@ def oneHumanToDicthuman(human, w, h):
     return humBodyPartsDict
       
 def humanBodiesToLstDict(est_result, w, h):
-    '''
-    multiple humans into a list of dictionary
-    image w, h
-    '''
- # extract humans
+
+    #multiple humans into a list of dictionary
+    #image width, height
+
+    # extract humans
     est_result = est_result.split('\t')[-1].replace('[', '').replace(']', '')    # preprocess
     #print ("est_result: ", est_result)
     
@@ -189,6 +186,7 @@ def humanBodiesToLstDict(est_result, w, h):
     #print ("humansLst: ", humansLst)
     
     return humansLst
+'''
 
 def computeOKSAP(est_result, gt_result, img_path, w, h):
     '''
@@ -329,8 +327,8 @@ def executeVideoToFrames():
     extractVideoFrames(inputVideoPath, outDir)
     '''
     
-    inputDir = "/home/fubao/workDir/ResearchProjects/IOTVideoAnalysis/videoAnalytics_poseEstimation/input_output/diy_video_dataset/"
-    filePathLst = sorted(glob(inputDir + "*.mp4"))
+    inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
+    filePathLst = sorted(glob(inputDir + "*.mp4"))[2:3]
     
     outParentDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
     for filePath in filePathLst:

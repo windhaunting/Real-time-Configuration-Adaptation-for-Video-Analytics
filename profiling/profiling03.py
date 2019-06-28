@@ -68,10 +68,10 @@ resolutions = [(int(res.split("x")[0]), int(res.split("x")[1])) for res in resoS
 modelMethods = ['a_cpn', 'cmu', 'mobilenet_v2_small']  #  ['mobilenet_v2_small']      # ['mobilenet_thin']  # ['cmu']  #  ["openPose"]
 
 
-
 def profilingOneVideoWithMaxFrameRateFrameByFrame(inputDir, outDir):
     '''
-    frame by frame first
+    profiling frame by frame first
+    
     '''
     mode_poseEst = defaultdict()
     
