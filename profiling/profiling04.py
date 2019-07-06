@@ -55,8 +55,7 @@ from poseEstimation.tf_pose_estimation.tf_openPose_interface import load_openPos
 
 
 from poseEstimation.tf_cpn.models.COCO_res50_384x288_CPN import tf_cpn_interface_res50_384  # import load_objectdetection_model
-#from poseEstimation.tf_cpn.models.COCO_res50_384x288_CPN import tf_cpn_interface_res50_384  # import load_cpn_pose_estimation_model
-#from poseEstimation.tf_cpn.models.COCO_res50_384x288_CPN import tf_cpn_interface_res50_384  # import tf_cpn_inference_pose
+from poseEstimation.tf_cpn.models.COCO_res50_256x192_CPN import tf_cpn_interface_res50_256  # import load_cpn_pose_estimation_model
 
 
 dataDir1 = '../input_output/mpii_dataset/'
@@ -162,14 +161,15 @@ def profiling_Video_MaxFrameRate_OpenPose(inputDir, outDir):
 def profilingOneVideoMaxFrameRateFrameByFrame_CPN(inputDir, outDir):
     '''
     profiling frame by frame first with CPN models
+    two resolutions available only,  1 models, use 6 frame rate later
     
     '''    
     model_cpn_pose_dict = defaultdict()          # cpn pose  
     configIndex = 1
     #create the file first each file is a config of  the video
-    for mod in modelMethods_openPose:
+    for mod in modelMethods_cpn:
             
-        for res in resoStrLst_OpenPose:    # resolutions
+        for res in resoStrLst_cpn:    # resolutions
             fr = frameRates[0]        # use only maximum frame rate is enough
             #'resolution', 'frameRate','modelMethod',
             # each file is a config of  the video
@@ -181,10 +181,17 @@ def profilingOneVideoMaxFrameRateFrameByFrame_CPN(inputDir, outDir):
             configIndex += 1
 
             MODEL_NAME = "../poseEstimation/tf_cpn/object_detection_models/object_detection_model_ssd_mobilenet_v1_fpn/"   # object_detection_model_rcfn/"
-            object_detection_graph, category_index = tf_cpn_interface_res50_384.load_objectdetection_model(MODEL_NAME)
-                
-            test_cpn_pose_model_path = "../poseEstimation/tf_cpn/models/COCO_res50_384x288_CPN/model_graph/snapshot_350.ckpt"
-            tester_cpn = tf_cpn_interface_res50_384.load_cpn_pose_estimation_model(test_cpn_pose_model_path)                
+            
+            if fr == '384x288':
+                object_detection_graph, category_index = tf_cpn_interface_res50_384.load_objectdetection_model(MODEL_NAME)
+                test_cpn_pose_model_path = "../poseEstimation/tf_cpn/models/COCO_res50_384x288_CPN/model_graph/snapshot_350.ckpt"
+                tester_cpn = tf_cpn_interface_res50_384.load_cpn_pose_estimation_model(test_cpn_pose_model_path)                
+            elif fr == '256x192':
+                object_detection_graph, category_index = tf_cpn_interface_res50_256.load_objectdetection_model(MODEL_NAME)
+                test_cpn_pose_model_path = "../poseEstimation/tf_cpn/models/COCO_res50_256x192_CPN/model_graph/snapshot_350.ckpt"
+                tester_cpn = tf_cpn_interface_res50_256.load_cpn_pose_estimation_model(test_cpn_pose_model_path)                
+ 
+    
             model_cpn_pose_dict[mod + '_' + str(res)] = (object_detection_graph, category_index, tester_cpn)
             
             with open(out_file, 'w') as f:  # write the head for each file
@@ -211,7 +218,11 @@ def profilingOneVideoMaxFrameRateFrameByFrame_CPN(inputDir, outDir):
                     w, h = map(int, res.split('x'))
                       
                     # call cpn model to detect pose for all the humans in the image
-                    humans_poses_array, elapsedTime = tf_cpn_interface_res50_384.tf_cpn_inference_pose(imgPath, (w, h), object_detection_graph, category_index, tester_cpn)
+                    if fr == '384x288':
+                        humans_poses_array, elapsedTime = tf_cpn_interface_res50_384.tf_cpn_inference_pose(imgPath, (w, h), object_detection_graph, category_index, tester_cpn)
+                    
+                    elif fr == '256x192':
+                        humans_poses_array, elapsedTime = tf_cpn_interface_res50_256.tf_cpn_inference_pose(imgPath, (w, h), object_detection_graph, category_index, tester_cpn)
                     
                     human_no = len(humans_poses_array)
                         
@@ -238,7 +249,7 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
     calculate the AP and time
 
     outProfFile:
-        ['streamingNo', 'imagePath', 'resolution', 'frameRate','modelMethod', 'accuracy', 'costFPS']
+        [resolution', 'frameRate','modelMethod', 'segment_no', 'costFPS', 'accuracy']
 
     '''
     
@@ -250,7 +261,6 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
     gtDic = defaultdict(list)        # ground truth detection file for each frame
     
     
-        
     out_file = outDir + 'test_profiling_segment_time' + str(segment_time)+ '.tsv'
     
     headStr = 'Resolution' +'\t' + 'Frame_rate' +'\t' + 'Model' +   \
@@ -278,8 +288,8 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
             #config_index = df_det.iat[0, 0]
             resolution = df_det.iat[1, 1]
             #print ("resolution: ", type(resolution), resolution)
-            w = int(resolution.split('x')[0])
-            h = int(resolution.split('x')[1])
+            img_w = int(resolution.split('x')[0])
+            img_h = int(resolution.split('x')[1])
 
             model = df_det.iat[0, 3]
                             
@@ -289,21 +299,22 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
                 # get ground truth dictionary with estimation result
                 gtDic = dict(zip(df_det.Image_path, df_det.Estimation_result))
                 #df_det['Acc'] = 1             
-            
+                gt_w = img_w             # ground truth image's width
+                gt_h = img_h            # ground truth image's heigth 
             while (startFrmCnt < framesTotalNum):
 
                 for frmRate in frameRates:
-                    profileFrmInter = int(PLAYOUT_RATE//frmRate)
+                    profileFrmInter = int(PLAYOUT_RATE//frmRate)          # frame rate sampling frames in interval
                     
-                    if frmRate == frameRates[0]:     # PLAYOUT_RATE:  # ground truth
-                        gtDic = dict(zip(df_det.Image_path, df_det.Estimation_result))     # this should be cpn model as ground truth
+                    #if frmRate == frameRates[0]:     # PLAYOUT_RATE  # ground truth
+                    #    gtDic = dict(zip(df_det.Image_path, df_det.Estimation_result))     # this should be cpn model as ground truth
                         #df_det['Acc'] = 1 
                         #print ("profileFrmInter: ",profiling_frames, profileFrmInter, type( df_prof.iloc[startFrmCnt:profiling_frames]))
                         #get det_speed in the profiling time
                     
                     # no else: also calculate the segment's accuracy for ground truth scenario
                     #print ("det_speed_seg: ", df_det.iloc[startFrmCnt:startFrmCnt+profiling_frames].iloc[::profileFrmInter, 7].astype(float).values)
-                    #calculate  detection speed for this segment
+                    #calculate  detection speed for this segment based on current frame rate
                     det_speed_seg= sum(df_det.iloc[startFrmCnt:startFrmCnt+profiling_frames].iloc[::profileFrmInter, 7].astype(float).values)/PLAYOUT_RATE
                
                     det_speed_seg = round(1/det_speed_seg, 2)
@@ -327,11 +338,11 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
                         if iterFrmRateIndx % profileFrmInter == 0:
                             lead_frame_est_res  = row['Estimation_result']
                             #get accuracy
-                            acc_curr_frm = computeOKSAP(lead_frame_est_res, gt_result_curr_frm, img, w, h)
+                            acc_curr_frm = computeOKSAP(lead_frame_est_res, gt_result_curr_frm, img, img_w, img_h, gt_w, gt_h)
                             acc_seg += acc_curr_frm
                         else:
                             curr_frm_est_res = lead_frame_est_res
-                            acc_curr_frm = computeOKSAP(curr_frm_est_res, gt_result_curr_frm, img, w, h)
+                            acc_curr_frm = computeOKSAP(curr_frm_est_res, gt_result_curr_frm, img, img_w, img_h, gt_w, gt_h)
                             acc_seg += acc_curr_frm
                             
                         iterFrmRateIndx += 1
@@ -370,83 +381,39 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
         df_seg_no.to_csv(out_seg_no_file, sep='\t', index=False)
         
 
+
     
-def executeProfiling():
+def execute_profiling(segment_time):
     
     print ("gpus devices: ", device_lib.list_local_devices())
     get_available_gpus()
     
-    '''
-    inputDir = dataDir2 + '001-video_dancing_01_frames/'
-    outDir = dataDir2 + '001_output_video_dancing_01/' 
-    if not os.path.exists(outDir):
-        os.mkdir(outDir)
-    profilingOneVideoWithMaxFrameRate(inputDir, outDir)
+    lst_input_video_frms_dir = ['001-dancing_10mins_frames/', '002-soccer-20mins-frames/', \
+                        '003-bike_race-20mins_frames/', '004-Marathon-20mins_frames/']
     
+    for input_frm_dir in lst_input_video_frms_dir[0:1]:
+        input_dir = dataDir2 + input_frm_dir
+        
+        out_dir = dataDir2 + 'output_' +"_".join(input_frm_dir.split("_")[:-1]) +"/"      # 004-output_Marathon-20mins_01/' 
+        if not os.path.exists(out_dir):
+            os.mkdir(out_dir)
+        # profiling_Video_MaxFrameRate_OpenPose(inputDir, outDir)
+        profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
+        
+        
+        ''''
+        input_dir = out_dir
+        out_dir = input_dir + 'profiling_result/' 
+        if not os.path.exists(out_dir):
+            os.mkdir(out_dir)
+        getEachSegmentProfilingAPTime(input_dir, segment_time, out_dir)
+        '''
     
-    inputDir =  dataDir2 + '001_output_video_dancing_01/' 
-    outDir = dataDir2+ '001_output_video_dancing_01/profiling_result/' 
-    segment_time = 4
-
-    getEachSegmentProfilingAPTime(inputDir, segment_time, outDir)
-    
-    '''
-    
-    '''
-    inputDir = dataDir2 + '002-soccer-20mins-frames/'
-    outDir = dataDir2 + '002_output_video_soccer_01/' 
-    if not os.path.exists(outDir):
-        os.mkdir(outDir)
-    profilingOneVideoWithMaxFrameRateFrameByFrame(inputDir, outDir)
-    '''
-    
-    '''
-    inputDir =  dataDir2 + '002_output_video_soccer_01/' 
-    outDir = dataDir2+ '002_output_video_soccer_01/profiling_result/' 
-    if not os.path.exists(outDir):
-        os.mkdir(outDir)
-    segment_time = 4
-
-    getEachSegmentProfilingAPTime(inputDir, segment_time, outDir)
-    '''
-    
-    '''
-    inputDir = dataDir2 + '003-bike_race-20mins_frames/'
-    outDir = dataDir2 + '003-output_bike_race-20mins_01/' 
-    if not os.path.exists(outDir):
-        os.mkdir(outDir)
-    profilingOneVideoWithMaxFrameRateFrameByFrame(inputDir, outDir)
-    
-    
-    inputDir =  dataDir2 + '003-output_bike_race-20mins_01/' 
-    outDir =inputDir + 'profiling_result/' 
-    if not os.path.exists(outDir):
-        os.mkdir(outDir)
-    segment_time = 4
-    getEachSegmentProfilingAPTime(inputDir, segment_time, outDir)
-    '''
-    
-    
-    
-    inputDir = dataDir2 + '004-Marathon-20mins_frames/'
-    outDir = dataDir2 + '004-output_Marathon-20mins_01/' 
-    if not os.path.exists(outDir):
-        os.mkdir(outDir)
-    # profiling_Video_MaxFrameRate_OpenPose(inputDir, outDir)
-    
-    '''
-    inputDir =  dataDir2 + '004-output_Marathon-20mins_01/' 
-    outDir =inputDir + 'profiling_result/' 
-    if not os.path.exists(outDir):
-        os.mkdir(outDir)
-    segment_time = 4
-
-    getEachSegmentProfilingAPTime(inputDir, segment_time, outDir)
-    '''
-    
+        
+  
     
 if __name__== "__main__":
-    executeProfiling()
+    execute_profiling()
 
     
     

@@ -186,12 +186,10 @@ def humanBodiesToLstDict(est_result, w, h):
     #print ("humansLst: ", humansLst)
     
     return humansLst
-'''
+
 
 def computeOKSAP(est_result, gt_result, img_path, w, h):
-    '''
-    calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
-    '''
+    #calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
     est_lst = humanBodiesToLstDict(est_result, w, h)
    
     dts = []
@@ -271,6 +269,7 @@ def computeOKSAP(est_result, gt_result, img_path, w, h):
         aver_prec += prec
         
     return aver_prec/thresholds.size
+'''
 
 def computeOKS(gts, dts):
        
@@ -316,6 +315,145 @@ def computeOKS(gts, dts):
             ious[i, j] = np.sum(np.exp(-e)) / e.shape[0]
     return ious
 
+
+
+def parse_pose_result(pose_result_str, gt_flag, img_w, img_h, gt_w, gt_h):
+    '''
+    parse the rstring result
+    '''
+     
+    human_points_lst = []          # each element is a dictionary
+    humans = pose_result_str.split(';')
+    for i, hm in enumerate(humans):
+        hm_points_dict = {}
+        
+        #transfer the keypoint to corresonding ratio. because the current image is resized image of the ground truth, with different image size
+        pointStr = hm.split(',')[:-1]   #  string of [x1, y1, v1, x2, y2, v2]
+        tmp_pt_lst = pointStr.replace('[', '').replace(']', '').split(',')
+        for i in range(0, len(tmp_pt_lst)):
+            if i % 3 == 0:
+                tmp_pt_lst[i] = tmp_pt_lst[i] * gt_w/img_w
+            elif i % 3 == 1:
+                tmp_pt_lst[i] = tmp_pt_lst[i] * gt_h/img_h
+
+        
+        hm_points_dict[i] = ",".join(tmp_pt_lst)     # key points
+        hm_points_dict['score'] = hm.split(',')[-1]       # score
+
+        if gt_flag:
+            # calculate the bounding box, estimate
+            minX = 2**32
+            maxX = -2**32
+            minY = 2**32
+            maxY = -2**32
+            for k, v in hm_points_dict.items():
+                if k != 'score':
+                    if v[0] < minX:
+                        minX = v[0]
+                    if v[0] > maxX:
+                        maxX = v[0]
+                    if v[1] < minY:
+                        minY = v[1]
+                    if v[1] > maxY:
+                        maxY = v[1]
+            
+            hm_points_dict['bbox'] = [minX*w, minY*h, (maxX-minX)*w, (maxY-minY)*h]
+            #print ("humBodyPartsDict bbox:", humBodyPartsDict['bbox'])
+            hm_points_dict['area'] = (maxX-minX)*w*(maxY-minY)*h
+  
+    return human_points_lst
+    
+        
+
+def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
+    '''
+    calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
+    
+    est_result's ormat:
+        [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
+        
+    '''
+    # parse the file for each human
+    est_lst = parse_pose_result(est_result, False, img_w, img_h, gt_w, gt_h)
+        
+    print ("computeOKSAP est_lst :", est_lst)
+    dts = []
+    det_scores = 0.0
+    for i, human in enumerate(est_lst):
+        item = {
+            'image_id': img_path,
+            'category_id': 1,
+            'keypoints': human[i],
+            'score': human['score']
+        }
+        dts.append(item)
+        det_scores += item['score']
+        
+    #det_avg_score = det_scores / len(est_lst) if len(est_lst) > 0 else 0
+    
+    gt_lst = parse_pose_result(gt_result, True, img_w, img_h, gt_w, gt_h)
+    print ("computeOKSAP est_lst :", gt_lst)
+    
+    gts = []
+    gt_scores = 0.0
+    for i, human in enumerate(gt_lst):
+        item = {
+            'image_id': img_path,
+            'category_id': 1,
+            'keypoints': human[i],
+            'score': human['score'],
+            'bbox': human['bbox'],
+            'area': human['area']
+        }
+        gts.append(item)
+        gt_scores += item['score']
+        
+    #gt_avg_score = gt_scores / len(gt_lst) if len(gt_lst) > 0 else 0
+    
+    # compute oks
+    #print ("len(gts), dts:", len(gts), len(dts))
+    ious = computeOKS(gts, dts)      # ((len(dts), len(gts)))
+ 
+    #print ("ious:", ious)
+
+    ious = np.transpose(ious)         # transpose
+    
+    thresholds = np.arange(0.5, 0.95, 0.05)
+    aver_prec = 0.0
+    for thres in thresholds:
+        # calculate the AP as the accuracy
+        TP = 0
+        FP = 0
+        FN = 0
+        for m in range(0, len(ious)):
+            eachGT_Detected = 0
+            for n in range(0, len(ious[m])):
+                if ious[m][n] > thres:
+                    if eachGT_Detected >= 1:
+                        FP += 1
+                    TP += 1
+                    eachGT_Detected += 1
+            if eachGT_Detected == 0:
+                FN += 1
+        if (TP+FP) == 0:
+            prec = 0
+        else:
+            prec = TP/(TP+FP)     #len(gts)
+        if (TP+FN) == 0:
+            recall = 0
+        else:
+            recall = TP/(TP+FN)
+            
+        if (prec+recall) == 0:
+            acc = 0
+        else:
+            acc = 2*prec*recall/(prec+recall)
+        
+        #print ("precision:", prec, recall, acc)
+        aver_prec += prec
+        
+    return aver_prec/thresholds.size
+
 def executeVideoToFrames():
     
     '''
@@ -328,7 +466,7 @@ def executeVideoToFrames():
     '''
     
     inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
-    filePathLst = sorted(glob(inputDir + "*.mp4"))[2:3]
+    filePathLst = sorted(glob(inputDir + "*.mp4"))[1:3]
     
     outParentDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
     for filePath in filePathLst:
