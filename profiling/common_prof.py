@@ -357,9 +357,9 @@ def parse_pose_result(pose_result_str, gt_flag, img_w, img_h, gt_w, gt_h):
                     if v[1] > maxY:
                         maxY = v[1]
             
-            hm_points_dict['bbox'] = [minX*w, minY*h, (maxX-minX)*w, (maxY-minY)*h]
+            hm_points_dict['bbox'] = [minX*img_w, minY*img_h, (maxX-minX)*img_w, (maxY-minY)*img_h]
             #print ("humBodyPartsDict bbox:", humBodyPartsDict['bbox'])
-            hm_points_dict['area'] = (maxX-minX)*w*(maxY-minY)*h
+            hm_points_dict['area'] = (maxX-minX)*img_w*(maxY-minY)*img_h
   
     return human_points_lst
     
@@ -457,16 +457,17 @@ def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
 def executeVideoToFrames():
     
     '''
-    inputVideoPath = inputVideoDir + "video_dancing_01.mp4"
+    inputVideoPath = inputVideoDir + "006-cardio_condition-20mins.mp4"
     
-    outDir = inputVideoDir + 'video_dancing_01_frames/'
+    outDir = inputVideoDir + '006-cardio_condition-20mins_output_frames/'
     if not os.path.exists(outDir):
         os.mkdir(outDir)
     extractVideoFrames(inputVideoPath, outDir)
     '''
     
+    
     inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
-    filePathLst = sorted(glob(inputDir + "*.mp4"))[1:3]
+    filePathLst = sorted(glob(inputDir + "*.mp4"))[5:6]
     
     outParentDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
     for filePath in filePathLst:

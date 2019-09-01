@@ -59,7 +59,6 @@ from poseEstimation.tf_cpn.models.COCO_res50_256x192_CPN import tf_cpn_interface
 
 
 dataDir1 = '../input_output/mpii_dataset/'
-
 dataDir2 = '../input_output/diy_video_dataset/'
 
 PLAYOUT_RATE = 25
@@ -70,11 +69,11 @@ modify the profiling frame by frame not config by config
 '''
 
 # define a class including each clip's profile result
-class cls_profile_video(object):
+#class cls_profile_video(object):
     # cameraNo is the camera no. for multiple camera streaming. 
     # queryNo is the query type, currently human pose estimation
     # 'frameStartNo', 
-    __slots__ = ['cameraNo', 'queryNo', 'resolution', 'frameRate','modelMethod', 'accuracy', 'costFPS']
+#    __slots__ = ['cameraNo', 'queryNo', 'resolution', 'frameRate','modelMethod', 'accuracy', 'costFPS']
 
 
 frameRates = [25, 15, 10, 5, 2, 1]    # test only [25, 10, 5, 2, 1]   # [5]   #          #  [25]    #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
@@ -93,8 +92,13 @@ def get_available_gpus():
 
 def profiling_Video_MaxFrameRate_OpenPose(inputDir, outDir):
     '''
-    profiling frame by frame first
-    
+    profiling frame by frame first of openPose models
+    2 models with 5 resolutions, 6 frame rate
+    output profiling result:
+    'Configuration_C_index' + '\t' + 'Resolution' +'\t' + 'Frame_rate' +'\t' + 'Model' +   \
+             '\t' + 'Image_path' +'\t' + 'Estimation_result' + '\t' + 'numberOfHumans' + '\t'+ 'Time_SPF' + '\n'  # '\t' + 'image_Id'+ '\t' + 'category_Id' +'\t' + 'detection_keyPoint' + '\t' + 'scores' + '\n'
+        
+    Where Estimation_result is the coco format with detection result.
     '''
     model_openPose_dict = defaultdict()         # open pose model 
     
@@ -118,10 +122,10 @@ def profiling_Video_MaxFrameRate_OpenPose(inputDir, outDir):
             with open(out_file, 'w') as f:  # write the head for each file
                 f.write(headStr)
 
-    frmCnt = 1        # fram step size
+    frmCnt = 1                              # frame count
                 
-    filePathLst = sorted(glob(inputDir + "*.jpg"))[:2]       # test only [:2]
-    print ("filePathLst: ", filePathLst)
+    filePathLst = sorted(glob(inputDir + "*.jpg"))        # test only [:2]
+    #print ("filePathLst: ", filePathLst)
     for imgPath in filePathLst:      # iterate each subdirect's frames and compose a video    # profiling frame by frame
         #create the file first each file is a config of  the video
         for res in resoStrLst_OpenPose:    # resolutions
@@ -162,12 +166,23 @@ def profilingOneVideoMaxFrameRateFrameByFrame_CPN(inputDir, outDir):
     '''
     profiling frame by frame first with CPN models
     two resolutions available only,  1 models, use 6 frame rate later
-    
     '''    
     model_cpn_pose_dict = defaultdict()          # cpn pose  
     configIndex = 1
     #create the file first each file is a config of  the video
     for mod in modelMethods_cpn:
+            
+        MODEL_NAME = "../poseEstimation/tf_cpn/object_detection_models/object_detection_model_ssd_mobilenet_v1_fpn/"   # object_detection_model_rcfn/"
+        object_detection_graph, category_index = tf_cpn_interface_res50_384.load_objectdetection_model(MODEL_NAME)
+            
+        # loading weights are the same
+        #if res == "384x288":
+        test_cpn_pose_model_path = "../poseEstimation/tf_cpn/models/COCO_res50_384x288_CPN/model_graph/snapshot_350.ckpt"
+        tester_cpn = tf_cpn_interface_res50_384.load_cpn_pose_estimation_model(test_cpn_pose_model_path)                
+        #elif res == "256x192":
+        #object_detection_graph, category_index = tf_cpn_interface_res50_256.load_objectdetection_model(MODEL_NAME)          # no need to reload here
+        #test_cpn_pose_model_path = "../poseEstimation/tf_cpn/models/COCO_res50_256x192_CPN/model_graph/snapshot_350.ckpt"
+        #tester_cpn = tf_cpn_interface_res50_256.load_cpn_pose_estimation_model(test_cpn_pose_model_path)   
             
         for res in resoStrLst_cpn:    # resolutions
             fr = frameRates[0]        # use only maximum frame rate is enough
@@ -180,27 +195,19 @@ def profilingOneVideoMaxFrameRateFrameByFrame_CPN(inputDir, outDir):
                      
             configIndex += 1
 
-            MODEL_NAME = "../poseEstimation/tf_cpn/object_detection_models/object_detection_model_ssd_mobilenet_v1_fpn/"   # object_detection_model_rcfn/"
-            
-            if fr == '384x288':
-                object_detection_graph, category_index = tf_cpn_interface_res50_384.load_objectdetection_model(MODEL_NAME)
-                test_cpn_pose_model_path = "../poseEstimation/tf_cpn/models/COCO_res50_384x288_CPN/model_graph/snapshot_350.ckpt"
-                tester_cpn = tf_cpn_interface_res50_384.load_cpn_pose_estimation_model(test_cpn_pose_model_path)                
-            elif fr == '256x192':
-                object_detection_graph, category_index = tf_cpn_interface_res50_256.load_objectdetection_model(MODEL_NAME)
-                test_cpn_pose_model_path = "../poseEstimation/tf_cpn/models/COCO_res50_256x192_CPN/model_graph/snapshot_350.ckpt"
-                tester_cpn = tf_cpn_interface_res50_256.load_cpn_pose_estimation_model(test_cpn_pose_model_path)                
+             
  
     
             model_cpn_pose_dict[mod + '_' + str(res)] = (object_detection_graph, category_index, tester_cpn)
             
             with open(out_file, 'w') as f:  # write the head for each file
                 f.write(headStr)
+    
 
     frmCnt = 1        # fram step size
                 
-    filePathLst = sorted(glob(inputDir + "*.jpg"))[:2]       # test only [:2]
-    print ("filePathLst: ", filePathLst)
+    filePathLst = sorted(glob(inputDir + "*.jpg"));      # test only [:2]
+    #print ("filePathLst: ", filePathLst)
     for imgPath in filePathLst:      # iterate each subdirect's frames and compose a video    # profiling frame by frame
         #create the file first each file is a config of  the video
         for res in resoStrLst_cpn:    # resolutions
@@ -218,10 +225,10 @@ def profilingOneVideoMaxFrameRateFrameByFrame_CPN(inputDir, outDir):
                     w, h = map(int, res.split('x'))
                       
                     # call cpn model to detect pose for all the humans in the image
-                    if fr == '384x288':
+                    if res == "384x288":
                         humans_poses_array, elapsedTime = tf_cpn_interface_res50_384.tf_cpn_inference_pose(imgPath, (w, h), object_detection_graph, category_index, tester_cpn)
                     
-                    elif fr == '256x192':
+                    elif res == "256x192":
                         humans_poses_array, elapsedTime = tf_cpn_interface_res50_256.tf_cpn_inference_pose(imgPath, (w, h), object_detection_graph, category_index, tester_cpn)
                     
                     human_no = len(humans_poses_array)
@@ -275,7 +282,7 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
         for fileCnt, filePath in enumerate(filePathLst):
            # read poste estimation detection result file
            
-            df_det = pd.read_csv(filePath, delimiter='\t', index_col=False)  # det-> detection
+            df_det = pd.read_csv(filePath, delimiter='\t', index_col=False)         # det-> detection
             print ("filePath: ", fileCnt, filePath, df_det.columns)
                        
 
@@ -293,7 +300,7 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
 
             model = df_det.iat[0, 3]
                             
-            if fileCnt == 0:      # '1120x832_25_cmu' in fileName:  # this file has the most expensive config result
+            if fileCnt == 0:      # 384x288_a_cpn or '1120x832_25_cmu' in fileName:  # this file has the most expensive config result
                 # get the ground truth for each image_path
                 # pose estimation result is ground truth, accuracy is 1, add a new column "Acc"
                 # get ground truth dictionary with estimation result
@@ -389,19 +396,21 @@ def execute_profiling(segment_time):
     get_available_gpus()
     
     lst_input_video_frms_dir = ['001-dancing_10mins_frames/', '002-soccer-20mins-frames/', \
-                        '003-bike_race-20mins_frames/', '004-Marathon-20mins_frames/']
+                        '003-bike_race-20mins_frames/', '004-Marathon-20mins_frames/',  \
+                        '006-cardio_condition-20mins_frames/', ]
     
-    for input_frm_dir in lst_input_video_frms_dir[0:1]:
+    for input_frm_dir in lst_input_video_frms_dir[4::]:       # run 006 first
         input_dir = dataDir2 + input_frm_dir
         
-        out_dir = dataDir2 + 'output_' +"_".join(input_frm_dir.split("_")[:-1]) +"/"      # 004-output_Marathon-20mins_01/' 
+        out_dir = dataDir2 + 'output_' + '_'.join(input_frm_dir.split('_')[:-1]) +'/'      # 004-output_Marathon-20mins_01/' 
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
-        # profiling_Video_MaxFrameRate_OpenPose(inputDir, outDir)
-        profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
+        #profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
+        #profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
         
         
-        ''''
+        #transfer to accuracy and detection speed in each segment
+        '''
         input_dir = out_dir
         out_dir = input_dir + 'profiling_result/' 
         if not os.path.exists(out_dir):
@@ -413,8 +422,7 @@ def execute_profiling(segment_time):
   
     
 if __name__== "__main__":
-    execute_profiling()
-
     
-    
+    segment_time = 4
+    execute_profiling(segment_time)
     
