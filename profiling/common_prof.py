@@ -19,8 +19,24 @@ from sys import stdout
 from collections import defaultdict
 import pandas as pd
 
-inputVideoDir = "../input_output/diy_video_dataset/"
 
+frameRates = [25, 15, 10, 5, 2, 1]    # test only [25, 10, 5, 2, 1]   # [5]   #          #  [25]    #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
+resoStrLst_OpenPose = ["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
+resoStrLst_cpn = ["384x288", "256x192"]   # for cpn models, only two resolutions pretrained available
+
+modelMethods_openPose = ['cmu', 'mobilenet_v2_small']
+# a_cpn,   "a" is just to make it alphabetically order first, to make it as ground truth conviniently for programming
+modelMethods_cpn = ['a_cpn']  #  'cmu']   # , 'mobilenet_v2_small'] # ['a_cpn']   #     ['a_cpn', 'cmu', 'mobilenet_v2_small']  #  ['mobilenet_v2_small']      # ['mobilenet_thin']  # ['cmu']  #  ["openPose"]
+
+
+
+# simulate without buffer to check how many accuracy we can achieve and the lag with the segment number
+dataDir1 = '../input_output/mpii_dataset/'
+dataDir2 = '../input_output/diy_video_dataset/'
+
+PLAYOUT_RATE = 25
+
+dataDir2 = "../input_output/diy_video_dataset/"
 
 
 def readVideo(inputVideoPath):
@@ -293,6 +309,7 @@ def computeOKS(gts, dts):
         # create bounds for ignore regions(double the gt bbox)
         g = np.array(gt['keypoints'])
         xg = g[0::3]; yg = g[1::3]; vg = g[2::3]
+        #print ("computeOKS type vg: ", type(vg), vg)
         k1 = np.count_nonzero(vg > 0)
         bb = gt['bbox']
         x0 = bb[0] - bb[2]; x1 = bb[0] + bb[2] * 2
@@ -328,18 +345,23 @@ def parse_pose_result(pose_result_str, gt_flag, img_w, img_h, gt_w, gt_h):
         hm_points_dict = {}
         
         #transfer the keypoint to corresonding ratio. because the current image is resized image of the ground truth, with different image size
-        pointStr = hm.split(',')[:-1]   #  string of [x1, y1, v1, x2, y2, v2]
+        pointStr = ','.join(hm.split(',')[:-1])  #  string of [x1, y1, v1, x2, y2, v2]
+        #print ("pointStr:", pointStr)
         tmp_pt_lst = pointStr.replace('[', '').replace(']', '').split(',')
-        for i in range(0, len(tmp_pt_lst)):
-            if i % 3 == 0:
-                tmp_pt_lst[i] = tmp_pt_lst[i] * gt_w/img_w
-            elif i % 3 == 1:
-                tmp_pt_lst[i] = tmp_pt_lst[i] * gt_h/img_h
-
+        tmp_pt_lst = [float(ele) for ele in tmp_pt_lst]
+        for j in range(0, len(tmp_pt_lst)):
+            if j % 3 == 0:
+                #print ("parse_pose_result tmp_pt_lst[j]: ", tmp_pt_lst[j], gt_w, img_w, float(tmp_pt_lst[j])*gt_w/img_w)
+                if not gt_flag:
+                    tmp_pt_lst[j] = float(tmp_pt_lst[j])*gt_w/img_w
+            elif j % 3 == 1:
+                if not gt_flag:
+                    tmp_pt_lst[j] = float(tmp_pt_lst[j])*gt_h/img_h
         
-        hm_points_dict[i] = ",".join(tmp_pt_lst)     # key points
-        hm_points_dict['score'] = hm.split(',')[-1]       # score
-
+        hm_points_dict[i] = tmp_pt_lst  # ",".join(tmp_pt_lst)     # key points
+        hm_points_dict['score'] = float(hm.split(',')[-1])       # score
+        #print ("parse_pose_result human_points_lst22 i: ",  i)
+        #print ("parse_pose_result human_points_lst22: ", gt_w, img_w, gt_h, img_h)
         if gt_flag:
             # calculate the bounding box, estimate
             minX = 2**32
@@ -347,20 +369,20 @@ def parse_pose_result(pose_result_str, gt_flag, img_w, img_h, gt_w, gt_h):
             minY = 2**32
             maxY = -2**32
             for k, v in hm_points_dict.items():
+                #print ("vvvvvvvv: ", k, v)
+                #v1 = float(v[1])
                 if k != 'score':
-                    if v[0] < minX:
-                        minX = v[0]
-                    if v[0] > maxX:
-                        maxX = v[0]
-                    if v[1] < minY:
-                        minY = v[1]
-                    if v[1] > maxY:
-                        maxY = v[1]
-            
-            hm_points_dict['bbox'] = [minX*img_w, minY*img_h, (maxX-minX)*img_w, (maxY-minY)*img_h]
+                    minX = min(v[0::3])   # [ele for i, ele in enumerate(v)] if i % 3 == 0 )
+                    minY = min(v[1::3])
+                    maxX = max(v[0::3])
+                    maxY = max(v[1::3])
+                    #print ("minX, minY: ", minX, minY, maxX, maxY)
+            hm_points_dict['bbox'] = [minX, minY, (maxX-minX), (maxY-minY)]
             #print ("humBodyPartsDict bbox:", humBodyPartsDict['bbox'])
-            hm_points_dict['area'] = (maxX-minX)*img_w*(maxY-minY)*img_h
+            hm_points_dict['area'] = (maxX-minX)*(maxY-minY)
   
+        human_points_lst.append(hm_points_dict)
+    #print ("parse_pose_result human_points_lst: ", human_points_lst)
     return human_points_lst
     
         
@@ -373,10 +395,11 @@ def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
         [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
         
     '''
+    #print ("computeOKSAP img_w, img_h, gt_w, gt_h before:", img_w, img_h, gt_w, gt_h)
     # parse the file for each human
     est_lst = parse_pose_result(est_result, False, img_w, img_h, gt_w, gt_h)
         
-    print ("computeOKSAP est_lst :", est_lst)
+    #print ("computeOKSAP after est_lst :", est_lst)
     dts = []
     det_scores = 0.0
     for i, human in enumerate(est_lst):
@@ -392,7 +415,7 @@ def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
     #det_avg_score = det_scores / len(est_lst) if len(est_lst) > 0 else 0
     
     gt_lst = parse_pose_result(gt_result, True, img_w, img_h, gt_w, gt_h)
-    print ("computeOKSAP est_lst :", gt_lst)
+    #print ("computeOKSAP gt est_lst :", gt_lst)
     
     gts = []
     gt_scores = 0.0
@@ -409,6 +432,9 @@ def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
         gt_scores += item['score']
         
     #gt_avg_score = gt_scores / len(gt_lst) if len(gt_lst) > 0 else 0
+    
+    #print ("est_lst, gt_lst11: ", est_lst)
+    #print ("est_lst, gt_lst22: ", gt_lst)
     
     # compute oks
     #print ("len(gts), dts:", len(gts), len(dts))
@@ -451,15 +477,15 @@ def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
         
         #print ("precision:", prec, recall, acc)
         aver_prec += prec
-        
+    #print ("aver_prec:",aver_prec/thresholds.size)
     return aver_prec/thresholds.size
-
+    
 def executeVideoToFrames():
     
     '''
-    inputVideoPath = inputVideoDir + "006-cardio_condition-20mins.mp4"
+    inputVideoPath = dataDir2 + "006-cardio_condition-20mins.mp4"
     
-    outDir = inputVideoDir + '006-cardio_condition-20mins_output_frames/'
+    outDir = dataDir2 + '006-cardio_condition-20mins_output_frames/'
     if not os.path.exists(outDir):
         os.mkdir(outDir)
     extractVideoFrames(inputVideoPath, outDir)
@@ -467,7 +493,7 @@ def executeVideoToFrames():
     
     
     inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
-    filePathLst = sorted(glob(inputDir + "*.mp4"))[5:6]
+    filePathLst = sorted(glob(inputDir + "*.mp4"))[7:9]          # [5:6]
     
     outParentDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
     for filePath in filePathLst:
@@ -475,7 +501,7 @@ def executeVideoToFrames():
         outDir =  outParentDir + filePath.split("/")[-1].split(".")[0] + "_frames/"      # "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/2-soccer-20mins-frames/"
         if not os.path.exists(outDir):
             os.mkdir(outDir)
-        print ("filePath: ", filePath, outDir)
+        #print ("filePath: ", filePath, outDir)
         extractVideoFrames(filePath, outDir)
     
     

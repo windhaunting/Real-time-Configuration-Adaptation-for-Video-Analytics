@@ -59,16 +59,8 @@ if not, we allow some fluctuation, why not set previous threshold higher? and  w
 '''
 
 
-# simulate without buffer to check how many accuracy we can achieve and the lag with the segment number
-
-PLAYOUT_RATE = 25                  # 25-30  real time streaming speed (FPS)
-
-dataDir1 = "input_output/mpii_dataset/"
-
-dataDir2 = "input_output/diy_video_dataset/"
-
-
-
+    
+    
 def exec_plot_Profiling(dataDir, outPlotDir):
     
     if not os.path.exists(outPlotDir):
