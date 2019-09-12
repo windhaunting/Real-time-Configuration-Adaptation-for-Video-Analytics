@@ -50,8 +50,8 @@ def load_openPose_model(model, reso):
     return e, w, h
 
 
-def round_int(val):
-    return int(round(val))
+#def round_int(val):
+#    return int(round(val))
 
 def transfer_coco_keyPoint_format(humanDict, img_w, img_h):
     '''
@@ -67,7 +67,7 @@ def transfer_coco_keyPoint_format(humanDict, img_w, img_h):
             keypoints.extend([0, 0, 0])
             continue
         body_part = humanDict[coco_id]
-        keypoints.extend([round_int(body_part[0] * img_w), round_int(body_part[1]* img_h), 2])
+        keypoints.extend([body_part[0], body_part[1], 2])
     return keypoints
     
 
@@ -116,13 +116,15 @@ def tf_open_pose_inference(test_image, e, w, h):
     t = time.time()
     humans = e.inference(image, resize_to_default=(w > 0 and h > 0), upsample_size=resize_out_ratio)
     elapsed = time.time() - t
-
+    
     #logger.warning('inference image: %s in %.4f seconds and res %s' % (test_image, elapsed, reso))
     #logger.warning('output human: type %s and %s' % (type(humans), type(humans[0])))
     
-    #print (" test result :", test_image, elapsed, reso)
+    #print (" test result :", humans, elapsed)
     
     human_poses = transferToCocoFormat(humans, w, h)
+    #print (" transferToCocoFormat result :", humans)
+    
     return human_poses,  elapsed
     
 

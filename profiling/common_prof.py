@@ -36,8 +36,6 @@ dataDir2 = '../input_output/diy_video_dataset/'
 
 PLAYOUT_RATE = 25
 
-dataDir2 = "../input_output/diy_video_dataset/"
-
 
 def readVideo(inputVideoPath):
     '''
@@ -334,7 +332,7 @@ def computeOKS(gts, dts):
 
 
 
-def parse_pose_result(pose_result_str, gt_flag, img_w, img_h, gt_w, gt_h):
+def parse_pose_result(pose_result_str, gt_flag):
     '''
     parse the rstring result
     '''
@@ -350,13 +348,11 @@ def parse_pose_result(pose_result_str, gt_flag, img_w, img_h, gt_w, gt_h):
         tmp_pt_lst = pointStr.replace('[', '').replace(']', '').split(',')
         tmp_pt_lst = [float(ele) for ele in tmp_pt_lst]
         for j in range(0, len(tmp_pt_lst)):
-            if j % 3 == 0:
+            if (j % 3) == 0:
                 #print ("parse_pose_result tmp_pt_lst[j]: ", tmp_pt_lst[j], gt_w, img_w, float(tmp_pt_lst[j])*gt_w/img_w)
-                if not gt_flag:
-                    tmp_pt_lst[j] = float(tmp_pt_lst[j])*gt_w/img_w
-            elif j % 3 == 1:
-                if not gt_flag:
-                    tmp_pt_lst[j] = float(tmp_pt_lst[j])*gt_h/img_h
+                tmp_pt_lst[j] = float(tmp_pt_lst[j])
+            elif (j % 3) == 1:
+                tmp_pt_lst[j] = float(tmp_pt_lst[j])
         
         hm_points_dict[i] = tmp_pt_lst  # ",".join(tmp_pt_lst)     # key points
         hm_points_dict['score'] = float(hm.split(',')[-1])       # score
@@ -393,11 +389,14 @@ def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
     
     est_result's ormat:
         [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
-        
+    
+    change to [0.02, 0.3, 2,....]
+    
+    the img_w, img_h may be not used
     '''
     #print ("computeOKSAP img_w, img_h, gt_w, gt_h before:", img_w, img_h, gt_w, gt_h)
     # parse the file for each human
-    est_lst = parse_pose_result(est_result, False, img_w, img_h, gt_w, gt_h)
+    est_lst = parse_pose_result(est_result, False)
         
     #print ("computeOKSAP after est_lst :", est_lst)
     dts = []
@@ -414,7 +413,7 @@ def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
         
     #det_avg_score = det_scores / len(est_lst) if len(est_lst) > 0 else 0
     
-    gt_lst = parse_pose_result(gt_result, True, img_w, img_h, gt_w, gt_h)
+    gt_lst = parse_pose_result(gt_result, True)
     #print ("computeOKSAP gt est_lst :", gt_lst)
     
     gts = []
@@ -446,6 +445,7 @@ def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
     
     thresholds = np.arange(0.5, 0.95, 0.05)
     aver_prec = 0.0
+    aver_acc = 0.0
     for thres in thresholds:
         # calculate the AP as the accuracy
         TP = 0
@@ -477,9 +477,11 @@ def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
         
         #print ("precision:", prec, recall, acc)
         aver_prec += prec
+        aver_acc += acc
     #print ("aver_prec:",aver_prec/thresholds.size)
-    return aver_prec/thresholds.size
-    
+    #return aver_prec/thresholds.size
+    return aver_acc/thresholds.size
+
 def executeVideoToFrames():
     
     '''
@@ -493,8 +495,9 @@ def executeVideoToFrames():
     
     
     inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
-    filePathLst = sorted(glob(inputDir + "*.mp4"))[7:9]          # [5:6]
+    filePathLst = sorted(glob(inputDir + "*.mp4"))[9::]          # [5:6]
     
+    print ("filePathLst:", filePathLst)
     outParentDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
     for filePath in filePathLst:
         

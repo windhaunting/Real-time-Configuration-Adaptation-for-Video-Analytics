@@ -39,7 +39,6 @@ from common_prof import *
 #sys.path.insert(0, '../openPoseEstimation')
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
-
 sys.path.insert(0, current_file_cur + '/..')
 
 #from poseEstimation.pytorch_Realtime_Multi_Person_Pose_Estimation.openPose_interface import openPose_estimation_one_image
@@ -129,12 +128,13 @@ def profiling_Video_MaxFrameRate_OpenPose(inputDir, outDir):
                     # estimate pose of this frame  call the open_pose etc. interface
                     #output_lst, elapsedTime = openPose_estimation_one_image(imgPath, res) #mulitple person
                     humans_pose_lst, elapsedTime = tf_open_pose_inference(imgPath, e, w, h)
-                
+                    #print ("xxxx humans_pose_lst: ",res, fr, mod,  humans_pose_lst, imgPath)
+                    
                     human_no = len(humans_pose_lst)
                     
                     humans_poses = ";".join(human for human in humans_pose_lst)
 
-                    if frmCnt % (1) == 0:        # every other 4s to print only
+                    if frmCnt % (1000) == 0:        # every other 4s to print only
                         print ("profilingOneVideoWithMaxFrameRate 00 frames finished inference result: ", imgPath, mod, res, elapsedTime)
                     #save into file
                     if humans_poses is None or human_no == 0:
@@ -222,7 +222,7 @@ def profilingOneVideoMaxFrameRateFrameByFrame_CPN(inputDir, outDir):
                     humans_poses = ";".join(human for human in humans_poses_array)
                         
 
-                    if frmCnt % (1) == 0:        # every other 4s to print only
+                    if frmCnt % (1000) == 0:        # every other 4s to print only
                         print ("profilingOneVideoWithMaxFrameRate 00 frames finished inference result: ", imgPath, mod, res, elapsedTime)
                     #save into file
                     if humans_poses is None or human_no == 0:
@@ -245,19 +245,18 @@ def execute_profiling(segment_time):
     
     lst_input_video_frms_dir = ['001-dancing_10mins_frames/', '002-soccer-20mins-frames/', \
                         '003-bike_race-20mins_frames/', '004-Marathon-20mins_frames/',  \
-                        '006-cardio_condition-20mins_frames/', ]
+                        '006-cardio_condition-20mins_frames/', '008-Marathon-20mins_frames/', \
+                        '009-Marathon-20mins_frames/']
     
-    for input_frm_dir in lst_input_video_frms_dir[4::]:       # run 006 first
+    for input_frm_dir in lst_input_video_frms_dir[5:6]:  # [5:6]:       # run 006 first
         input_dir = dataDir2 + input_frm_dir
         
         out_dir = dataDir2 + 'output_' + '_'.join(input_frm_dir.split('_')[:-1]) +'/'      # 004-output_Marathon-20mins_01/' 
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
-        #profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
-        #profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
+        profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
+        profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
         
-        
-        #transfer to accuracy and detection speed in each segment
  
 
     

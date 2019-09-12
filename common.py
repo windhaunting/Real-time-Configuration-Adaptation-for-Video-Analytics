@@ -9,6 +9,11 @@ Created on Fri May 31 09:14:18 2019
 import inspect
 import pandas as pd
 
+
+dataDir1 = "input_output/mpii_dataset/"
+
+dataDir2 = "input_output/diy_video_dataset/"
+
 # define a class including each clip's profile result
 class cls_profile_video(object):
     # cameraNo is the camera no. for multiple camera streaming. 
@@ -18,6 +23,27 @@ class cls_profile_video(object):
 
 
 
+def paddingZeroToInter(ind):
+    '''
+    padding to 6digits at most,  1 -> 000001, 10->000010
+    
+    '''
+    
+    if ind < 10:
+        ind_str = '00000' + str(ind)
+    elif ind < 100:
+        ind_str = '0000' + str(ind)
+    elif ind < 1000:
+        ind_str = '000' + str(ind)
+    elif ind < 10000:
+        ind_str = '00' + str(ind)
+    elif ind < 100000:
+        ind_str = '0' + str(ind)
+    else:    
+        ind_str = str(ind)
+        
+    return ind_str
+        
 def retrieve_name(var):
         """
         Gets the name of var. Does it from the out most frame inner-wards.

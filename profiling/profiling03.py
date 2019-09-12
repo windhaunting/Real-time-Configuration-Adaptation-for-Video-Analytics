@@ -30,16 +30,19 @@ import os
 import re
 import pandas as pd
 import numpy as np
+import math
 
 from glob import glob
 from collections import defaultdict
-from common_prof import computeOKSAP
+from common_prof_01 import computeOKSAP
+from common_prof_01 import *
+
 
 #sys.path.insert(0, '../openPoseEstimation')
 sys.path.insert(0,'..')
 
 #from poseEstimation.pytorch_Realtime_Multi_Person_Pose_Estimation.openPose_interface import openPose_estimation_one_image
-
+'''
 from poseEstimation.tf_pose_estimation.tf_openPose_interface import tf_open_pose_inference
 from poseEstimation.tf_pose_estimation.tf_openPose_interface import load_model
 
@@ -51,7 +54,7 @@ PLAYOUT_RATE = 25
 
 
 '''
-modify the profiling frame by frame not config by config
+#modify the profiling frame by frame not config by config
 '''
 # define a class including each clip's profile result
 class cls_profile_video(object):
@@ -69,10 +72,8 @@ modelMethods = ['a_cpn', 'cmu', 'mobilenet_v2_small']  #  ['mobilenet_v2_small']
 
 
 def profilingOneVideoWithMaxFrameRateFrameByFrame(inputDir, outDir):
-    '''
-    profiling frame by frame first
     
-    '''
+    #profiling frame by frame first
     mode_poseEst = defaultdict()
     
     configIndex = 1
@@ -132,7 +133,7 @@ def profilingOneVideoWithMaxFrameRateFrameByFrame(inputDir, outDir):
                     f.write(preWriteStr)
         
         frmCnt += 1
-                    
+'''                
 
 
 def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
@@ -198,7 +199,7 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
             while (startFrmCnt < framesTotalNum):
 
                 for frmRate in frameRates:
-                    profileFrmInter = int(PLAYOUT_RATE//frmRate)
+                    profileFrmInter = math.ceil(PLAYOUT_RATE/frmRate)+1
                     
                     if frmRate == frameRates[0]:     # PLAYOUT_RATE:  # ground truth
                         gtDic = dict(zip(df_det.Image_path, df_det.Estimation_result))
@@ -211,7 +212,7 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
                     #calculate  detection speed for this segment
                     det_speed_seg= sum(df_det.iloc[startFrmCnt:startFrmCnt+profiling_frames].iloc[::profileFrmInter, 7].astype(float).values)/PLAYOUT_RATE
                
-                    det_speed_seg = round(1/det_speed_seg, 2)
+                    det_speed_seg = round(1.0/det_speed_seg, 3)
                     # accuracy use the extracted frame estimation result for the result of frame, tha a little complicated,
                     #df_extracted_det_est = df_prof.iloc[startFrmCnt:startFrmCnt+profiling_frames].iloc[::profileFrmInter, 4, 5]
                     df_extracted_det_est = df_det.iloc[startFrmCnt:startFrmCnt+profiling_frames]   # Image_path and Estimation_result
@@ -284,15 +285,15 @@ def executeProfiling():
     if not os.path.exists(outDir):
         os.mkdir(outDir)
     profilingOneVideoWithMaxFrameRate(inputDir, outDir)
-    
-    
+    '''
+    ''
     inputDir =  dataDir2 + '001_output_video_dancing_01/' 
     outDir = dataDir2+ '001_output_video_dancing_01/profiling_result/' 
     segment_time = 4
 
     getEachSegmentProfilingAPTime(inputDir, segment_time, outDir)
-    
     '''
+
     
     '''
     inputDir = dataDir2 + '002-soccer-20mins-frames/'
@@ -312,13 +313,15 @@ def executeProfiling():
     getEachSegmentProfilingAPTime(inputDir, segment_time, outDir)
     '''
     
-    
+    '''
     inputDir = dataDir2 + '003-bike_race-20mins_frames/'
     outDir = dataDir2 + '003-output_bike_race-20mins_01/' 
     if not os.path.exists(outDir):
         os.mkdir(outDir)
     profilingOneVideoWithMaxFrameRateFrameByFrame(inputDir, outDir)
+    '''
     
+    '''
     inputDir =  dataDir2 + '003-output_bike_race-20mins_01/' 
     outDir =inputDir + 'profiling_result/' 
     if not os.path.exists(outDir):
@@ -326,7 +329,7 @@ def executeProfiling():
     segment_time = 4
 
     getEachSegmentProfilingAPTime(inputDir, segment_time, outDir)
-    
+    '''
     
     '''
     inputDir = dataDir2 + '004-Marathon-20mins_frames/'
@@ -343,6 +346,7 @@ def executeProfiling():
 
     getEachSegmentProfilingAPTime(inputDir, segment_time, outDir)
     '''
+    
     
     
 if __name__== "__main__":
