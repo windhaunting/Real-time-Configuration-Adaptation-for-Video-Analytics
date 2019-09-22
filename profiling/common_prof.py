@@ -10,15 +10,12 @@ Created on Wed Jun 12 16:54:58 2019
 
 import os
 import cv2
-import re
 import logging
 import numpy as np
 
 from glob import glob
-from sys import stdout
 from collections import defaultdict
-import pandas as pd
-
+from skimage import io
 
 frameRates = [25, 15, 10, 5, 2, 1]    # test only [25, 10, 5, 2, 1]   # [5]   #          #  [25]    #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
 resoStrLst_OpenPose = ["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
@@ -36,6 +33,22 @@ dataDir2 = '../input_output/diy_video_dataset/'
 
 PLAYOUT_RATE = 25
 
+
+
+# added by fubao
+def verify_bad_image(img_file):
+    try:
+        img = io.imread(img_file)
+    except:
+        return True
+    return False
+
+def read_imgfile(path, width=None, height=None):
+    
+    val_image = cv2.imread(path, cv2.IMREAD_COLOR)
+    if width is not None and height is not None:
+        val_image = cv2.resize(val_image, (width, height))
+    return val_image
 
 def readVideo(inputVideoPath):
     '''
@@ -336,7 +349,7 @@ def parse_pose_result(pose_result_str, gt_flag):
     '''
     parse the rstring result
     '''
-     
+    #print ("parse_pose_result:", pose_result_str, gt_flag)
     human_points_lst = []          # each element is a dictionary
     humans = pose_result_str.split(';')
     for i, hm in enumerate(humans):
@@ -383,17 +396,23 @@ def parse_pose_result(pose_result_str, gt_flag):
     
         
 
-def computeOKSAP(est_result, gt_result, img_path, img_w, img_h, gt_w, gt_h):
+def computeOKSAP(est_result, gt_result, img_path):
     '''
     calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
     
-    est_result's ormat:
+    est_result's format:
         [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
     
     change to [0.02, 0.3, 2,....]
     
     the img_w, img_h may be not used
     '''
+    
+    if est_result == [] or est_result is None or est_result == '' or est_result == '0':
+        return 0
+    
+    if gt_result == [] or gt_result is None or gt_result == '' or gt_result == '0':
+        return 0
     #print ("computeOKSAP img_w, img_h, gt_w, gt_h before:", img_w, img_h, gt_w, gt_h)
     # parse the file for each human
     est_lst = parse_pose_result(est_result, False)

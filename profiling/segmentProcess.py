@@ -23,6 +23,8 @@ from common_prof import dataDir2
 
 from common_prof import frameRates
 from common_prof import computeOKSAP
+#from common_prof_02 import computeOKSAP
+
 #from common_prof_01 import computeOKSAP
 
 
@@ -32,7 +34,7 @@ def getEachFrameProfilingAPTtime(inputDir,  outDir):
     in total each config corresponds a file
     '''
       
-    filePathLst = sorted(glob(inputDir + "*.tsv"))  # must read ground truth file(the most expensive config) first
+    filePathLst = sorted(glob(inputDir + "*estimation_result*.tsv"))  # must read ground truth file(the most expensive config) first
     
     for fileCnt, filePath in enumerate(filePathLst):
        # read poste estimation detection result file
@@ -57,7 +59,7 @@ def getEachFrameProfilingAPTtime(inputDir,  outDir):
             #df_det['Acc'] = 1             
             gt_w = img_w             # ground truth image's width
             gt_h = img_h            # ground truth image's heigth 
-        
+            #continue                 # ground truth not need to calculate accuracy? or still use it as "1"
         # get the accuracy of each frame
         #acc = 0.0
         list_acc_cur = []
@@ -75,8 +77,8 @@ def getEachFrameProfilingAPTtime(inputDir,  outDir):
                
             curr_frm_est_res  = row['Estimation_result']
             #print ("getEachSegmentProfilingAPTime curr_frm_est_res", curr_frm_est_res)
-            #acc = computeOKSAP(curr_frm_est_res, gt_result_curr_frm, img, img_w, img_h, gt_w, gt_h)
-            acc = computeOKSAP(curr_frm_est_res, gt_result_curr_frm, img,  gt_w, gt_h)
+            acc = computeOKSAP(curr_frm_est_res, gt_result_curr_frm, img, img_w, img_h, gt_w, gt_h)
+            #acc = computeOKSAP(curr_frm_est_res, gt_result_curr_frm, img,  gt_w, gt_h)
             list_acc_cur.append(acc)
         
         #print ("acc: ", len(list_acc_cur), len(df_det), df_det.count(),  df_det.shape)
@@ -89,7 +91,7 @@ def getEachFrameProfilingAPTtime(inputDir,  outDir):
         del df_det['numberOfHumans']         # delete the column file
         out_file = outDir + str(resolution) + '_' + str(sample_rate) + '_' + str(model) + '_frame_result.tsv'
         df_det.to_csv(out_file, sep='\t', index=False)
-            
+         
 
 def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
     '''
@@ -155,7 +157,6 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
                 #df_det['Acc'] = 1             
                 gt_w = img_w             # ground truth image's width
                 gt_h = img_h            # ground truth image's heigth 
-                continue                 # ground truth not need to calculate accuracy? or still use it as "1"
             while (startFrmCnt < framesTotalNum):
 
                 for frmRate in frameRates:             
@@ -198,13 +199,13 @@ def getEachSegmentProfilingAPTime(inputDir, segment_time,  outDir):
                             lead_frame_est_res  = row['Estimation_result']
                             #get accuracy
                             #print ("filePath222333: ", filePath, img , lead_frame_est_res, gt_result_curr_frm)
-                            acc_curr_frm = computeOKSAP(lead_frame_est_res, gt_result_curr_frm, img, img_w, img_h, gt_w, gt_h)
+                            acc_curr_frm = computeOKSAP(lead_frame_est_res, gt_result_curr_frm, img)
                             #acc_curr_frm = computeOKSAP(lead_frame_est_res, gt_result_curr_frm, img, gt_w, gt_h)
 
                             acc_seg += acc_curr_frm
                         else:
                             curr_frm_est_res = lead_frame_est_res
-                            acc_curr_frm = computeOKSAP(curr_frm_est_res, gt_result_curr_frm, img, img_w, img_h, gt_w, gt_h)
+                            acc_curr_frm = computeOKSAP(curr_frm_est_res, gt_result_curr_frm, img)
                             #acc_curr_frm = computeOKSAP(lead_frame_est_res, gt_result_curr_frm, img, gt_w, gt_h)
                             acc_seg += acc_curr_frm
                             
@@ -255,12 +256,14 @@ def execute_frame_performance():
     #                    '003-bike_race-20mins_frames/', '004-Marathon-20mins_frames/',  \
     #                    '006-cardio_condition-20mins_frames/', ]
     
-    lst_input_video_frms_dir = ['001-dancing-10mins_frames/',  '002-video_soccer-20mins_frames/', '003-bike_race-20mins_frames/', '006-cardio_condition-20mins_frames/']
+    lst_input_video_frms_dir = ['001-dancing-10mins_frames/',  '002-video_soccer-20mins_frames/',
+                                '003-bike_race-20mins_frames/', '006-cardio_condition-20mins_frames/',
+                                '008-Marathon-20mins_frames/']
       
-    for input_frm_dir in lst_input_video_frms_dir[2:3]:  # [4::]:       # run 006 first
+    
+    for input_frm_dir in lst_input_video_frms_dir[0:1]:  # [4::]:       # run 006 first
         
         out_dir = dataDir2 + 'output_' + '_'.join(input_frm_dir.split('_')[:-1]) +'/'      # 004-output_Marathon-20mins_01/' 
-    
         #transfer to accuracy and detection speed in each segment
     
         input_dir = out_dir          # out_dir is created from profiling API

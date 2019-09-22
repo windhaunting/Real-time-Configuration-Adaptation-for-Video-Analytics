@@ -14,8 +14,10 @@ import argparse
 import logging
 import sys
 import time
-
 import os
+from skimage import io
+
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'     # Just disables the warning, doesn't enable AVX/FMA if you have GPU
 
 currentDir = currentDir = os.path.dirname(os.path.abspath(__file__))   # '../poseEstimation/tf_pose_estimation/'
@@ -46,7 +48,6 @@ def load_openPose_model(model, reso):
     else:
         e = TfPoseEstimator(get_graph_path(model), target_size=(w, h))
 
-   
     return e, w, h
 
 
@@ -95,26 +96,15 @@ def transferToCocoFormat(human_points, img_w, img_h):
     
     
     
-def tf_open_pose_inference(test_image, e, w, h):
+def tf_open_pose_inference(image_arr, e, w, h):
     '''
     set the interface for pose estimation 
     '''
     #print (" tf_open_pose_inference begin :", test_image, reso)
     resize_out_ratio = 4.0
     
-     # estimate human poses from a single image !
-    if not common.verify_image(test_image):
-        # delete the image
-        os.remove(test_image)
-        return None, None
-    image = common.read_imgfile(test_image, w, h)
-    if image is None:
-        logger.error('Image can not be read, path=%s' % test_image)
-        #sys.exit(-1)
-        return None, None
-    
     t = time.time()
-    humans = e.inference(image, resize_to_default=(w > 0 and h > 0), upsample_size=resize_out_ratio)
+    humans = e.inference(image_arr, resize_to_default=(w > 0 and h > 0), upsample_size=resize_out_ratio)
     elapsed = time.time() - t
     
     #logger.warning('inference image: %s in %.4f seconds and res %s' % (test_image, elapsed, reso))
