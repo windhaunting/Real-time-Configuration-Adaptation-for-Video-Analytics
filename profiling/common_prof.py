@@ -359,6 +359,7 @@ def parse_pose_result(pose_result_str, gt_flag):
         pointStr = ','.join(hm.split(',')[:-1])  #  string of [x1, y1, v1, x2, y2, v2]
         #print ("pointStr:", pointStr)
         tmp_pt_lst = pointStr.replace('[', '').replace(']', '').split(',')
+        #print ("tmp_pt_lst:", tmp_pt_lst)
         tmp_pt_lst = [float(ele) for ele in tmp_pt_lst]
         for j in range(0, len(tmp_pt_lst)):
             if (j % 3) == 0:
@@ -413,7 +414,7 @@ def computeOKSAP(est_result, gt_result, img_path):
     
     if gt_result == [] or gt_result is None or gt_result == '' or gt_result == '0':
         return 0
-    #print ("computeOKSAP img_w, img_h, gt_w, gt_h before:", img_w, img_h, gt_w, gt_h)
+    #print ("computeOKSAP est_result, gt_result, img_path:", est_result, gt_result, img_path)
     # parse the file for each human
     est_lst = parse_pose_result(est_result, False)
         

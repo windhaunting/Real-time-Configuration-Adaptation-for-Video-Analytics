@@ -7,21 +7,21 @@ Created on Fri Sep 20 15:31:00 2019
 """
 
 
+
+
+#scp -P 5122 -r ~/workDir/video_analytics_pose_estimation/profiling/*.py fubao@ipanema.ecs.umass.edu:/home/fubao/workDir/ResearchProjects/IOTVideoAnalysis/videoAnalytics_poseEstimation/profiling/
+
+
 # combine the functions of segmentProcess.py and writeIntoPickle.py two files together
 
 
 import os
 import pandas as pd
-import copy
 import numpy as np
-import copy
-import operator
-import math
-import time
+
 import sys
 import csv
 
-import numpy as np
 import pickle
 
 from blist import blist
@@ -32,7 +32,6 @@ current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur)
 
 from common_prof import dataDir2
-from common_prof import PLAYOUT_RATE
 from common_prof import frameRates
 from common_prof import computeOKSAP
 
@@ -59,8 +58,33 @@ def getNewconfig(reso, model):
     for frmRt in frameRates:
         config_lst.append(reso + '-' + str(frmRt) + '-' + model)
         
-        
     return config_lst
+
+
+def getconfigSPFEachFrm(reso, model, time_spf, config_id_dict, index, confg_frm_spf_arr):
+    '''
+    frame-by-frame consideration
+    get new config's tiem_spf for the current frame ,  because the input is for PLAYOUT rate 25
+    it's frame-by-frame, so the acc and spf are all the same
+    it actually considers only frame_rate which is 25
+    '''
+    for frmRt in frameRates:
+        #frmInter = math.ceil(PLAYOUT_RATE/frmRt)          # frame rate sampling frames in interval, +1 every other
+        
+        new_spf = time_spf         # time_spf/frmInter is not correct
+        
+        config = reso + '-' + str(frmRt) + '-' + model.split('_')[0]
+        #config = (int(reso.split('x')[1]), int(frmRt), modelToInt(model.split('_')[0]))   #
+        
+        #config = int(reso.split('x')[1])   #
+        
+        cfg_id = config_id_dict[config]
+        
+        confg_frm_spf_arr[cfg_id, index] = new_spf
+        #confg_frm_acc_arr[cfg_id, index] = acc
+        #print ("cfg_id: ", cfg_id)
+    #print ("confg_frm_acc_arr 2222: ",  confg_frm_acc_arr)
+    return confg_frm_spf_arr
 
 
 def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
@@ -117,19 +141,24 @@ def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
 
 def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir):
     '''
+    frame-by-frame consideration
     get config's estimation result based on each config and frame
+    and the spf result 
     '''
     
     
-    config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
+    config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, True)
+    return
 
     filePathLst = sorted(glob(data_pose_keypoint_dir + "*estimation_result*.tsv"))  # must read ground truth file(the most expensive config) first
     
     config_num = len(config_id_dict)  # len(config_id_dict)
     df_det = pd.read_csv(filePathLst[0], delimiter='\t', index_col=False)         # det-> detection
-    frame_num = len(df_det) + 400     # because maybe some frame_id is missing
+    frame_num = len(df_det)     #  maybe some frame_id is missing, only consider all frames that could be parsed from a video
     #create a numpy array
     confg_frm_est_arr = np.zeros((config_num, frame_num), dtype=object) # array of estimation result with config vs frame_Id
+    
+    confg_frm_spf_arr = np.zeros((config_num, frame_num)) # array of time_spf with config vs frame_Id
     
     print ("config_id_dict: ", config_id_dict,  len(config_id_dict), frame_num)
     
@@ -144,37 +173,40 @@ def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir):
             reso = row['Resolution']
             #frm_rate = row['Frame_rate']
             model = row['Model'].split('_')[0]
-            frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
+            #frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
             est_res = row['Estimation_result']
-            spf = row['Time_SPF']
+            time_spf = row['Time_SPF']
             #print ("est_ressssss: ", est_res)
             #get the config index
             config_lst = getNewconfig(reso, model)     # add more configs
             for config in config_lst:
                 id_conf = config_id_dict[config]  
-                confg_frm_est_arr[id_conf, frm_id-1] = est_res    
+                confg_frm_est_arr[id_conf, index] = est_res    
                 
-            #print ("confg_frm_est_arr: ", str(confg_frm_est_arr[id_conf, frm_id-1]))
             
-        #    break    # test only
+            #print ("confg_frm_est_arr: ", str(confg_frm_est_arr[id_conf,index]))
+            confg_frm_spf_arr = getconfigSPFEachFrm(reso, model, time_spf, config_id_dict, index, confg_frm_spf_arr)
+            
+            #break    # test only
         
-         
-    #print ("confg_frm_est_arr: ", confg_frm_est_arr.shape, confg_frm_est_arr[5][0])            
+        #break    # test only
+
+    print ("confg_frm_est_arr: ", confg_frm_est_arr.shape, confg_frm_est_arr[5][0], confg_frm_spf_arr[0][0])            
 
     with open(data_pickle_dir + 'config_estimation_frm.pkl','wb') as fs:
         pickle.dump(confg_frm_est_arr, fs)
       
     #out_frm_spf_pickle_file = pickle_dir + "spf_frame.pkl"      # spf for config vs each frame
-    with open(data_pickle_dir + 'spf_frame.pkl','wb') as fs:
-        pickle.dump(confg_frm_est_arr, fs)
-        
-    return confg_frm_est_arr
+    with open(data_pickle_dir + 'config_spf_frm.pkl','wb') as fs:
+        pickle.dump(confg_frm_spf_arr, fs)
+
+    return
 
 
 
 def readConfigFrmEstFile(data_pickle_dir):
     '''
-    read confg_frm_est_arr from the output of getEstimationEachConfig
+    read confg_frm_est_arr from the output of write_config_frm_poseEst_result
     '''
     
     #pickle_dir = dataDir2 + 'output_006-cardio_condition-20mins/' + 'pickle_files/'
@@ -189,6 +221,16 @@ def readConfigFrmEstFile(data_pickle_dir):
 
 def apply_acc_fun(arrs):
     
+    #print ("commmmmmm: ", type((arrs[0])), arrs[0])
+    #print ("commmmmmm22: ", str(arrs[0]) == 'nan')
+    #print ("commmmmmm33: ", np.isnan(arrs[0]))
+
+    if str(arrs[0]) == 'nan' and str(arrs[1]) == 'nan':
+        return 1.0
+    elif str(arrs[0]) == 'nan' and str(arrs[1]) != 'nan':
+        return 0.0
+    elif str(arrs[0]) != 'nan' and str(arrs[1]) == 'nan':
+        return 0.0
     acc = computeOKSAP(str(arrs[0]), str(arrs[1]), '')
     return acc
     
@@ -197,36 +239,53 @@ def calculate_config_frm_acc(ests_arr, gts_arr):
     each input it's the array of all frames
     '''
     
-    print ("ests_arr shape: ", ests_arr.shape, gts_arr.shape)
+    #print ("ests_arr shape: ", ests_arr.shape, gts_arr.shape)
     #combine together
     combine_arr = np.vstack((ests_arr, gts_arr))
     
-    
+    #print ("combine_arr shape: ", combine_arr.shape)
     acc_arr = np.apply_along_axis(apply_acc_fun, 0, combine_arr)
-    print ("acc_arr: ", acc_arr.shape, acc_arr[0])
+    
+    print ("acc_arr: ", acc_arr.shape, acc_arr)
     
     return acc_arr
     
 def write_config_frm_acc_result(confg_frm_est_arr, data_pickle_out_dir):
     '''
-    write config acc and spf per frame
+    frame-by-frame consideration
+    get each config acc for each frame, frame rate is actually 25.
     '''
     
     # select the ground truth used config id, here it's a fixed number
     # so id is 0, that is it's the first line
     
-    gts_arr = confg_frm_est_arr[0]  #for each frame
+    gts_arr = confg_frm_est_arr[0]  #ground truth for each frame    1120*83-25-cmu
     
     config_frm_acc_arr = np.apply_along_axis(calculate_config_frm_acc, 1, confg_frm_est_arr, gts_arr)
     
     print ("config_frm_acc_arr1 final: ", config_frm_acc_arr.shape, config_frm_acc_arr[0])
-    print ("config_frm_acc_arr2 final: ", config_frm_acc_arr[:, 0])
+    print ("config_frm_acc_arr2 final: ", config_frm_acc_arr)
     
-    out_frm_acc_pickle_file = data_pickle_out_dir + "acc_frame.pkl"      # acc for config vs each frame
+    out_frm_acc_pickle_file = data_pickle_out_dir + "config_acc_frame.pkl"      # acc for config vs each frame
     
     with open(out_frm_acc_pickle_file,'wb') as fs:
         pickle.dump(config_frm_acc_arr, fs)   
     
+
+def readConfigFrmSPfFile(data_pickle_dir):
+    '''
+    read confg_frm_est_arr from the output of write_config_frm_poseEst_result
+    '''
+    
+    #pickle_dir = dataDir2 + 'output_006-cardio_condition-20mins/' + 'pickle_files/'
+    
+    pickleFile = data_pickle_dir + 'config_spf_frm.pkl'
+    confg_frm_spf_arr = np.load(pickleFile)
+
+    #print ("confg_frm_est_arr: ", (confg_frm_est_arr[:, 0]))
+    #return
+    return confg_frm_spf_arr
+
 
 def executeWriteIntoPickle():
     
@@ -243,13 +302,17 @@ def executeWriteIntoPickle():
             
             
         #write_config_frm_poseEst_result(dataDir2 +  vd_dir, data_pickle_dir)
+        '''
         confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
+        #write_config_frm_acc_result(confg_frm_est_arr, data_pickle_dir)
 
-        write_config_frm_acc_result(confg_frm_est_arr, data_pickle_dir)
-
+        #write segment interval 1, 2,..., n seconds
+        segment = 1     # 1 second
+        confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
+        confg_frm_spf_arr = readConfigFrmSPfFile(data_pickle_dir)
         
-        
-        
+        write_config_seg_acc_spf_result(confg_frm_est_arr, confg_frm_spf_arr)
+        '''
 
 if __name__== "__main__":
     
