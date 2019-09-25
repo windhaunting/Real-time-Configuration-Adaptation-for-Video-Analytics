@@ -29,10 +29,10 @@ import os
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+from xgboost import XGBClassifier
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
 
 from common_classifier import load_data_all_features
 from sklearn.metrics import confusion_matrix
@@ -44,7 +44,7 @@ sys.path.insert(0, current_file_cur + '/..')
 from profiling.common_prof import dataDir2
 
 
-def rftTrainTest(X, y):
+def xgbBoostTrainTest(X, y):
 
     # Splitting the dataset into the Training set and Test set
     
@@ -57,7 +57,8 @@ def rftTrainTest(X, y):
     X_Test = sc_X.transform(X_Test)
     
     # Fitting the classifier into the Training set
-    classifier = RandomForestClassifier(n_estimators = 200, criterion = 'entropy', random_state = 0)
+    classifier = XGBClassifier()
+
     classifier.fit(X_Train,Y_Train)
     
     # Predicting the test set results
@@ -79,8 +80,8 @@ def executeTest_feature_most_expensive_config():
     '''
     execute classification, where features are calculated from the pose esimation result derived from the most expensive config
     '''
-    video_dir_lst = ['output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
-                     ]   
+    video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
+                     ]    
     
     for video_dir in video_dir_lst[0:1]:  #[1:2]:  #[1:2]:         #[0:1]:
         
@@ -93,7 +94,7 @@ def executeTest_feature_most_expensive_config():
         #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
         X,y= load_data_all_features(data_examples_dir, xfile, yfile)
     
-        rftTrainTest(X,y)
+        xgbBoostTrainTest(X,y)
    
     
 def executeTest_feature_selected_config():
@@ -107,7 +108,7 @@ def executeTest_feature_selected_config():
     xfile = 'X_data_features_config-history-frms1-sampleNum35765.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
     yfile = 'Y_data_features_config-history-frms1-sampleNum35765.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
     X,y= load_data_all_features(data_examples_dir, xfile, yfile)
-    rftTrainTest(X,y)
+    xgbBoostTrainTest(X,y)
 
 
 if __name__== "__main__": 
