@@ -83,7 +83,7 @@ def executeTest_feature_most_expensive_config():
     video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
                      ]    
     
-    for video_dir in video_dir_lst[0:1]:  #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst[2:3]:   # [1:2]:  # [0:1]:  #[1:2]:  #[1:2]:         #[0:1]:
         
         data_examples_dir =  dataDir2 + video_dir + 'data_examples_files/'
 
