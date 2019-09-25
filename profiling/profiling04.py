@@ -304,15 +304,15 @@ def execute_profiling(segment_time):
     lst_input_video_frms_dir = ['001-dancing-10mins_frames/', '002-soccer-20mins_frames/', \
                         '003-bike_race-20mins_frames/', '004-Marathon-20mins_frames/',  \
                         '006-cardio_condition-20mins_frames/', '008-Marathon-20mins_frames/', \
-                        '009-Marathon-20mins_frames/']
+                        '009-Marathon-20mins_frames/', '010-baseball_static-20mins_frames/']
     
-    for input_frm_dir in lst_input_video_frms_dir[0:1]:         #[5:6]:  # [5:6]:       # run 006 first
+    for input_frm_dir in lst_input_video_frms_dir[7:8]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
         input_dir = dataDir2 + input_frm_dir
         
         out_dir = dataDir2 + 'output_' + '_'.join(input_frm_dir.split('_')[:-1]) +'/'      # 004-output_Marathon-20mins_01/' 
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
-        #profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
+        profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
         profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
         
  

@@ -48,7 +48,7 @@ def plotOneBar(xList, yList, xlabel, ylabel, title_name):
     plt.ticklabel_format(style='plain', axis='x', useOffset=False)
     plt.bar(xList, yList)
     #plt.title('Moving speed of the cat')
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(2))
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(3))
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(title_name)

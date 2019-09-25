@@ -13,6 +13,7 @@ Created on Mon Sep 16 00:02:58 2019
 
 
 import sys
+import math
 import os
 import pickle
 import numpy as np
@@ -20,6 +21,7 @@ import time
 import matplotlib.backends.backend_pdf
 import matplotlib.pyplot as plt
 
+from collections import defaultdict
 #from sklearn import datasets 
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
@@ -30,6 +32,8 @@ from sklearn.svm import SVC
 from sklearn.externals import joblib
 
 from common_classifier import load_data_all_features
+
+from common_classifier import read_config_name_from_file
 
 from common_plot import plotScatterLineOneFig
 from common_plot import plotOneScatterLine
@@ -56,16 +60,100 @@ def executePlot(data_plot_dir, x_lst1, y_lst1, xlabel, ylabel, title_name):
     
     plt.savefig(outputPlotPdf)
         
-def svmTrainTest(data_plot_dir, X, y, kernel):
+
+def getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_dir):
+    '''
+    get covariance of resolution and frame_rate
+    '''
+    uniques, counts = np.unique(y_train, return_counts=True)
+    count_y_dict = dict(zip(uniques, counts))
+    executePlot(data_plot_dir, uniques, counts, 'config_id', 'Number of samples', 'Training data classes distribution')
+    
+    #print ("count_y_dict: ", count_y_dict, type(unique), counts, len(unique))
+    
+    configs = [id_config_dict[u] for u in uniques]
+    count_config_dict = dict(zip(configs, counts))
+    
+    print ("count_config_dict: ", len(count_config_dict), count_config_dict)
+    
+    reso_dict = defaultdict(int)
+    frmRt_dict = defaultdict(int)
+    config_dict = defaultdict(int)
+    for k, v in count_config_dict.items():
+        reso = k.split('-')[0].split('x')[1]
+        frmRt= k.split('-')[1]
+        reso_dict[reso] += v
+        frmRt_dict[frmRt] += v
+        
+        config_dict[reso +'-' + frmRt] += v
+    
+    
+    print ("reso_dict: ", len(reso_dict), reso_dict)
+    print ("frmRt_dict: ", len(frmRt_dict), frmRt_dict)
+    print ("config_dict: ", len(config_dict), config_dict)
+    
+    #getEachProbability
+    total_reso_counts = sum(reso_dict.values())
+    total_frmRt_counts = sum(frmRt_dict.values())
+    total_config_counts = sum(config_dict.values())
+    
+    prob_reso_dict = defaultdict(float)
+    prob_frmRt_dict = defaultdict(float)
+    prob_confg_dict = defaultdict(float)
+    
+    reso_lst = []
+    for k, v in reso_dict.items():
+        prob_reso_dict[int(k)] = v/total_reso_counts
+        reso_lst.append(v)
+        
+    frmRt_lst = []
+    for k, v in frmRt_dict.items():
+        prob_frmRt_dict[int(k)] = v/total_frmRt_counts
+        
+    for k, v in config_dict.items():
+        prob_confg_dict[k] = v/total_config_counts
+        frmRt_lst.append(v)
+        
+    print ("prob_reso_dict: ", len(prob_reso_dict), prob_reso_dict)
+    print ("prob_frmRt_dict: ", len(prob_frmRt_dict), prob_frmRt_dict)
+    print ("prob_confg_dict: ", len(prob_confg_dict), prob_confg_dict)
+         
+    EX = sum([k*prob_reso_dict[k] for k in prob_reso_dict])         # resolution
+    EY = sum([k*prob_frmRt_dict[k] for k in prob_frmRt_dict])       # frame_rate
+    
+    VarX = sum([(k-EX)**2*prob_reso_dict[k] for k in prob_reso_dict])
+    VarY = sum([(k-EY)**2*prob_frmRt_dict[k] for k in prob_frmRt_dict])
+    
+    EXY = 0.0
+    for k, v in prob_confg_dict.items():
+
+        reso = int(k.split('-')[0])
+        frmRt = int(k.split('-')[1])
+        
+        EXY += reso*frmRt*prob_confg_dict[k]
+        
+    COVXY = EXY-EX*EY
+    
+    corre = COVXY/(math.sqrt(VarX)*math.sqrt(VarY))
+    print ("EXEX: ", EX, EY, EXY, COVXY, VarX, VarY, corre)
+    
+def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     '''
     '''
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = 0) 
     
     
-    unique, counts = np.unique(y_train, return_counts=True)
-    count_y_dict = dict(zip(unique, counts))
-    executePlot(data_plot_dir, unique, counts, 'config_id', 'Number of samples', 'Training data classes distribution')
-    print ("count_y_dict: ", count_y_dict, type(unique), counts)
+    config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
+
+    getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_dir)   
+    
+    
+    #xxx
+    #count_y_dict = dict(zip(unique, counts))
+    #executePlot(data_plot_dir, unique, counts, 'config_id', 'Number of samples', 'Training data classes distribution')
+    
+    
+    #print ("count_y_dict: ", count_y_dict, type(unique), counts, len(unique))
     
     #return
 
@@ -99,7 +187,7 @@ def svmTrainTest(data_plot_dir, X, y, kernel):
 def svmCrossValidTrainTest(X,y, model_output_path):
         # Splitting data into train, validation and test set
     # 70% training set, 30% test set
-    x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
+    x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random_state=42)
 
     c = [10 ** (-3), 10 ** (-2), 10 ** (-1), 10 ** 0, 10 ** 1, 10 ** 2, 10 ** 3]
     g = [10 ** (-9), 10 ** (-7), 10 ** (-5), 10 ** (-3)]
@@ -134,7 +222,7 @@ def executeTest_feature_most_expensive_config():
     video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
                      ]   
     
-    for video_dir in video_dir_lst[1:2]: #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst[0:1]:     # [2:3]:   #   # [2:3]:    # [2:3]:   #[1:2]:      #     #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
         
         data_examples_dir =  dataDir2 + video_dir + 'data_examples_files/'
     
@@ -146,8 +234,10 @@ def executeTest_feature_most_expensive_config():
         X,y= load_data_all_features(data_examples_dir, xfile, yfile)
         
         
+        data_pose_keypoint_dir =  dataDir2 + video_dir
+
         kernel =   'rbf' #'poly'  #'sigmoid'  # 'rbf'    # linear
-        svmTrainTest(dataDir2 + video_dir, X, y, kernel)
+        svmTrainTest(dataDir2 + video_dir, data_pose_keypoint_dir, X, y, kernel)
         
         
         model_output_path = dataDir2 + video_dir + 'classifier_result/' + 'svm_out_model'

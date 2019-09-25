@@ -139,6 +139,38 @@ def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
 
 
 
+def read_poseEst_conf_frm(data_pickle_dir):
+    '''
+    read profiling conf's pose of each frame from pickle 
+    the pickle file is created from the file "writeIntoPickleConfigFrameAccSPFPoseEst.py"
+    
+    '''
+    
+    confg_est_frm_arr = np.load(data_pickle_dir + 'config_estimation_frm.pkl')
+    #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
+    #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
+    
+    print ("confg_est_frm_arr ", type(confg_est_frm_arr))
+    
+    return confg_est_frm_arr
+
+
+def readProfilingResultNumpy(data_pickle_dir):
+    '''
+    read profiling from pickle
+    the pickle file is created from the file "writeIntoPickle.py"
+    
+    '''
+    
+    acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl')
+    spf_frame_arr = np.load(data_pickle_dir + 'config_spf_frm.pkl')
+    #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
+    #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
+    
+    print ("acc_frame_arr ", type(acc_frame_arr), acc_frame_arr)
+    
+    return acc_frame_arr, spf_frame_arr
+
 def read_config_name_resolution_frmRate(data_pose_keypoint_dir, write_flag):
     '''
     read config info and order based on resolution and then order them in descending order

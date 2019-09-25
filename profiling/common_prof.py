@@ -514,12 +514,12 @@ def executeVideoToFrames():
     '''
     
     
-    inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
-    filePathLst = sorted(glob(inputDir + "*.mp4"))[9::]          # [5:6]
+    inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/diy_video_dataset/"
+    filePathLst = sorted(glob(inputDir + "*.mp4"))         # [5:6]
     
     print ("filePathLst:", filePathLst)
-    outParentDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/diy_video_dataset/"
-    for filePath in filePathLst:
+    outParentDir = inputDir  # "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/diy_video_dataset/"
+    for filePath in filePathLst[1:2] :
         
         outDir =  outParentDir + filePath.split("/")[-1].split(".")[0] + "_frames/"      # "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/2-soccer-20mins-frames/"
         if not os.path.exists(outDir):
