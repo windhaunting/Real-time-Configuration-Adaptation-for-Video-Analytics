@@ -32,12 +32,16 @@ from sklearn.svm import SVC
 from sklearn.externals import joblib
 
 from common_classifier import load_data_all_features
-
 from common_classifier import read_config_name_from_file
 
 from common_plot import plotScatterLineOneFig
 from common_plot import plotOneScatterLine
 from common_plot import plotOneBar
+
+#from data_proc_features_03 import *
+#from data_proc_features_03_01 import *
+from data_proc_features_06_01 import *
+
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -74,7 +78,7 @@ def getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_
     configs = [id_config_dict[u] for u in uniques]
     count_config_dict = dict(zip(configs, counts))
     
-    print ("count_config_dict: ", len(count_config_dict), count_config_dict)
+    print ("count_config_dict: ", len(count_config_dict), count_y_dict, count_config_dict)
     
     reso_dict = defaultdict(int)
     frmRt_dict = defaultdict(int)
@@ -114,9 +118,9 @@ def getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_
         prob_confg_dict[k] = v/total_config_counts
         frmRt_lst.append(v)
         
-    print ("prob_reso_dict: ", len(prob_reso_dict), prob_reso_dict)
-    print ("prob_frmRt_dict: ", len(prob_frmRt_dict), prob_frmRt_dict)
-    print ("prob_confg_dict: ", len(prob_confg_dict), prob_confg_dict)
+    #print ("prob_reso_dict: ", len(prob_reso_dict), prob_reso_dict)
+    #print ("prob_frmRt_dict: ", len(prob_frmRt_dict), prob_frmRt_dict)
+    #print ("prob_confg_dict: ", len(prob_confg_dict), prob_confg_dict)
          
     EX = sum([k*prob_reso_dict[k] for k in prob_reso_dict])         # resolution
     EY = sum([k*prob_frmRt_dict[k] for k in prob_frmRt_dict])       # frame_rate
@@ -140,6 +144,9 @@ def getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_
 def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     '''
     '''
+    
+    print ("svmTrainTest y output datasample config: ", y)
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = 0) 
     
     
@@ -171,17 +178,17 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     
     startTime = time.time()
     y_pred = svm_model.predict(X_test)  # look at training 
-    print ("elapsed test time: ", time.time() - startTime, y_pred)
+    print ("elapsed test time: ", time.time() - startTime)
     # model accuracy for X_test   
     accuracy = svm_model.score(X_test, y_test) 
     F1_test_score = f1_score(y_pred, y_test, average='weighted') 
     train_acc_score = accuracy_score(y_train, svm_model.predict(X_train))
     # creating a confusion matrix 
     cm = confusion_matrix(y_test, y_pred) 
-        
+    print ("svmTrainTest y predicted config: ", y_pred)
+    print ("svmTrainTest training acc: ", train_acc_score)
     print ("svmTrainTest testing acc cm, f1-score: ", accuracy, cm, F1_test_score)
 
-    print ("svmTrainTest training acc: ", train_acc_score)
     
     
 def svmCrossValidTrainTest(X,y, model_output_path):
@@ -213,8 +220,151 @@ def svmCrossValidTrainTest(X,y, model_output_path):
     svc = SVC(kernel='rbf', C=best_values[1], gamma=best_values[2])
     svc.fit(x_train, y_train)
     print('testing acc: ', svc.score(x_test, y_test))
+
+
+def execute_get_feature_most_expensive_config_boundedAcc(video_dir):
+    '''
+    most expensive config's pose result to get feature
+    '''
+    data_pose_keypoint_dir =  dataDir2 + video_dir
+        
+    history_frame_num = 1  #1          # 
+    max_frame_example_used =  8025 # 10000 #8025   # 8000
+    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
+    minAccuracy = 0.85
+
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+            
+    x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
+            
+    # add current config as a feature
+    print ("combined before:",x_input_arr.shape, y_out_arr[history_frame_num:-1].shape)
+    #current_config_arr = y_out_arr[history_frame_num:-1].reshape((y_out_arr[history_frame_num:-1].shape[0], -1))
+    #x_input_arr = np.hstack((x_input_arr, current_config_arr))
+            
+    #y_out_arr = y_out_arr[history_frame_num+1:]
+    
+    print ("y_out_arr shape after:", x_input_arr.shape, y_out_arr.shape)
+            
+    #data_examples_arr = np.hstack((x_input_arr, y_out_arr))
+            
+        
+    out_frm_examles_pickle_dir = data_pose_keypoint_dir + "data_examples_files/" 
+    if not os.path.exists(out_frm_examles_pickle_dir):
+        os.mkdir(out_frm_examles_pickle_dir)
+                
+    with open(out_frm_examles_pickle_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(x_input_arr, fs)
+            
+        
+    with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(y_out_arr, fs)
+
+def execute_get_feature_most_expensive_config_boundedAcc_minDelay(video_dir):
+    '''
+    most expensive config's pose result to get feature
+
+    '''
+    
+    data_pose_keypoint_dir =  dataDir2 + video_dir
+
+    history_frame_num = 1  #1          # 
+    max_frame_example_used =  8025 # 20000 #8025   # 8000
+    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
+    minAccuracy = 0.85
+    minDelayTreshold = 2        # 2 sec
     
     
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    
+    #y_out_arr = getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num)
+    x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
+    
+    # add current config as a feature
+    print ("combined before:",x_input_arr.shape, y_out_arr[history_frame_num:-1].shape)
+    #current_config_arr = y_out_arr[history_frame_num:-1].reshape((y_out_arr[history_frame_num:-1].shape[0], -1))
+    #x_input_arr = np.hstack((x_input_arr, current_config_arr))
+    
+    #y_out_arr = y_out_arr[history_frame_num+1:]
+    
+    print ("y_out_arr shape after:", x_input_arr.shape, y_out_arr.shape)
+    
+    #data_examples_arr = np.hstack((x_input_arr, y_out_arr))
+        
+        
+    out_frm_examles_pickle_dir = data_pose_keypoint_dir + "data_examples_files/" 
+    if not os.path.exists(out_frm_examles_pickle_dir):
+            os.mkdir(out_frm_examles_pickle_dir)
+            
+    with open(out_frm_examles_pickle_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(x_input_arr, fs)
+        
+    
+    with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(y_out_arr, fs)
+            
+ 
+
+def execute_get_feature_selected_config_boundedAcc_minDelay(video_dir):
+    '''
+    use selected config's pose result to get feature
+    import data_proc_feature_06_01.py
+
+    '''
+    
+    data_pose_keypoint_dir =  dataDir2 + video_dir
+
+    history_frame_num = 1  #1          # 
+    max_frame_example_used =  8025 # 20000 #8025   # 8000
+    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
+    minAccuracy = 0.85
+    minDelayTreshold = 2        # 2 sec
+    
+    
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    
+    #y_out_arr = getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num)
+    x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
+    
+    # add current config as a feature
+    print ("combined before:",x_input_arr.shape, y_out_arr[history_frame_num:-1].shape)
+    #current_config_arr = y_out_arr[history_frame_num:-1].reshape((y_out_arr[history_frame_num:-1].shape[0], -1))
+    #x_input_arr = np.hstack((x_input_arr, current_config_arr))
+    
+    #y_out_arr = y_out_arr[history_frame_num+1:]
+    
+    print ("y_out_arr shape after:", x_input_arr.shape, y_out_arr.shape)
+    
+    #data_examples_arr = np.hstack((x_input_arr, y_out_arr))
+        
+        
+    out_frm_examles_pickle_dir = data_pose_keypoint_dir + "data_examples_files/" 
+    if not os.path.exists(out_frm_examles_pickle_dir):
+            os.mkdir(out_frm_examles_pickle_dir)
+            
+    with open(out_frm_examles_pickle_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(x_input_arr, fs)
+        
+    
+    with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(y_out_arr, fs)
+        
+
 def executeTest_feature_most_expensive_config():
     '''
     execute classification, where features are calculated from the pose esimation result derived from the most expensive config
@@ -222,10 +372,14 @@ def executeTest_feature_most_expensive_config():
     video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
                      ]   
     
-    for video_dir in video_dir_lst[0:1]:     # [2:3]:   #   # [2:3]:    # [2:3]:   #[1:2]:      #     #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst[0:1]:  # [2:3]:  #    # [2:3]:   #   #    # [2:3]:   #[1:2]:      #     #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+        
+        #execute_get_feature_most_expensive_config_boundedAcc(video_dir)
+        #execute_get_feature_most_expensive_config_boundedAcc_minDelay(video_dir)
+        execute_get_feature_selected_config_boundedAcc_minDelay(video_dir)
         
         data_examples_dir =  dataDir2 + video_dir + 'data_examples_files/'
-    
+        
         xfile = 'X_data_features_config-history-frms1-sampleNum8025.pkl'  #'X_data_features_config-history-frms1-sampleNum20000.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
         yfile = 'Y_data_features_config-history-frms1-sampleNum8025.pkl' #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
         

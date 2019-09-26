@@ -26,6 +26,8 @@ Created on Tue Sep 17 00:28:45 2019
 
 import sys
 import os
+import pickle
+
 import numpy as np
 import time
 import matplotlib.pyplot as plt
@@ -36,6 +38,7 @@ from sklearn.preprocessing import StandardScaler
 
 from common_classifier import load_data_all_features
 from sklearn.metrics import confusion_matrix
+from data_proc_features_03_01 import *
 
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
@@ -70,11 +73,102 @@ def xgbBoostTrainTest(X, y):
     cm = confusion_matrix(Y_Test, Y_Pred)
     
     training_accuracy = classifier.score(X_Train, Y_Train) 
-
-    print ("rftTrainTest testing acc, cm: ", accuracy,  cm)
+    print ("rftTrainTest predicted config: ", Y_Pred)
      
     print ("rftTrainTest training acc, cm: ", training_accuracy)
 
+    print ("rftTrainTest testing acc, cm: ", accuracy,  cm)
+
+def execute_get_feature_boundedAcc(video_dir):
+    '''
+    most expensive config's pose result to get feature
+    '''
+    data_pose_keypoint_dir =  dataDir2 + video_dir
+        
+    history_frame_num = 1  #1          # 
+    max_frame_example_used =  8025 # 10000 #8025   # 8000
+    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
+    minAccuracy = 0.85
+
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+            
+    x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
+            
+    # add current config as a feature
+    print ("combined before:",x_input_arr.shape, y_out_arr[history_frame_num:-1].shape)
+    #current_config_arr = y_out_arr[history_frame_num:-1].reshape((y_out_arr[history_frame_num:-1].shape[0], -1))
+    #x_input_arr = np.hstack((x_input_arr, current_config_arr))
+            
+    #y_out_arr = y_out_arr[history_frame_num+1:]
+    
+    print ("y_out_arr shape after:", x_input_arr.shape, y_out_arr.shape)
+            
+    #data_examples_arr = np.hstack((x_input_arr, y_out_arr))
+            
+        
+    out_frm_examles_pickle_dir = data_pose_keypoint_dir + "data_examples_files/" 
+    if not os.path.exists(out_frm_examles_pickle_dir):
+        os.mkdir(out_frm_examles_pickle_dir)
+                
+    with open(out_frm_examles_pickle_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(x_input_arr, fs)
+            
+        
+    with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(y_out_arr, fs)
+
+
+def execute_get_feature_boundedAcc_minDelay(video_dir):
+    '''
+    most expensive config's pose result to get feature
+
+    '''
+    
+    data_pose_keypoint_dir =  dataDir2 + video_dir
+
+    history_frame_num = 1  #1          # 
+    max_frame_example_used =  8025 # 20000 #8025   # 8000
+    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
+    minAccuracy = 0.85
+    minDelayTreshold = 2        # 2 sec
+    
+    
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    
+    #y_out_arr = getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num)
+    x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
+    
+    # add current config as a feature
+    print ("combined before:",x_input_arr.shape, y_out_arr[history_frame_num:-1].shape)
+    #current_config_arr = y_out_arr[history_frame_num:-1].reshape((y_out_arr[history_frame_num:-1].shape[0], -1))
+    #x_input_arr = np.hstack((x_input_arr, current_config_arr))
+    
+    
+    print ("y_out_arr shape after:", x_input_arr.shape, y_out_arr.shape)
+    
+    #data_examples_arr = np.hstack((x_input_arr, y_out_arr))
+        
+        
+    out_frm_examles_pickle_dir = data_pose_keypoint_dir + "data_examples_files/" 
+    if not os.path.exists(out_frm_examles_pickle_dir):
+            os.mkdir(out_frm_examles_pickle_dir)
+            
+    with open(out_frm_examles_pickle_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(x_input_arr, fs)
+        
+    
+    with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(y_out_arr, fs)
+    
     
 def executeTest_feature_most_expensive_config():
     '''
@@ -83,7 +177,9 @@ def executeTest_feature_most_expensive_config():
     video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
                      ]    
     
-    for video_dir in video_dir_lst[2:3]:   # [1:2]:  # [0:1]:  #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst:   # [2:3]:   # [1:2]:  # [0:1]:  #[1:2]:  #[1:2]:         #[0:1]:
+        
+        execute_get_feature_boundedAcc_minDelay(video_dir)
         
         data_examples_dir =  dataDir2 + video_dir + 'data_examples_files/'
 
