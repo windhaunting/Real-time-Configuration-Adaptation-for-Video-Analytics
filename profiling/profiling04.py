@@ -306,6 +306,7 @@ def execute_profiling(segment_time):
                         '006-cardio_condition-20mins_frames/', '008-Marathon-20mins_frames/', \
                         '009-Marathon-20mins_frames/', '010-baseball_static-20mins_frames/']
     
+    
     for input_frm_dir in lst_input_video_frms_dir[7:8]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
         input_dir = dataDir2 + input_frm_dir
         
@@ -315,11 +316,31 @@ def execute_profiling(segment_time):
         profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
         profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
         
- 
+
+def execute_profiling_one_person():
+    
+    print ("gpus devices: ", device_lib.list_local_devices())
+    get_available_gpus()
+    
+    lst_input_video_frms_dir = ['001_dance_frames/', '002_dance_frames/', \
+                        '003_dance_frames/', '004_dance_frames/',  \
+                        '005_dance_frames/', '006_yoga_frames/', \
+                        '007_yoga_frames/', '008_cardio_frames/',
+                        '009_cardio_frames/', '010_cardio_frames/']
+    
+
+    for input_frm_dir in lst_input_video_frms_dir[0:1]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
+        input_dir = dataDir3 + input_frm_dir
+        
+        out_dir = dataDir3 + 'output_' + '_'.join(input_frm_dir.split('_')[:-1]) +'/'      # 004-output_Marathon-20mins_01/' 
+        if not os.path.exists(out_dir):
+            os.mkdir(out_dir)
+        profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
+        profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
+        
 
     
 if __name__== "__main__":
     
-    segment_time = 4
-    execute_profiling(segment_time)
-    
+    #execute_profiling()
+    execute_profiling_one_person()

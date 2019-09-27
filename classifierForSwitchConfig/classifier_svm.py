@@ -189,7 +189,8 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     print ("svmTrainTest training acc: ", train_acc_score)
     print ("svmTrainTest testing acc cm, f1-score: ", accuracy, cm, F1_test_score)
 
-    
+    return svm_model
+
     
 def svmCrossValidTrainTest(X,y, model_output_path):
         # Splitting data into train, validation and test set
@@ -280,11 +281,11 @@ def execute_get_feature_most_expensive_config_boundedAcc_minDelay(video_dir):
     
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
-    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
-    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #y_out_arr = getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num)
     x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
@@ -330,13 +331,13 @@ def execute_get_feature_selected_config_boundedAcc_minDelay(video_dir):
     minDelayTreshold = 2        # 2 sec
     
     
-    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
-    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #y_out_arr = getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num)
     x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
@@ -365,18 +366,19 @@ def execute_get_feature_selected_config_boundedAcc_minDelay(video_dir):
         pickle.dump(y_out_arr, fs)
         
 
-def executeTest_feature_most_expensive_config():
+
+def executeTest_feature_classification():
     '''
     execute classification, where features are calculated from the pose esimation result derived from the most expensive config
     '''
     video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
                      ]   
     
-    for video_dir in video_dir_lst[0:1]:  # [2:3]:  #    # [2:3]:   #   #    # [2:3]:   #[1:2]:      #     #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst:  # [2:3]:  #    # [2:3]:   #   #    # [2:3]:   #[1:2]:      #     #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
         
         #execute_get_feature_most_expensive_config_boundedAcc(video_dir)
-        #execute_get_feature_most_expensive_config_boundedAcc_minDelay(video_dir)
-        execute_get_feature_selected_config_boundedAcc_minDelay(video_dir)
+        execute_get_feature_most_expensive_config_boundedAcc_minDelay(video_dir)
+         #execute_get_feature_selected_config_boundedAcc_minDelay(video_dir)
         
         data_examples_dir =  dataDir2 + video_dir + 'data_examples_files/'
         
@@ -391,32 +393,22 @@ def executeTest_feature_most_expensive_config():
         data_pose_keypoint_dir =  dataDir2 + video_dir
 
         kernel =   'rbf' #'poly'  #'sigmoid'  # 'rbf'    # linear
-        svmTrainTest(dataDir2 + video_dir, data_pose_keypoint_dir, X, y, kernel)
+        svm_model = svmTrainTest(dataDir2 + video_dir, data_pose_keypoint_dir, X, y, kernel)
         
         
         model_output_path = dataDir2 + video_dir + 'classifier_result/' + 'svm_out_model'
         #svmCrossValidTrainTest(X,y, model_output_path)
+        'classifier_result/'
         
-        
+        save_model_flag = True
+        if save_model_flag:
+            pickle.dump(svm_model, open(model_output_path, 'wb'))
     
-def executeTest_feature_selected_config():
-    '''
-    execute classification, where features are calculated from the pose esimation result derived from the current selected config
-    '''
-    data_examples_dir =  dataDir2 + 'output_006-cardio_condition-20mins/' + 'data_examples_files_feature_selected_config/'
 
-    #xfile = 'X_data_features_config-history-frms25-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
-    #yfile = 'Y_data_features_config-history-frms25-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
-    
-    xfile = 'X_data_features_config-history-frms1-sampleNum35765.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
-    yfile = 'Y_data_features_config-history-frms1-sampleNum35765.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
-    X,y= load_data_all_features(data_examples_dir, xfile, yfile)
-    kernel = 'rbf'    # linear
-    svmTrainTest(X, y, kernel)
+
+
     
 if __name__== "__main__": 
+
     
-    
-    
-    executeTest_feature_most_expensive_config()
-    #executeTest_feature_selected_config()
+    executeTest_feature_classification()

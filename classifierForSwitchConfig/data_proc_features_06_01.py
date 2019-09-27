@@ -305,7 +305,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
             switching_config_skipped_frm += 1
             continue
         
-        est_res = confg_est_frm_arr[current_cofig_id][select_frm_cnt]
+        est_res = confg_est_frm_arr[current_cofig_id][select_frm_cnt]  # use selected config's pose estimation result
                 
         if str(est_res) == 'nan':  # here select_frm_cnt does not increase
             skipped_frm_cnt += 1
@@ -398,6 +398,7 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
     
     based on EMA
     '''
+    confg_est_frm_arr = read_poseEst_conf_frm(data_pickle_dir)
     
     acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
 
@@ -443,24 +444,25 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
     switching_config_skipped_frm = 0
     switching_config_inter_skip_cnts = 0
     
-    for index, row in df_det.iterrows():  
+    current_cofig_id = 0         # current config used initialized 0, which is the ground truth
+    for index in range(0, len(df_det)):  
         #print ("index, row: ", index, row)
         #reso = row['Resolution']
         #frm_rate = row['Frame_rate']
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
+
         
         if switching_config_skipped_frm < switching_config_inter_skip_cnts:
             switching_config_skipped_frm += 1
             continue
         
-        frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
-        
-        est_res = row['Estimation_result']
-        
+        est_res = confg_est_frm_arr[current_cofig_id][select_frm_cnt]  # use selected config's pose estimation result
+                
         if str(est_res) == 'nan':  # here select_frm_cnt does not increase
             skipped_frm_cnt += 1
             continue
+        
         #print ("frm_id num_humans, ", reso, model, frm_id)
             
         kp_arr = getPersonEstimation(est_res, personNo)
@@ -489,7 +491,8 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
             #previous_frm_indx = 1
                 
             y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
-                        
+            current_cofig_id = int(y_out_arr[select_frm_cnt+1])
+            
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
             #print ("current_cofig: ", current_cofig)
@@ -529,7 +532,7 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
    
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
     print ("frmRt_feature_arr, ",frmRt_feature_arr.shape, frmRt_feature_arr)
-    print ("feature1_speed_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
+    print ("input_x_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape, current_delay)
 
     return input_x_arr, y_out_arr
 
@@ -563,7 +566,7 @@ def getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  h
     based on EMA
     add over a period of config a feature
     '''
-    
+    confg_est_frm_arr = read_poseEst_conf_frm(data_pickle_dir)
     acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
 
     # select one person, i.e. no 0
@@ -608,21 +611,21 @@ def getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  h
     switching_config_skipped_frm = 0
     switching_config_inter_skip_cnts = 0
     
-    for index, row in df_det.iterrows():  
+    current_cofig_id = 0         # current config used initialized 0, which is the ground truth
+    for index in range(0, len(df_det)):  
         #print ("index, row: ", index, row)
         #reso = row['Resolution']
         #frm_rate = row['Frame_rate']
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
+
         
         if switching_config_skipped_frm < switching_config_inter_skip_cnts:
             switching_config_skipped_frm += 1
             continue
         
-        frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
-        
-        est_res = row['Estimation_result']
-        
+        est_res = confg_est_frm_arr[current_cofig_id][select_frm_cnt]  # use selected config's pose estimation result
+                
         if str(est_res) == 'nan':  # here select_frm_cnt does not increase
             skipped_frm_cnt += 1
             continue
@@ -655,7 +658,8 @@ def getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  h
             #previous_frm_indx = 1
                 
             y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
-                        
+            current_cofig_id = int(y_out_arr[select_frm_cnt+1])
+            
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
             #print ("current_cofig: ", current_cofig)
@@ -696,7 +700,7 @@ def getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  h
    
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
     print ("config_feature_arr, ",config_feature_arr.shape, config_feature_arr)
-    print ("feature1_speed_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
+    print ("input_x_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape, current_delay)
 
     return input_x_arr, y_out_arr
 
@@ -731,6 +735,7 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
     add over a period of resolution a feature
     '''
     
+    confg_est_frm_arr = read_poseEst_conf_frm(data_pickle_dir)
     acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
 
     # select one person, i.e. no 0
@@ -776,21 +781,21 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
     switching_config_skipped_frm = 0
     switching_config_inter_skip_cnts = 0
     
-    for index, row in df_det.iterrows():  
+    current_cofig_id = 0         # current config used initialized 0, which is the ground truth
+    for index in range(0, len(df_det)):  
         #print ("index, row: ", index, row)
         #reso = row['Resolution']
         #frm_rate = row['Frame_rate']
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
+
         
         if switching_config_skipped_frm < switching_config_inter_skip_cnts:
             switching_config_skipped_frm += 1
             continue
         
-        frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
-        
-        est_res = row['Estimation_result']
-        
+        est_res = confg_est_frm_arr[current_cofig_id][select_frm_cnt]  # use selected config's pose estimation result
+                
         if str(est_res) == 'nan':  # here select_frm_cnt does not increase
             skipped_frm_cnt += 1
             continue
@@ -823,7 +828,8 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
             #previous_frm_indx = 1
                 
             y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
-                        
+            current_cofig_id = int(y_out_arr[select_frm_cnt+1])
+            
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
             #print ("current_cofig: ", current_cofig)
@@ -861,8 +867,8 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
     input_x_arr = np.hstack((input_x_arr, reso_feature_arr))
    
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
-    print ("reso_feature_arr, ",reso_feature_arr.shape, reso_feature_arr)
-    print ("feature1_speed_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
+    #print ("reso_feature_arr, ",reso_feature_arr.shape, reso_feature_arr)
+    print ("input_x_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape, current_delay)
 
     return input_x_arr, y_out_arr
 
@@ -884,7 +890,7 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
     based on EMA
     add over a period of delay a feature
     '''
-    
+    confg_est_frm_arr = read_poseEst_conf_frm(data_pickle_dir)
     acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
 
     # select one person, i.e. no 0
@@ -929,21 +935,21 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
     switching_config_skipped_frm = 0
     switching_config_inter_skip_cnts = 0
     
-    for index, row in df_det.iterrows():  
+    current_cofig_id = 0         # current config used initialized 0, which is the ground truth
+    for index in range(0, len(df_det)):  
         #print ("index, row: ", index, row)
         #reso = row['Resolution']
         #frm_rate = row['Frame_rate']
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
+
         
         if switching_config_skipped_frm < switching_config_inter_skip_cnts:
             switching_config_skipped_frm += 1
             continue
         
-        frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
-        
-        est_res = row['Estimation_result']
-        
+        est_res = confg_est_frm_arr[current_cofig_id][select_frm_cnt]  # use selected config's pose estimation result
+                
         if str(est_res) == 'nan':  # here select_frm_cnt does not increase
             skipped_frm_cnt += 1
             continue
@@ -976,7 +982,8 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
             #previous_frm_indx = 1
                 
             y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
-                        
+            current_cofig_id = int(y_out_arr[select_frm_cnt+1])
+            
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
             #print ("current_cofig: ", current_cofig)
@@ -1014,26 +1021,10 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
    
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
     print ("delay_feature_arr, ",delay_feature_arr.shape, delay_feature_arr)
-    print ("feature1_speed_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
+    print ("input_x_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape, current_delay)
 
     return input_x_arr, y_out_arr
 
-
-def readProfilingResultNumpy(data_pickle_dir):
-    '''
-    read profiling from pickle
-    the pickle file is created from the file "writeIntoPickle.py"
-    
-    '''
-    
-    acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl')
-    spf_frame_arr = np.load(data_pickle_dir + 'config_spf_frm.pkl')
-    #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
-    #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
-    
-    print ("acc_frame_arr ", type(acc_frame_arr), acc_frame_arr)
-    
-    return acc_frame_arr, spf_frame_arr
 
 
 def select_config(acc_frame_arr, spf_frame_arr, history_frame_num, index_id, switching_frm_num,  minAccuracy, current_delay, minDelayTreshold):

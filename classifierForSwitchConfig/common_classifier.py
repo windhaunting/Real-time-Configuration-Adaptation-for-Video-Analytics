@@ -171,6 +171,7 @@ def readProfilingResultNumpy(data_pickle_dir):
     
     return acc_frame_arr, spf_frame_arr
 
+
 def read_config_name_resolution_frmRate(data_pose_keypoint_dir, write_flag):
     '''
     read config info and order based on resolution and then order them in descending order

@@ -31,6 +31,9 @@ modelMethods_cpn = ['a_cpn']  #  'cmu']   # , 'mobilenet_v2_small'] # ['a_cpn'] 
 dataDir1 = '../input_output/mpii_dataset/'
 dataDir2 = '../input_output/diy_video_dataset/'
 
+dataDir3 = '../input_output/one_person_diy_video_dataset/'
+
+
 PLAYOUT_RATE = 25
 
 
@@ -514,12 +517,13 @@ def executeVideoToFrames():
     '''
     
     
-    inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/diy_video_dataset/"
+    #inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/diy_video_dataset/"
+    inputDir = dataDir3
     filePathLst = sorted(glob(inputDir + "*.mp4"))         # [5:6]
     
     print ("filePathLst:", filePathLst)
     outParentDir = inputDir  # "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/diy_video_dataset/"
-    for filePath in filePathLst[1:2] :
+    for filePath in filePathLst :
         
         outDir =  outParentDir + filePath.split("/")[-1].split(".")[0] + "_frames/"      # "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/2-soccer-20mins-frames/"
         if not os.path.exists(outDir):

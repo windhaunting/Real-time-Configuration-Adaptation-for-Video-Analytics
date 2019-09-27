@@ -30,7 +30,7 @@ from glob import glob
 from blist import blist
 
 from common_classifier import read_config_name_from_file
-
+from common_classifier import readProfilingResultNumpy
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -1014,22 +1014,6 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
 
     return input_x_arr, y_out_arr
 
-
-def readProfilingResultNumpy(data_pickle_dir):
-    '''
-    read profiling from pickle
-    the pickle file is created from the file "writeIntoPickle.py"
-    
-    '''
-    
-    acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl')
-    spf_frame_arr = np.load(data_pickle_dir + 'config_spf_frm.pkl')
-    #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
-    #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
-    
-    print ("acc_frame_arr ", type(acc_frame_arr), acc_frame_arr)
-    
-    return acc_frame_arr, spf_frame_arr
 
 
 def select_config(acc_frame_arr, spf_frame_arr, history_frame_num, index_id, switching_frm_num,  minAccuracy, current_delay, minDelayTreshold):
