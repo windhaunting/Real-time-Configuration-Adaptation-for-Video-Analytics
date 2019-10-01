@@ -32,7 +32,8 @@ from glob import glob
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur)
 
-from common_prof import dataDir2
+#sfrom common_prof import dataDir2
+from common_prof import  dataDir3
 from common_prof import frameRates
 from common_prof import PLAYOUT_RATE
 from common_prof import computeOKSAP
@@ -156,7 +157,7 @@ def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir):
     
     config_num = len(config_id_dict)  # len(config_id_dict)
     df_det = pd.read_csv(filePathLst[0], delimiter='\t', index_col=False)         # det-> detection
-    frame_num = len(df_det)+6000     #  maybe some frame_id is missing, only consider all frames that could be parsed from a video
+    frame_num = len(df_det)     #  maybe some frame_id is missing, only consider all frames that could be parsed from a video
     #create a numpy array
     confg_frm_est_arr = np.zeros((config_num, frame_num), dtype=object) # array of estimation result with config vs frame_Id
     
@@ -430,6 +431,34 @@ def executeWriteIntoPickle():
         #write_config_frm_acc_result2(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir)
 
 
+def executeWriteIntoPickleOnePeron():
+    
+    
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                    'output_003_dance/', 'output_004_dance/',  \
+                    'output_005_dance/', 'output_006_yoga/', \
+                    'output_007_yoga/', 'output_008_cardio/', \
+                    'output_009_cardio/', 'output_010_cardio/']
+    
+    
+    for vd_dir in video_dir_lst[1:2]:        # [3:4]:   # [0:1]:
+        
+        data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
+        if not os.path.exists(data_pickle_dir):
+            os.mkdir(data_pickle_dir)
+            
+            
+        write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir)
+        
+        data_pose_keypoint_dir = dataDir3 +  vd_dir
+        confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
+        write_config_frm_acc_result(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir)
+        
+        #write_config_frm_acc_result2(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir)
+        
+
+
 if __name__== "__main__":
     
-    executeWriteIntoPickle()
+    #executeWriteIntoPickle()
+    executeWriteIntoPickleOnePeron()

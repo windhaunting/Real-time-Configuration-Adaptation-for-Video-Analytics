@@ -20,46 +20,44 @@ import numpy as np
 import time
 import matplotlib.backends.backend_pdf
 import matplotlib.pyplot as plt
+from blist import blist
 
 from collections import defaultdict
 #from sklearn import datasets 
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 
-from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, classification_report
+from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, classification_report, balanced_accuracy_score
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.svm import SVC 
 from sklearn.externals import joblib
+from sklearn.decomposition import PCA
 
 from common_classifier import load_data_all_features
 from common_classifier import read_config_name_from_file
+from common_classifier import feature_selection
 
 from common_plot import plotScatterLineOneFig
 from common_plot import plotOneScatterLine
 from common_plot import plotOneBar
-
-#from data_proc_features_03 import *
-#from data_proc_features_03_01 import *
-from data_proc_features_06_01 import *
+from common_plot import plotTwoLinesOneFigure
 
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
 
 
-from profiling.common_prof import dataDir2
+from profiling.common_prof import dataDir3
 
 
 
 
 def executePlot(data_plot_dir, x_lst1, y_lst1, xlabel, ylabel, title_name):
     
-    outputPlotPdf = data_plot_dir + 'classifier_result/' \
-     + 'y_train_historgram.pdf'
+    outputPlotPdf = data_plot_dir   + 'y_train_historgram.pdf'
     
-    if not os.path.exists(data_plot_dir + 'classifier_result/'):
-        os.mkdir(data_plot_dir + 'classifier_result/')
-        
+    #print ("58 outputPlotPdf: ", outputPlotPdf)
+    
     plt = plotOneBar(list(x_lst1), list(y_lst1), xlabel, ylabel, title_name)
     
     plt.savefig(outputPlotPdf)
@@ -147,7 +145,7 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     
     print ("svmTrainTest y output datasample config: ", y)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = 0) 
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = None, shuffle = True) 
     
     
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
@@ -163,16 +161,22 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     #print ("count_y_dict: ", count_y_dict, type(unique), counts, len(unique))
     
     #return
-
+    #pca = PCA(n_components=5, svd_solver='full')
+    #X_train = pca.fit_transform(X_train)
+    #X_test = pca.fit_transform(X_test)
+    
     scaler = StandardScaler()  # RobustScaler()
     X_train = scaler.fit_transform(X_train)
     X_test =  scaler.fit_transform(X_test)
     
+    
+
     print ("X_train X_test shape:",X_train.shape, X_test.shape)
     # training a linear SVM classifier 
     startTime = time.time()
      
-    svm_model = SVC(kernel = kernel, C = 1).fit(X_train, y_train) 
+    #svm_model = SVC(kernel = kernel, C = 1, class_weight='balanced').fit(X_train, y_train) 
+    svm_model = SVC(kernel = kernel, C = 10).fit(X_train, y_train) 
     #    svm_model = SVC(kernel = kernel, C = 1, gamma=1e-3).fit(X_train, y_train) 
     print ("elapsed training time: ", time.time() - startTime)
     
@@ -180,16 +184,17 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     y_pred = svm_model.predict(X_test)  # look at training 
     print ("elapsed test time: ", time.time() - startTime)
     # model accuracy for X_test   
-    accuracy = svm_model.score(X_test, y_test) 
-    F1_test_score = f1_score(y_pred, y_test, average='weighted') 
-    train_acc_score = accuracy_score(y_train, svm_model.predict(X_train))
+    test_acc_score = round(accuracy_score(y_test, y_pred), 3)  #svm_model.score(X_test, y_test) 
+    F1_test_score = round(f1_score(y_pred, y_test, average='weighted'), 3) 
+    train_acc_score = round(accuracy_score(y_train, svm_model.predict(X_train)), 3)  # accuracy_score(y_train, svm_model.predict(X_train))
+    
     # creating a confusion matrix 
     cm = confusion_matrix(y_test, y_pred) 
     print ("svmTrainTest y predicted config: ", y_pred)
     print ("svmTrainTest training acc: ", train_acc_score)
-    print ("svmTrainTest testing acc cm, f1-score: ", accuracy, cm, F1_test_score)
+    print ("svmTrainTest testing acc cm, f1-score: ", test_acc_score, cm, F1_test_score)
 
-    return svm_model
+    return svm_model, train_acc_score, test_acc_score
 
     
 def svmCrossValidTrainTest(X,y, model_output_path):
@@ -218,26 +223,33 @@ def svmCrossValidTrainTest(X,y, model_output_path):
 
     # With the best C ang gamma evaluating k-fold on test set
     #print('Evaluating test set')
-    svc = SVC(kernel='rbf', C=best_values[1], gamma=best_values[2])
-    svc.fit(x_train, y_train)
-    print('testing acc: ', svc.score(x_test, y_test))
+    svm_model = SVC(kernel='rbf', C=best_values[1], gamma=best_values[2])
+    svm_model.fit(x_train, y_train)
+    train_acc_score = svm_model.score(x_train, y_train)
+    test_acc_score = svm_model.score(x_test, y_test)
+    
+    print('training acc: ', train_acc_score)
+    print('testing acc: ', test_acc_score)
+    
+    return svm_model, train_acc_score, test_acc_score
 
-
-def execute_get_feature_most_expensive_config_boundedAcc(video_dir):
+def execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_used, video_dir, feature_calculation_flag):
     '''
     most expensive config's pose result to get feature
     '''
-    data_pose_keypoint_dir =  dataDir2 + video_dir
+    data_pose_keypoint_dir =  dataDir3 + video_dir
         
-    history_frame_num = 1  #1          # 
-    max_frame_example_used =  8025 # 10000 #8025   # 8000
-    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
-    minAccuracy = 0.85
 
-    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
+    minAccuracy = 0.9
+
+    if feature_calculation_flag == 'most_expensive_config':
+        from data_proc_features_03 import getOnePersonFeatureInputOutput01
+        
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
-    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
             
     x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
             
@@ -263,74 +275,29 @@ def execute_get_feature_most_expensive_config_boundedAcc(video_dir):
         
     with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
         pickle.dump(y_out_arr, fs)
-
-def execute_get_feature_most_expensive_config_boundedAcc_minDelay(video_dir):
-    '''
-    most expensive config's pose result to get feature
-
-    '''
-    
-    data_pose_keypoint_dir =  dataDir2 + video_dir
-
-    history_frame_num = 1  #1          # 
-    max_frame_example_used =  8025 # 20000 #8025   # 8000
-    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
-    minAccuracy = 0.85
-    minDelayTreshold = 2        # 2 sec
-    
-    
-    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
-    
-    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
-    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
-    
-    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
-    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
-    
-    #y_out_arr = getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num)
-    x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
-    
-    # add current config as a feature
-    print ("combined before:",x_input_arr.shape, y_out_arr[history_frame_num:-1].shape)
-    #current_config_arr = y_out_arr[history_frame_num:-1].reshape((y_out_arr[history_frame_num:-1].shape[0], -1))
-    #x_input_arr = np.hstack((x_input_arr, current_config_arr))
-    
-    #y_out_arr = y_out_arr[history_frame_num+1:]
-    
-    print ("y_out_arr shape after:", x_input_arr.shape, y_out_arr.shape)
-    
-    #data_examples_arr = np.hstack((x_input_arr, y_out_arr))
-        
-        
-    out_frm_examles_pickle_dir = data_pose_keypoint_dir + "data_examples_files/" 
-    if not os.path.exists(out_frm_examles_pickle_dir):
-            os.mkdir(out_frm_examles_pickle_dir)
-            
-    with open(out_frm_examles_pickle_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
-        pickle.dump(x_input_arr, fs)
-        
-    
-    with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
-        pickle.dump(y_out_arr, fs)
             
  
 
-def execute_get_feature_selected_config_boundedAcc_minDelay(video_dir):
+def execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, feature_calculation_flag):
     '''
     use selected config's pose result to get feature
     import data_proc_feature_06_01.py
 
     '''
-    
-    data_pose_keypoint_dir =  dataDir2 + video_dir
 
-    history_frame_num = 1  #1          # 
-    max_frame_example_used =  8025 # 20000 #8025   # 8000
-    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
-    minAccuracy = 0.85
+    data_pose_keypoint_dir =  dataDir3 + video_dir
+
+
+    data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
+    minAccuracy = 0.9
     minDelayTreshold = 2        # 2 sec
     
+    if feature_calculation_flag == 'most_expensive_config':
+        from data_proc_features_03_01 import getOnePersonFeatureInputOutput05
     
+    elif feature_calculation_flag == 'selected_config':
+        from data_proc_features_06_01 import getOnePersonFeatureInputOutput05
+
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
@@ -371,44 +338,71 @@ def executeTest_feature_classification():
     '''
     execute classification, where features are calculated from the pose esimation result derived from the most expensive config
     '''
-    video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
-                     ]   
+    #video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/']   
     
-    for video_dir in video_dir_lst:  # [2:3]:  #    # [2:3]:   #   #    # [2:3]:   #[1:2]:      #     #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                    'output_003_dance/', 'output_004_dance/',  \
+                    'output_005_dance/', 'output_006_yoga/', \
+                    'output_007_yoga/', 'output_008_cardio/', \
+                    'output_009_cardio/', 'output_010_cardio/']
         
-        #execute_get_feature_most_expensive_config_boundedAcc(video_dir)
-        execute_get_feature_most_expensive_config_boundedAcc_minDelay(video_dir)
-         #execute_get_feature_selected_config_boundedAcc_minDelay(video_dir)
+    for video_dir in video_dir_lst[0:1]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
         
-        data_examples_dir =  dataDir2 + video_dir + 'data_examples_files/'
-        
-        xfile = 'X_data_features_config-history-frms1-sampleNum8025.pkl'  #'X_data_features_config-history-frms1-sampleNum20000.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
-        yfile = 'Y_data_features_config-history-frms1-sampleNum8025.pkl' #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
-        
-        #xfile = 'X_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
-        #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
-        X,y= load_data_all_features(data_examples_dir, xfile, yfile)
-        
-        
-        data_pose_keypoint_dir =  dataDir2 + video_dir
-
-        kernel =   'rbf' #'poly'  #'sigmoid'  # 'rbf'    # linear
-        svm_model = svmTrainTest(dataDir2 + video_dir, data_pose_keypoint_dir, X, y, kernel)
-        
-        
-        model_output_path = dataDir2 + video_dir + 'classifier_result/' + 'svm_out_model'
-        #svmCrossValidTrainTest(X,y, model_output_path)
-        'classifier_result/'
-        
-        save_model_flag = True
-        if save_model_flag:
-            pickle.dump(svm_model, open(model_output_path, 'wb'))
+        history_frame_num = 1  #1          # 
+        max_frame_example_used =  8000 # 20000 #8025   # 8000
     
+        y_training_acc_lst = blist()
+        y_testing_acc_lst = blist()
+        max_frame_example_used_lst = range(8000, 9000, 1000)   # range(3000, 10000, 500)
+        for max_frame_example_used in max_frame_example_used_lst:
+            
+            #execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+            #execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+            execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'selected_config')
+            
+            data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
+            
+    
+            xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
+            yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl" #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+            
+            #xfile = 'X_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
+            #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+            X,y= load_data_all_features(data_examples_dir, xfile, yfile)
+            
+            
+            data_pose_keypoint_dir =  dataDir3 + video_dir
+    
+            kernel =  'rbf'  # 'rbf' #'poly'  #'sigmoid'  # 'rbf'    # 'linear'
+            data_plot_dir = dataDir3 + video_dir +'classifier_result/'
+            if not os.path.exists(data_plot_dir):
+                os.mkdir(data_plot_dir)
+        
+            svm_model, train_acc_score, test_acc_score = svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel)
+            
+            #svm_model, train_acc_score, test_acc_score = svmCrossValidTrainTest(X, y, kernel)
 
+            
+            y_training_acc_lst.append(train_acc_score)
+            y_testing_acc_lst.append(test_acc_score)
+            
+            model_output_path = data_plot_dir + 'max_frame_example_used' + str(max_frame_example_used) +'-svm_out_model'
+            #svmCrossValidTrainTest(X,y, model_output_path)
+            
+            save_model_flag = False
+            if save_model_flag:
+                pickle.dump(svm_model, open(model_output_path, 'wb'))
+    
+    outputPlotPdf = data_plot_dir  + 'traing_test_accuracy.pdf'
+    print ("max_frame_example_used_lst len: " ,len(max_frame_example_used_lst), len(y_training_acc_lst), len(y_testing_acc_lst))
+    plt = plotTwoLinesOneFigure(max_frame_example_used_lst, y_training_acc_lst, y_testing_acc_lst, "Data example number",  "accuracy", "traing_test_accuracy")
 
+    plt.savefig(outputPlotPdf)
 
     
 if __name__== "__main__": 
-
     
+    data_examples_dir =  dataDir3 + 'output_001_dance/' + 'data_examples_files/'
+
+    #feature_selection(data_examples_dir)
     executeTest_feature_classification()

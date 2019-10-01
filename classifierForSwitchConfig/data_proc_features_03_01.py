@@ -70,7 +70,7 @@ COCO_KP_NUM = 17      # total 17 keypoints
 # =  Price(current)  x Multiplier)   + (1-Multiplier) * EMA(prev) 
 
 
-ALPHA_EMA = 0.3      # EMA
+ALPHA_EMA = 0.7      # EMA
 
 def getPersonEstimation(est_res, personNo):
     '''
@@ -111,9 +111,9 @@ def getEuclideanDist(val, time_frm_interval):
     '''
     #or vector distance
     
-    #speed_angle = [val[0]-val[2], val[1]-val[3]]
-
+    #'speed_angle = [(val[0]-val[2])/time_frm_interval, (val[1]-val[3])/time_frm_interval]
     
+   
     dist = math.sqrt((val[1] - val[3])**2 + (val[0] - val[2])**2)
                
     speed = dist/time_frm_interval
@@ -131,7 +131,7 @@ def getEuclideanDist(val, time_frm_interval):
     
 
 
-def getFeatureOnePersonMovingSpeed(history_pose_est_arr, current_frm_id, history_frame_num, prev_EMA_speed_arr):
+def getFeatureOnePersonMovingSpeed(history_pose_est_arr, current_frm_id, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_speed_arr):
     '''
     feature1: One person’s moving speed of all keypoints V i,k based on the
     euclidean d distance of current frame with the previous frame {f j−m , m =
@@ -151,8 +151,10 @@ def getFeatureOnePersonMovingSpeed(history_pose_est_arr, current_frm_id, history
     
     # get the current speed based on current frame and previous frame
     hstack_arr = np.hstack((cur_frm_est_arr, prev_frm_est_arr))
-    
-    time_frm_interval = 1.0/PLAYOUT_RATE
+    #frmInter = math.ceil(PLAYOUT_RATE/curr_frm_rate)          # frame rate sampling frames in interval, +1 every other
+
+    time_frm_interval = (1.0/curr_frm_rate)*(skipped_frm_cnt+1)
+    #time_frm_interval = 1.0/PLAYOUT_RATE
     current_speed_angle_arr = np.apply_along_axis(getEuclideanDist, 1, hstack_arr, time_frm_interval)    
     
     feature1_speed_arr = current_speed_angle_arr * ALPHA_EMA  + (1-ALPHA_EMA) * prev_EMA_speed_arr
@@ -204,7 +206,7 @@ def relativeSpeed(arr1, arr2, time_frm_interval):
 
 
 
-def getFeatureOnePersonRelativeSpeed(history_pose_est_arr, current_frm_id, history_frame_num, prev_EMA_relative_speed_arr):
+def getFeatureOnePersonRelativeSpeed(history_pose_est_arr, current_frm_id, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr):
     '''
     feature 2 One person arm/feet’s relative speed to the torso of all keypoints
     with the previous frames.
@@ -224,7 +226,9 @@ def getFeatureOnePersonRelativeSpeed(history_pose_est_arr, current_frm_id, histo
     
     previous_frm_arr = selected_kp_history_pose_est_arr[current_frm_id-1]
 
-    time_frm_interval = 1.0/PLAYOUT_RATE
+    #frmInter = math.ceil(PLAYOUT_RATE/curr_frm_rate)          # frame rate sampling frames in interval, +1 every other
+
+    time_frm_interval = (1.0/curr_frm_rate)*(skipped_frm_cnt+1)
     
     current_speed_arr = relativeSpeed(curr_frm_rel_dist_arr, previous_frm_arr, time_frm_interval)
     
@@ -254,6 +258,9 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
     
     acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
 
+    print ("getOnePersonFeatureInputOutput01 acc_frame_arr: ", acc_frame_arr[:, 0])
+
+
     # select one person, i.e. no 0
     personNo = 0
     
@@ -270,8 +277,8 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
 
     print ("filePath: ", filePathLst[0], len(df_det))
 
-
-    history_pose_est_arr = np.zeros((max_frame_example_used, COCO_KP_NUM, 2)) # np.zeros((len(df_det), COCO_KP_NUM, 2))        #  to make not shift when new frames comes, we store all values
+    
+    history_pose_est_arr = np.zeros((max_frame_example_used+1, COCO_KP_NUM, 2)) # np.zeros((len(df_det), COCO_KP_NUM, 2))        #  to make not shift when new frames comes, we store all values
     
     previous_frm_indx = 1
     
@@ -281,7 +288,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
     
     prev_EMA_speed_arr = np.zeros((COCO_KP_NUM, 2))
     
-    prev_EMA_relative_speed_arr = np.zeros((4,2))        # only get 4 keypoint
+    prev_EMA_relative_speed_arr = np.zeros((4, 2))        # only get 4 keypoint
         
     current_delay = 0.0
 
@@ -291,7 +298,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
     switching_config_skipped_frm = 0
     switching_config_inter_skip_cnts = 0
     
-    
+    selected_configs_acc_lst = blist()      # check the selected config's for all frame's lst, in order to get the accuracy
     for index, row in df_det.iterrows():  
         #print ("index, row: ", index, row)
         #reso = row['Resolution']
@@ -299,10 +306,13 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
 
+        if index >= acc_frame_arr.shape[1]:
+            break            
         
-        if switching_config_skipped_frm < switching_config_inter_skip_cnts:
-            switching_config_skipped_frm += 1
-            continue
+
+        #if switching_config_skipped_frm < switching_config_inter_skip_cnts:
+        #    switching_config_skipped_frm += 1
+        #    continue
         
         frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
         
@@ -310,6 +320,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
         
         if str(est_res) == 'nan':  # here select_frm_cnt does not increase
             skipped_frm_cnt += 1
+            print ("est_res: ", est_res, index, select_frm_cnt)
             continue
         
         #print ("frm_id num_humans, ", reso, model, frm_id)
@@ -317,17 +328,21 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
         kp_arr = getPersonEstimation(est_res, personNo)
         #history_pose_est_dict[previous_frm_indx] = kp_arr
          
-        history_pose_est_arr[select_frm_cnt] = kp_arr
+        history_pose_est_arr[previous_frm_indx] = kp_arr
         #print ("kp_arr, ", kp_arr)
         #break    # debug only
         if previous_frm_indx> history_frame_num:
             #print ("previous_frm_indx, ", previous_frm_indx, index)
+            
+            current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
+            curr_frm_rate = int(current_cofig.split('-')[1])
+            #print ("xxxx current_cofig: ", current_cofig, curr_frm_rate)
             # calculate the human moving speed feature (1)
-            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_speed_arr)
+            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_speed_arr)
             
             prev_EMA_speed_arr = feature1_speed_arr
             #calculate the relative moving speed feature (2)
-            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_relative_speed_arr)
+            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr)
             
             prev_EMA_relative_speed_arr = feature2_relative_speed_arr
             #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
@@ -339,17 +354,22 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
             #print ("total_features_arr: ", frm_id-1)
             #previous_frm_indx = 1
                 
-            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
+            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1+skipped_frm_cnt, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
                         
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
-            #print ("current_cofig: ", current_cofig)
-            frmRt = int(current_cofig.split('-')[1])
+            selected_config_acc = acc_frame_arr[y_out_arr[select_frm_cnt], index]
             
-            switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
-                        
+            selected_configs_acc_lst.append(selected_config_acc)
+            #print ("current_cofig: ", current_cofig)
+            
+            #frmRt = int(current_cofig.split('-')[1])
+            
+            #switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
+        
+            skipped_frm_cnt = 0       
             select_frm_cnt += 1
-            switching_config_skipped_frm = 0
+            #switching_config_skipped_frm = 0
 
         previous_frm_indx += 1
         
@@ -362,7 +382,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
        
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
 
-    print ("input_x_arr, ", select_frm_cnt, input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape, current_delay)
+    print ("input_x_arr, ", select_frm_cnt, input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape, current_delay, len(selected_configs_acc_lst), sum(selected_configs_acc_lst)/len(selected_configs_acc_lst))
 
     return input_x_arr, y_out_arr
 
@@ -414,7 +434,7 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
     print ("filePath: ", filePathLst[0], len(df_det))
 
 
-    history_pose_est_arr = np.zeros((max_frame_example_used, COCO_KP_NUM, 2)) # np.zeros((len(df_det), COCO_KP_NUM, 2))        #  to make not shift when new frames comes, we store all values
+    history_pose_est_arr = np.zeros((max_frame_example_used+1, COCO_KP_NUM, 2)) # np.zeros((len(df_det), COCO_KP_NUM, 2))        #  to make not shift when new frames comes, we store all values
     
     previous_frm_indx = 1
     
@@ -446,9 +466,12 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
         
-        if switching_config_skipped_frm < switching_config_inter_skip_cnts:
-            switching_config_skipped_frm += 1
-            continue
+        if index >= acc_frame_arr.shape[1]:
+            break    
+        
+        #if switching_config_skipped_frm < switching_config_inter_skip_cnts:
+        #    switching_config_skipped_frm += 1
+        #    continue
         
         frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
         
@@ -462,17 +485,21 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
         kp_arr = getPersonEstimation(est_res, personNo)
         #history_pose_est_dict[previous_frm_indx] = kp_arr
          
-        history_pose_est_arr[select_frm_cnt] = kp_arr
+        history_pose_est_arr[previous_frm_indx] = kp_arr
         #print ("kp_arr, ", kp_arr)
         #break    # debug only
         if previous_frm_indx> history_frame_num:
             #print ("previous_frm_indx, ", previous_frm_indx, index)
+            
+            current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
+            curr_frm_rate = int(current_cofig.split('-')[1])
+            #print ("xxxx current_cofig: ", current_cofig, curr_frm_rate)
             # calculate the human moving speed feature (1)
-            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_speed_arr)
+            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_speed_arr)
             
             prev_EMA_speed_arr = feature1_speed_arr
             #calculate the relative moving speed feature (2)
-            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_relative_speed_arr)
+            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr)
             
             prev_EMA_relative_speed_arr = feature2_relative_speed_arr
             #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
@@ -484,22 +511,23 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
             #print ("total_features_arr: ", frm_id-1)
             #previous_frm_indx = 1
                 
-            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
+            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1+skipped_frm_cnt, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
                         
+            current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
+            
+            #print ("current_cofig: ", current_cofig)
+            #frmRt = int(current_cofig.split('-')[1])
+            
+            #switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
+                        
+            select_frm_cnt += 1
+            #switching_config_skipped_frm = 0
+            skipped_frm_cnt = 0
+            
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
             #print ("current_cofig: ", current_cofig)
             frmRt = int(current_cofig.split('-')[1])
-            
-            switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
-                        
-            select_frm_cnt += 1
-            switching_config_skipped_frm = 0
-            
-            
-            current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
-            
-            #print ("current_cofig: ", current_cofig)
 
             history_frmRt_arr[select_frm_cnt] = frmRt
                 
@@ -579,7 +607,7 @@ def getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  h
     print ("filePath: ", filePathLst[0], len(df_det))
 
 
-    history_pose_est_arr = np.zeros((max_frame_example_used, COCO_KP_NUM, 2)) # np.zeros((len(df_det), COCO_KP_NUM, 2))        #  to make not shift when new frames comes, we store all values
+    history_pose_est_arr = np.zeros((max_frame_example_used+1, COCO_KP_NUM, 2)) # np.zeros((len(df_det), COCO_KP_NUM, 2))        #  to make not shift when new frames comes, we store all values
     
     previous_frm_indx = 1
     
@@ -611,9 +639,12 @@ def getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  h
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
         
-        if switching_config_skipped_frm < switching_config_inter_skip_cnts:
-            switching_config_skipped_frm += 1
-            continue
+        if index >= acc_frame_arr.shape[1]:
+            break
+        
+        #if switching_config_skipped_frm < switching_config_inter_skip_cnts:
+        #    switching_config_skipped_frm += 1
+        #    continue
         
         frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
         
@@ -628,17 +659,20 @@ def getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  h
         kp_arr = getPersonEstimation(est_res, personNo)
         #history_pose_est_dict[previous_frm_indx] = kp_arr
          
-        history_pose_est_arr[select_frm_cnt] = kp_arr
+        history_pose_est_arr[previous_frm_indx] = kp_arr
         #print ("kp_arr, ", kp_arr)
         #break    # debug only
-        if previous_frm_indx> history_frame_num:
+        if previous_frm_indx > history_frame_num:
             #print ("previous_frm_indx, ", previous_frm_indx, index)
+            current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
+            curr_frm_rate = int(current_cofig.split('-')[1])
+            #print ("xxxx current_cofig: ", current_cofig, curr_frm_rate)
             # calculate the human moving speed feature (1)
-            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_speed_arr)
+            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_speed_arr)
             
             prev_EMA_speed_arr = feature1_speed_arr
             #calculate the relative moving speed feature (2)
-            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_relative_speed_arr)
+            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr)
             
             prev_EMA_relative_speed_arr = feature2_relative_speed_arr
             #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
@@ -650,18 +684,18 @@ def getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  h
             #print ("total_features_arr: ", frm_id-1)
             #previous_frm_indx = 1
                 
-            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
+            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1+skipped_frm_cnt, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
                         
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
             #print ("current_cofig: ", current_cofig)
-            frmRt = int(current_cofig.split('-')[1])
+            #frmRt = int(current_cofig.split('-')[1])
             
-            switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
+            #switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
                         
             select_frm_cnt += 1
-            switching_config_skipped_frm = 0
-            
+            #switching_config_skipped_frm = 0
+            skipped_frm_cnt = 0
             
             #current_cofig = id_config_dict[int(y_out_arr[index])]
             
@@ -674,7 +708,7 @@ def getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  h
             
             prev_config_aver = curr_config_aver
             
-            config_feature_arr[select_frm_cnt] =  y_out_arr[select_frm_cnt]  # y_out_arr[select_frm_cnt]  #   #curr_config_aver
+            config_feature_arr[select_frm_cnt] =  curr_config_aver  # y_out_arr[select_frm_cnt]  # y_out_arr[select_frm_cnt]  #   #
             
 
 
@@ -779,9 +813,12 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
         
-        if switching_config_skipped_frm < switching_config_inter_skip_cnts:
-            switching_config_skipped_frm += 1
-            continue
+        if index >= acc_frame_arr.shape[1]:
+            break
+        
+        #if switching_config_skipped_frm < switching_config_inter_skip_cnts:
+        #    switching_config_skipped_frm += 1
+        #    continue
         
         frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
         
@@ -796,17 +833,21 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
         kp_arr = getPersonEstimation(est_res, personNo)
         #history_pose_est_dict[previous_frm_indx] = kp_arr
          
-        history_pose_est_arr[select_frm_cnt] = kp_arr
+        history_pose_est_arr[previous_frm_indx] = kp_arr
         #print ("kp_arr, ", kp_arr)
         #break    # debug only
         if previous_frm_indx> history_frame_num:
             #print ("previous_frm_indx, ", previous_frm_indx, index)
             # calculate the human moving speed feature (1)
-            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_speed_arr)
+            current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
+            curr_frm_rate = int(current_cofig.split('-')[1])
+            #print ("xxxx current_cofig: ", current_cofig, curr_frm_rate)
+            # calculate the human moving speed feature (1)
+            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_speed_arr)
             
             prev_EMA_speed_arr = feature1_speed_arr
             #calculate the relative moving speed feature (2)
-            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_relative_speed_arr)
+            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr)
             
             prev_EMA_relative_speed_arr = feature2_relative_speed_arr
             #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
@@ -823,13 +864,13 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
             #print ("current_cofig: ", current_cofig)
-            frmRt = int(current_cofig.split('-')[1])
+            #frmRt = int(current_cofig.split('-')[1])
             
-            switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
+            #switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
                         
             select_frm_cnt += 1
-            switching_config_skipped_frm = 0
-            
+            #switching_config_skipped_frm = 0
+            skipped_frm_cnt = 0
             
             #print ("current_cofig: ", current_cofig)
             reso = int(current_cofig.split('-')[0].split('x')[1])
@@ -840,7 +881,7 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
             
             prev_reso_aver = curr_reso_aver
             
-            reso_feature_arr[select_frm_cnt] =  curr_reso_aver# curr_reso_aver y_out_arr[index]    #curr_reso_aver
+            reso_feature_arr[select_frm_cnt] =  curr_reso_aver # curr_reso_aver y_out_arr[index]    #curr_reso_aver
             
 
 
@@ -932,9 +973,12 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
         
-        if switching_config_skipped_frm < switching_config_inter_skip_cnts:
-            switching_config_skipped_frm += 1
-            continue
+        if index >= acc_frame_arr.shape[1]:
+            break
+        
+        #if switching_config_skipped_frm < switching_config_inter_skip_cnts:
+        #    switching_config_skipped_frm += 1
+        #    continue
         
         frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
         
@@ -949,17 +993,20 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
         kp_arr = getPersonEstimation(est_res, personNo)
         #history_pose_est_dict[previous_frm_indx] = kp_arr
          
-        history_pose_est_arr[select_frm_cnt] = kp_arr
+        history_pose_est_arr[previous_frm_indx] = kp_arr
         #print ("kp_arr, ", kp_arr)
         #break    # debug only
         if previous_frm_indx> history_frame_num:
             #print ("previous_frm_indx, ", previous_frm_indx, index)
+            current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
+            curr_frm_rate = int(current_cofig.split('-')[1])
+            #print ("xxxx current_cofig: ", current_cofig, curr_frm_rate)
             # calculate the human moving speed feature (1)
-            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_speed_arr)
+            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_speed_arr)
             
             prev_EMA_speed_arr = feature1_speed_arr
             #calculate the relative moving speed feature (2)
-            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, history_frame_num, prev_EMA_relative_speed_arr)
+            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr)
             
             prev_EMA_relative_speed_arr = feature2_relative_speed_arr
             #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
@@ -976,13 +1023,13 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
             #print ("current_cofig: ", current_cofig)
-            frmRt = int(current_cofig.split('-')[1])
+            #frmRt = int(current_cofig.split('-')[1])
             
-            switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
+            #switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
                         
             select_frm_cnt += 1
-            switching_config_skipped_frm = 0
-
+            #switching_config_skipped_frm = 0
+            skipped_frm_cnt = 0
             
             #print ("current_cofig: ", current_cofig)
 
@@ -1076,7 +1123,7 @@ def getDataExamples():
     video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
                     ]   
     
-    for video_dir in video_dir_lst[1:2]:  # [2:3]:   #[1:2]:  # [1:2]:  #[0:1]:        #[1:2]:
+    for video_dir in video_dir_lst[0:1]:  # [2:3]:   #[1:2]:  # [1:2]:  #[0:1]:        #[1:2]:
         
         data_pose_keypoint_dir =  dataDir2 + video_dir
         
@@ -1089,11 +1136,11 @@ def getDataExamples():
         
         #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
         
-        x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+        #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
         #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
         
         #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
-        #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+        x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
         
         #y_out_arr = getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num)
         x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))

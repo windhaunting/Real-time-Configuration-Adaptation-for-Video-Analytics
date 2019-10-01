@@ -38,13 +38,12 @@ from sklearn.preprocessing import StandardScaler
 
 from common_classifier import load_data_all_features
 from sklearn.metrics import confusion_matrix
-from data_proc_features_03_01 import *
 
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
 
-from profiling.common_prof import dataDir2
+from profiling.common_prof import dataDir3
 
 
 def xgbBoostTrainTest(X, y):
@@ -83,11 +82,11 @@ def execute_get_feature_boundedAcc(video_dir):
     '''
     most expensive config's pose result to get feature
     '''
-    data_pose_keypoint_dir =  dataDir2 + video_dir
+    data_pose_keypoint_dir =  dataDir3 + video_dir
         
     history_frame_num = 1  #1          # 
     max_frame_example_used =  8025 # 10000 #8025   # 8000
-    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
+    data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
     minAccuracy = 0.85
 
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
@@ -121,24 +120,29 @@ def execute_get_feature_boundedAcc(video_dir):
         pickle.dump(y_out_arr, fs)
 
 
-def execute_get_feature_boundedAcc_minDelay(video_dir):
+def execute_get_feature_boundedAcc_minDelay(video_dir, feature_calculation_flag):
     '''
     most expensive config's pose result to get feature
 
     '''
     
-    data_pose_keypoint_dir =  dataDir2 + video_dir
+    data_pose_keypoint_dir =  dataDir3 + video_dir
 
     history_frame_num = 1  #1          # 
-    max_frame_example_used =  8025 # 20000 #8025   # 8000
-    data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
-    minAccuracy = 0.85
+    max_frame_example_used =  10000 # 20000 #8025   # 8000
+    data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
+    minAccuracy = 0.9
     minDelayTreshold = 2        # 2 sec
     
+    if feature_calculation_flag == 'most_expensive_config':
+        from data_proc_features_03_01 import getOnePersonFeatureInputOutput01
     
-    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    elif feature_calculation_flag == 'selected_config':
+        from data_proc_features_06_01 import getOnePersonFeatureInputOutput01
+        
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
-    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
@@ -170,18 +174,23 @@ def execute_get_feature_boundedAcc_minDelay(video_dir):
         pickle.dump(y_out_arr, fs)
     
     
-def executeTest_feature_most_expensive_config():
+def executeTest_feature_boundedAcc_minDelay():
     '''
     execute classification, where features are calculated from the pose esimation result derived from the most expensive config
     '''
-    video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
-                     ]    
+    #video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/']    
     
-    for video_dir in video_dir_lst:   # [2:3]:   # [1:2]:  # [0:1]:  #[1:2]:  #[1:2]:         #[0:1]:
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                'output_003_dance/', 'output_004_dance/',  \
+                'output_005_dance/', 'output_006_yoga/', \
+                'output_007_yoga/', 'output_008_cardio/', \
+                'output_009_cardio/', 'output_010_cardio/']
         
-        execute_get_feature_boundedAcc_minDelay(video_dir)
+    for video_dir in video_dir_lst[0:1]:   # [2:3]:   # [1:2]:  # [0:1]:  #[1:2]:  #[1:2]:         #[0:1]:
         
-        data_examples_dir =  dataDir2 + video_dir + 'data_examples_files/'
+        execute_get_feature_boundedAcc_minDelay(video_dir, 'most_expensive_config')
+        
+        data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
 
         xfile = 'X_data_features_config-history-frms1-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
         yfile = 'Y_data_features_config-history-frms1-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
@@ -192,23 +201,9 @@ def executeTest_feature_most_expensive_config():
     
         xgbBoostTrainTest(X,y)
    
-    
-def executeTest_feature_selected_config():
-    '''
-    '''
-    data_examples_dir =  dataDir2 + 'output_006-cardio_condition-20mins/' + 'data_examples_files_feature_selected_config/'
-
-    #xfile = 'X_data_features_config-history-frms25-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
-    #yfile = 'Y_data_features_config-history-frms25-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
-    
-    xfile = 'X_data_features_config-history-frms1-sampleNum35765.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
-    yfile = 'Y_data_features_config-history-frms1-sampleNum35765.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
-    X,y= load_data_all_features(data_examples_dir, xfile, yfile)
-    xgbBoostTrainTest(X,y)
 
 
 if __name__== "__main__": 
     
-    executeTest_feature_most_expensive_config()
+    executeTest_feature_boundedAcc_minDelay()
     
-    #executeTest_feature_selected_config()

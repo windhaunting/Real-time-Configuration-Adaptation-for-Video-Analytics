@@ -30,6 +30,25 @@ def plotScatterLineOneFig(x_lst1, y_lst1, xlabel, ylabel, title_name):
     return fig
 
 
+def plotTwoLinesOneFigure(xList, yList1, yList2, xlabel, ylabel, title_name):
+    '''
+    plot two suplots   2X1 structure
+    '''
+    
+    plt.figure()
+    plt.plot(xList, yList1)
+    plt.plot(xList, yList2)
+    #plt.title('Moving speed of the cat')
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
+    plt.title(title_name)
+    plt.grid(True)
+    
+    return plt
+    
+
 def plotOneScatterLine(xList, yList, xlabel, ylabel, title_name):
     plt.figure()
     plt.plot(xList, yList)
@@ -55,3 +74,5 @@ def plotOneBar(xList, yList, xlabel, ylabel, title_name):
     plt.grid(True)
 
     return plt
+
+

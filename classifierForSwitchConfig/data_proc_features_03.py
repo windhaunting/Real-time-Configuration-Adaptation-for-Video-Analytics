@@ -293,6 +293,9 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
         #frm_rate = row['Frame_rate']
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
+        if index >= acc_frame_arr.shape[1]:
+            # no enough frame in the claculated accuracy arr
+            break
         
         if switching_config_skipped_frm < switching_config_inter_skip_cnts:
             switching_config_skipped_frm += 1
@@ -302,7 +305,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
         
         est_res = row['Estimation_result']
         
-        if str(est_res) == 'nan':  # here select_frm_cnt does not increase
+        if str(est_res) == 'nan':            # here select_frm_cnt does not increase
             skipped_frm_cnt += 1
             continue
         #print ("frm_id num_humans, ", reso, model, frm_id)
@@ -310,7 +313,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
         kp_arr = getPersonEstimation(est_res, personNo)
         #history_pose_est_dict[previous_frm_indx] = kp_arr
          
-        history_pose_est_arr[select_frm_cnt] = kp_arr
+        history_pose_est_arr[previous_frm_indx] = kp_arr
         #print ("kp_arr, ", kp_arr)
         #break    # debug only
         if previous_frm_indx> history_frame_num:
@@ -338,11 +341,11 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
             #print ("current_cofig: ", current_cofig)
-            frmRt = int(current_cofig.split('-')[1])
+            #frmRt = int(current_cofig.split('-')[1])
             
-            switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
+            #switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
             
-            switching_config_skipped_frm = 0
+            #switching_config_skipped_frm = 0
             
             select_frm_cnt += 1
 
@@ -354,7 +357,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
             break 
     
         
-    print ("feature1_speed_arr, ", select_frm_cnt, input_x_arr[history_frame_num:select_frm_cnt], input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
+    print ("input_x_arr, ", select_frm_cnt, input_x_arr[history_frame_num:select_frm_cnt], input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
 
     return input_x_arr[history_frame_num:select_frm_cnt], y_out_arr[history_frame_num+1:select_frm_cnt+1]
 
@@ -513,7 +516,7 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
    
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
     print ("frmRt_feature_arr, ",frmRt_feature_arr.shape, frmRt_feature_arr)
-    print ("feature1_speed_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
+    print ("input_x_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
 
     return input_x_arr, y_out_arr
 
@@ -762,6 +765,9 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
         #frm_rate = row['Frame_rate']
         #model = row['Model']
         #num_humans = row['numberOfHumans']        # number of human detected
+        if index >= acc_frame_arr.shape[1]:
+            # no enough frame in the claculated accuracy arr
+            break
         
         frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
         
@@ -859,7 +865,7 @@ def select_config(acc_frame_arr, spf_frame_arr, index_id, minAccuracy):
     need to use frm_id-1, index start from 0
     
     '''    
-    #print ("[:, frm_id-1]:", acc_frame_arr.shape, acc_frame_arr[:, frm_id-1], spf_frame_arr[:, frm_id-1])
+    #print ("[:, frm_id-1]:", acc_frame_arr.shape, index_id)
     
     indx_config_above_minAcc = np.where(acc_frame_arr[:, index_id] >= minAccuracy)      # the index of the config above the threshold minAccuracy
     #print("indx_config_above_minAcc: ", indx_config_above_minAcc, len(indx_config_above_minAcc[0]))
@@ -878,10 +884,9 @@ def select_config(acc_frame_arr, spf_frame_arr, index_id, minAccuracy):
 
     return selected_config_indx
 
+'''
 def getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num):
-    '''
-    this dataset Y
-    '''
+    #this dataset Y
 
     acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
     frm_id = 26
@@ -892,7 +897,7 @@ def getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num):
     
     print ("y_out_arr original:", y_out_arr.shape)
     return y_out_arr
-    
+'''
 
 def getDataExamples():
     
@@ -908,10 +913,10 @@ def getDataExamples():
         data_pickle_dir = dataDir2 + video_dir + 'frames_pickle_result/'
         minAccuracy = 0.85
 
-        #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+        x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
         #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
         #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
-        x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+        #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
         
         #y_out_arr = getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num)
         x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
