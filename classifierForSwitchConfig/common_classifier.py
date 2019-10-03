@@ -24,7 +24,7 @@ current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
 
 
-from profiling.common_prof import dataDir2
+from profiling.common_prof import dataDir3
 from profiling.common_prof import frameRates
 
 
@@ -58,12 +58,13 @@ def load_data_all_features(data_examples_dir, xfile, yfile):
 
 
 
-def feature_selection(data_examples_dir):
+def feature_selection(data_examples_dir, history_frame_num, max_frame_example_used):
     '''
     transfer input output into a csv and run it in weka 
-    '''
-    x_input_arr = np.load(data_examples_dir + 'X_data_features_config-history-frms1-sampleNum8025.pkl')
-    y_out_arr = np.load(data_examples_dir + 'Y_data_features_config-history-frms1-sampleNum8025.pkl')
+    '''                 
+        
+    x_input_arr = np.load(data_examples_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl")
+    y_out_arr = np.load(data_examples_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl")
     #x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], x_input_arr.shape[1]*x_input_arr.shape[2]))
     y_out_arr = y_out_arr.reshape((y_out_arr.shape[0], 1))
 
@@ -296,7 +297,7 @@ def read_config_name_resolution_only(data_pose_keypoint_dir, write_flag):
 
 if __name__== "__main__": 
 
-    data_pose_keypoint_dir =  dataDir2 + 'output_006-cardio_condition-20mins/'
+    #data_pose_keypoint_dir =  dataDir2 + 'output_006-cardio_condition-20mins/'
 
     #read_config_name_from_file(data_pose_keypoint_dir, True)
     #read_config_name_resolution_frmRate(data_pose_keypoint_dir, True) 
@@ -304,12 +305,20 @@ if __name__== "__main__":
     
     
     # feature selection
-    video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/'
-                     ]   
+    #video_dir_lst = ['output_001-dancing-10mins/', 'output_006-cardio_condition-20mins/', 'output_008-Marathon-20mins/']   
+    
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                    'output_003_dance/', 'output_004_dance/',  \
+                    'output_005_dance/', 'output_006_yoga/', \
+                    'output_007_yoga/', 'output_008_cardio/', \
+                    'output_009_cardio/', 'output_010_cardio/']
     
     for video_dir in video_dir_lst[0:1]: 
-        data_examples_dir =  dataDir2 + video_dir + 'data_examples_files/'
+        history_frame_num = 1  #1          # 
+        max_frame_example_used =  8000 # 20000 #8025   # 8000
+        
+        data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
         #data_examples_dir =  dataDir2 + 'output_006-cardio_condition-20mins/' + 'data_examples_files_resoFR_tuple/'
         #data_examples_dir =  dataDir2 + 'output_006-cardio_condition-20mins/' + 'data_examples_files_resolutionOnly/'
         
-        feature_selection(data_examples_dir)
+        feature_selection(data_examples_dir, history_frame_num, max_frame_example_used)

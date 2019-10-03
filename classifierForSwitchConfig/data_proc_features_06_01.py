@@ -931,7 +931,7 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
     
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, True)
     
-    print ("config_id_dict: ", len(config_id_dict))
+    print ("config_id_dict: ", len(config_id_dict), acc_frame_arr.shape, spf_frame_arr.shape, confg_est_frm_arr.shape)
     # only read the most expensive config
     filePathLst = sorted(glob(data_pose_keypoint_dir + "*1120x832_25_cmu_estimation_result*.tsv"))  # must read ground truth file(the most expensive config) first
     
@@ -1045,7 +1045,7 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
         previous_frm_indx += 1
         
         #how many are used for traing, validation, and test
-        if select_frm_cnt >= (max_frame_example_used-1):
+        if previous_frm_indx > (max_frame_example_used-1):
             break 
     
         

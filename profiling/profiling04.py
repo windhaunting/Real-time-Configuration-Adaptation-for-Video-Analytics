@@ -329,7 +329,7 @@ def execute_profiling_one_person():
                         '009_cardio_frames/', '010_cardio_frames/']
     
 
-    for input_frm_dir in lst_input_video_frms_dir[2:3]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
+    for input_frm_dir in lst_input_video_frms_dir[3:4]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
         input_dir = dataDir3 + input_frm_dir
         
         out_dir = dataDir3 + 'output_' + '_'.join(input_frm_dir.split('_')[:-1]) +'/'      # 004-output_Marathon-20mins_01/' 

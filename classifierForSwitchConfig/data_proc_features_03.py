@@ -353,7 +353,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
         previous_frm_indx += 1
         
         #how many are used for traing, validation, and test
-        if select_frm_cnt >= (max_frame_example_used-1):
+        if previous_frm_indx > (max_frame_example_used-1):
             break 
     
         

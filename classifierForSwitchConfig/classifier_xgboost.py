@@ -50,18 +50,21 @@ def xgbBoostTrainTest(X, y):
 
     # Splitting the dataset into the Training set and Test set
     
-    X_Train, X_Test, Y_Train, Y_Test = train_test_split(X, y, test_size = 0.2, random_state = 0)
-    print ("X_train X_test shape:", X_Train.shape, X_Test.shape)
+    X_train, X_Test, y_train, Y_Test = train_test_split(X, y, test_size = 0.2, random_state = 0)
    
+    from imblearn.over_sampling import RandomOverSampler
+    ros = RandomOverSampler(random_state=0)
+    X_train, y_train = ros.fit_resample(X_train, y_train)
+    print ("X_train X_test shape:", X_train.shape, X_Test.shape)
     # Feature Scaling
     sc_X = StandardScaler()
-    X_Train = sc_X.fit_transform(X_Train)
+    X_train = sc_X.fit_transform(X_train)
     X_Test = sc_X.transform(X_Test)
     
     # Fitting the classifier into the Training set
     classifier = XGBClassifier()
 
-    classifier.fit(X_Train,Y_Train)
+    classifier.fit(X_train,y_train)
     
     # Predicting the test set results
     
@@ -71,7 +74,7 @@ def xgbBoostTrainTest(X, y):
     accuracy = classifier.score(X_Test, Y_Test) 
     cm = confusion_matrix(Y_Test, Y_Pred)
     
-    training_accuracy = classifier.score(X_Train, Y_Train) 
+    training_accuracy = classifier.score(X_train, y_train) 
     print ("rftTrainTest predicted config: ", Y_Pred)
      
     print ("rftTrainTest training acc, cm: ", training_accuracy)
@@ -120,7 +123,7 @@ def execute_get_feature_boundedAcc(video_dir):
         pickle.dump(y_out_arr, fs)
 
 
-def execute_get_feature_boundedAcc_minDelay(video_dir, feature_calculation_flag):
+def execute_get_feature_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, feature_calculation_flag):
     '''
     most expensive config's pose result to get feature
 
@@ -128,8 +131,6 @@ def execute_get_feature_boundedAcc_minDelay(video_dir, feature_calculation_flag)
     
     data_pose_keypoint_dir =  dataDir3 + video_dir
 
-    history_frame_num = 1  #1          # 
-    max_frame_example_used =  10000 # 20000 #8025   # 8000
     data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
     minAccuracy = 0.9
     minDelayTreshold = 2        # 2 sec
@@ -188,12 +189,16 @@ def executeTest_feature_boundedAcc_minDelay():
         
     for video_dir in video_dir_lst[0:1]:   # [2:3]:   # [1:2]:  # [0:1]:  #[1:2]:  #[1:2]:         #[0:1]:
         
-        execute_get_feature_boundedAcc_minDelay(video_dir, 'most_expensive_config')
+                
+        history_frame_num = 1  #1          # 
+        max_frame_example_used =  8000 # 20000 #8025   # 8000
+    
+        execute_get_feature_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
         
         data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
-
-        xfile = 'X_data_features_config-history-frms1-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
-        yfile = 'Y_data_features_config-history-frms1-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+        
+        xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
+        yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl" #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
         
         #xfile = 'X_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
         #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'

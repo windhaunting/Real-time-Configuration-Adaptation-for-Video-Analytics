@@ -23,6 +23,8 @@ import matplotlib.pyplot as plt
 from blist import blist
 
 from collections import defaultdict
+from imblearn.over_sampling import SMOTE
+
 #from sklearn import datasets 
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
@@ -148,6 +150,12 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = None, shuffle = True) 
     
     
+    
+    #from imblearn.over_sampling import RandomOverSampler
+    #ros = RandomOverSampler(random_state=0)
+    #X_train, y_train = ros.fit_resample(X_train, y_train)
+    
+    
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
 
     getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_dir)   
@@ -165,12 +173,11 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     #X_train = pca.fit_transform(X_train)
     #X_test = pca.fit_transform(X_test)
     
-    scaler = StandardScaler()  # RobustScaler()
+    scaler =  RobustScaler()   # StandardScaler() 
     X_train = scaler.fit_transform(X_train)
     X_test =  scaler.fit_transform(X_test)
     
     
-
     print ("X_train X_test shape:",X_train.shape, X_test.shape)
     # training a linear SVM classifier 
     startTime = time.time()
@@ -293,18 +300,18 @@ def execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_
     minDelayTreshold = 2        # 2 sec
     
     if feature_calculation_flag == 'most_expensive_config':
-        from data_proc_features_03_01 import getOnePersonFeatureInputOutput05
+        from data_proc_features_03_02 import getOnePersonFeatureInputOutput01
     
     elif feature_calculation_flag == 'selected_config':
-        from data_proc_features_06_01 import getOnePersonFeatureInputOutput05
+        from data_proc_features_06_01 import getOnePersonFeatureInputOutput01
 
-    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
-    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
     
     #y_out_arr = getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num)
     x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
@@ -353,12 +360,12 @@ def executeTest_feature_classification():
     
         y_training_acc_lst = blist()
         y_testing_acc_lst = blist()
-        max_frame_example_used_lst = range(8000, 9000, 1000)   # range(3000, 10000, 500)
+        max_frame_example_used_lst = [8000]  # range(8000, 9000, 1000)   # range(3000, 10000, 500)
         for max_frame_example_used in max_frame_example_used_lst:
             
             #execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
-            #execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
-            execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'selected_config')
+            execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+            #execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'selected_config')
             
             data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
             
@@ -404,5 +411,4 @@ if __name__== "__main__":
     
     data_examples_dir =  dataDir3 + 'output_001_dance/' + 'data_examples_files/'
 
-    #feature_selection(data_examples_dir)
     executeTest_feature_classification()

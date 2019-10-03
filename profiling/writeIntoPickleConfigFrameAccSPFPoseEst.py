@@ -314,6 +314,9 @@ def write_config_frm_acc_result2(data_pose_keypoint_dir, confg_frm_est_arr, data
         tmp_arr = np.hstack((tmp_arr, confg_frm_est_arr[:, col_ind:col_ind+PLAYOUT_RATE]))
         
     print('tmp_arr, ddd: ', col_ind,  tmp_arr.shape)
+    
+    
+    # not finished yet
 '''
 
 def apply_acc_fun(arrs):
@@ -346,26 +349,6 @@ def calculate_config_frm_acc(ests_arr, gts_arr):
     
     return acc_arr
 
-''' 
-def write_config_frm_acc_result(confg_frm_est_arr, data_pickle_out_dir):
-    #frame-by-frame consideration
-    #get each config acc for each frame, frame rate is actually 25.
-    
-    # select the ground truth used config id, here it's a fixed number
-    # so id is 0, that is it's the first line
-    
-    gts_arr = confg_frm_est_arr[0]  #ground truth for each frame    1120*83-25-cmu
-    
-    config_frm_acc_arr = np.apply_along_axis(calculate_config_frm_acc, 1, confg_frm_est_arr, gts_arr)
-    
-    print ("config_frm_acc_arr1 final: ", config_frm_acc_arr.shape, config_frm_acc_arr[0])
-    print ("config_frm_acc_arr2 final: ", config_frm_acc_arr)
-    
-    out_frm_acc_pickle_file = data_pickle_out_dir + "config_acc_frm.pkl"      # acc for config vs each frame
-    
-    with open(out_frm_acc_pickle_file,'wb') as fs:
-        pickle.dump(config_frm_acc_arr, fs)   
- '''   
 
 
 def readConfigFrmSPfFile(data_pickle_dir):
@@ -441,7 +424,7 @@ def executeWriteIntoPickleOnePeron():
                     'output_009_cardio/', 'output_010_cardio/']
     
     
-    for vd_dir in video_dir_lst[1:2]:        # [3:4]:   # [0:1]:
+    for vd_dir in video_dir_lst[2:3]:        # [3:4]:   # [0:1]:
         
         data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
         if not os.path.exists(data_pickle_dir):
