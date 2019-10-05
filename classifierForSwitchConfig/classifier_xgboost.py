@@ -31,6 +31,8 @@ import pickle
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+from blist import blist
+
 from xgboost import XGBClassifier
 
 from sklearn.model_selection import train_test_split
@@ -62,24 +64,26 @@ def xgbBoostTrainTest(X, y):
     X_Test = sc_X.transform(X_Test)
     
     # Fitting the classifier into the Training set
-    classifier = XGBClassifier()
+    xgb_model = XGBClassifier()
 
-    classifier.fit(X_train,y_train)
+    xgb_model.fit(X_train,y_train)
     
     # Predicting the test set results
     
-    Y_Pred = classifier.predict(X_Test)
+    Y_Pred = xgb_model.predict(X_Test)
     
     # Making the Confusion Matrix 
-    accuracy = classifier.score(X_Test, Y_Test) 
+    test_acc_score = xgb_model.score(X_Test, Y_Test) 
     cm = confusion_matrix(Y_Test, Y_Pred)
     
-    training_accuracy = classifier.score(X_train, y_train) 
+    train_acc_score = xgb_model.score(X_train, y_train) 
     print ("rftTrainTest predicted config: ", Y_Pred)
      
-    print ("rftTrainTest training acc, cm: ", training_accuracy)
+    print ("rftTrainTest training acc, cm: ", train_acc_score)
 
-    print ("rftTrainTest testing acc, cm: ", accuracy,  cm)
+    print ("rftTrainTest testing acc, cm: ", test_acc_score,  cm)
+
+    return xgb_model, train_acc_score, test_acc_score
 
 def execute_get_feature_boundedAcc(video_dir):
     '''
@@ -123,7 +127,7 @@ def execute_get_feature_boundedAcc(video_dir):
         pickle.dump(y_out_arr, fs)
 
 
-def execute_get_feature_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, feature_calculation_flag):
+def execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, feature_calculation_flag):
     '''
     most expensive config's pose result to get feature
 
@@ -136,7 +140,7 @@ def execute_get_feature_boundedAcc_minDelay(history_frame_num, max_frame_example
     minDelayTreshold = 2        # 2 sec
     
     if feature_calculation_flag == 'most_expensive_config':
-        from data_proc_features_03_01 import getOnePersonFeatureInputOutput01
+        from data_proc_features_03_02 import getOnePersonFeatureInputOutput01
     
     elif feature_calculation_flag == 'selected_config':
         from data_proc_features_06_01 import getOnePersonFeatureInputOutput01
@@ -193,7 +197,7 @@ def executeTest_feature_boundedAcc_minDelay():
         history_frame_num = 1  #1          # 
         max_frame_example_used =  8000 # 20000 #8025   # 8000
     
-        execute_get_feature_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+        execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
         
         data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
         
@@ -208,7 +212,55 @@ def executeTest_feature_boundedAcc_minDelay():
    
 
 
+
+def combineMultipleVideoDataTrainTest():
+    '''
+    combine mutlipel data example together to train and test
+    '''
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                    'output_003_dance/', 'output_004_dance/',  \
+                    'output_005_dance/', 'output_006_yoga/', \
+                    'output_007_yoga/', 'output_008_cardio/', \
+                    'output_009_cardio/', 'output_010_cardio/']
+        
+
+    X_lst = blist()
+    y_lst = blist()
+    for video_dir in video_dir_lst[0:3]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+        data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
+            
+        history_frame_num = 1  #1          # 
+        max_frame_example_used =  8000 # 20000 #8025   # 8000
+        
+        execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+
+        xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
+        yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl" #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+        
+        #xfile = 'X_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
+        #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+        X,y= load_data_all_features(data_examples_dir, xfile, yfile)
+        print("X: ", X.shape, y.shape)
+        
+        X_lst.append(X)
+        y_lst.append(y.reshape(-1, 1))
+    
+    total_X = np.vstack(X_lst)
+    total_y = np.vstack(y_lst)
+    
+    print("total_X: ", total_X.shape, total_y.shape)
+    
+    data_pose_keypoint_dir =  dataDir3 + video_dir
+    
+    kernel =  'rbf'  # 'rbf' #'poly'  #'sigmoid'  # 'rbf'    # 'linear'
+    data_plot_dir = dataDir3 + video_dir +'classifier_result/'
+    if not os.path.exists(data_plot_dir):
+        os.mkdir(data_plot_dir)
+
+    svm_model, train_acc_score, test_acc_score = xgbBoostTrainTest(total_X, total_y)
+            
+    
 if __name__== "__main__": 
     
-    executeTest_feature_boundedAcc_minDelay()
-    
+    #executeTest_feature_boundedAcc_minDelay()
+    combineMultipleVideoDataTrainTest()

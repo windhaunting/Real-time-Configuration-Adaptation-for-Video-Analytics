@@ -168,7 +168,7 @@ def profiling_Video_MaxFrameRate_OpenPose(inputDir, outDir):
                             human_no = len(humans_pose_lst)
                             humans_poses = ";".join(human for human in humans_pose_lst)
     
-                    if frmCnt % (1000) == 0:        # every other 4s to print only
+                    if frmCnt % (3000) == 0:        # every other 4s to print only
                         print ("profiling_Video_MaxFrameRate_OpenPose 00 frames finished inference result: ", imgPath, mod, res, elapsedTime)
                     
                     #save into file
@@ -282,7 +282,7 @@ def profilingOneVideoMaxFrameRateFrameByFrame_CPN(inputDir, outDir):
                             humans_poses = ";".join(human for human in humans_pose_lst)               
                             
     
-                    if frmCnt % (1000) == 0:        # every other 4s to print only
+                    if frmCnt % (3000) == 0:        # every other 4s to print only
                         print ("profilingOneVideoMaxFrameRateFrameByFrame_CPN 00 frames finished inference result: ", imgPath, mod, res, elapsedTime)
                     
                     #save into file
@@ -329,13 +329,13 @@ def execute_profiling_one_person():
                         '009_cardio_frames/', '010_cardio_frames/']
     
 
-    for input_frm_dir in lst_input_video_frms_dir[3:4]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
+    for input_frm_dir in lst_input_video_frms_dir[4:5]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
         input_dir = dataDir3 + input_frm_dir
         
         out_dir = dataDir3 + 'output_' + '_'.join(input_frm_dir.split('_')[:-1]) +'/'      # 004-output_Marathon-20mins_01/' 
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
-        #profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
+        profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
         profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
         
 

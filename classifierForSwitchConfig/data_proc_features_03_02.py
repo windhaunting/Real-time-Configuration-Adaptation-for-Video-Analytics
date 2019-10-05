@@ -6,13 +6,14 @@ Created on Thu Sep 19 23:33:33 2019
 @author: fubao
 """
 
+# the main difference with 03_01.py is consider skipping one second each interval to get the next frame when switching
 # calculate EMA feature Feature_One: calculate the EMA of current speed + relative speed. The current speed use only current frame and it previous one frame
 # consider the switching policy with bounded accuracy and bounded threshold, 
 
 # consider the current delay as a feature
 
 # use the most expensive config's pose estimation result to calcualate the speed feature
-#consider the switching based on the selected config for next frame
+#consider the switching based on the selected config for next frame and frame_rate considered to skip
 
 
 # also set a threshold of delay to change the policy of switching config, which is used for ground truth
@@ -153,7 +154,7 @@ def getFeatureOnePersonMovingSpeed(history_pose_est_arr, current_frm_id, skipped
     hstack_arr = np.hstack((cur_frm_est_arr, prev_frm_est_arr))
     #frmInter = math.ceil(PLAYOUT_RATE/curr_frm_rate)          # frame rate sampling frames in interval, +1 every other
 
-    time_frm_interval = (1.0/curr_frm_rate)*(skipped_frm_cnt+1)
+    time_frm_interval = 1*(1.0/PLAYOUT_RATE)*(skipped_frm_cnt+1)     #(1.0/curr_frm_rate)*(skipped_frm_cnt+1)
     #time_frm_interval = 1.0/PLAYOUT_RATE
     current_speed_angle_arr = np.apply_along_axis(getEuclideanDist, 1, hstack_arr, time_frm_interval)    
     
@@ -228,7 +229,7 @@ def getFeatureOnePersonRelativeSpeed(history_pose_est_arr, current_frm_id, skipp
 
     #frmInter = math.ceil(PLAYOUT_RATE/curr_frm_rate)          # frame rate sampling frames in interval, +1 every other
 
-    time_frm_interval = (1.0/curr_frm_rate)*(skipped_frm_cnt+1)
+    time_frm_interval = 1*(1.0/PLAYOUT_RATE)*(skipped_frm_cnt+1)   #(1.0/curr_frm_rate)*(skipped_frm_cnt+1)
     
     current_speed_arr = relativeSpeed(curr_frm_rel_dist_arr, previous_frm_arr, time_frm_interval)
     
@@ -280,7 +281,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
     
     history_pose_est_arr = np.zeros((max_frame_example_used+1, COCO_KP_NUM, 2)) # np.zeros((len(df_det), COCO_KP_NUM, 2))        #  to make not shift when new frames comes, we store all values
     
-    previous_frm_indx = 1
+    previous_frm_indx = 0
     
     
     input_x_arr = np.zeros((max_frame_example_used, 21, 2))       # 17 + 4
@@ -295,7 +296,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
     select_frm_cnt = 0
     skipped_frm_cnt = 0
 
-    switching_config_skipped_frm = 0
+    switching_config_skipped_frm = -1
     switching_config_inter_skip_cnts = 0
     
     selected_configs_acc_lst = blist()      # check the selected config's for all frame's lst, in order to get the accuracy
@@ -309,10 +310,10 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
         if index >= acc_frame_arr.shape[1]:
             break            
         
-
-        #if switching_config_skipped_frm < switching_config_inter_skip_cnts:
-        #    switching_config_skipped_frm += 1
-        #    continue
+        # skipping interval by frame_rate
+        if switching_config_skipped_frm != - 1 and switching_config_skipped_frm < switching_config_inter_skip_cnts:   # switching_config_inter_skip_cnts:
+            switching_config_skipped_frm += 1
+            continue
         
         frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
         
@@ -331,7 +332,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
         history_pose_est_arr[previous_frm_indx] = kp_arr
         #print ("kp_arr, ", kp_arr)
         #break    # debug only
-        if previous_frm_indx> history_frame_num:
+        if previous_frm_indx>= history_frame_num:
             #print ("previous_frm_indx, ", previous_frm_indx, index)
             
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
@@ -354,7 +355,8 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
             #print ("total_features_arr: ", frm_id-1)
             #previous_frm_indx = 1
                 
-            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1+skipped_frm_cnt, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
+            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1+skipped_frm_cnt, 
+                     switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold, id_config_dict)
                         
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
@@ -363,18 +365,21 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
             selected_configs_acc_lst.append(selected_config_acc)
             #print ("current_cofig: ", current_cofig)
             
-            #frmRt = int(current_cofig.split('-')[1])
+            current_config_frmRt = int(current_cofig.split('-')[1])
             
-            #switching_config_inter_skip_cnts = math.ceil(PLAYOUT_RATE/frmRt)-1
-        
+            if switching_config_skipped_frm == - 1:
+                switching_config_inter_skip_cnts = PLAYOUT_RATE-1 #  math.ceil(PLAYOUT_RATE/current_config_frmRt)-2  #       #math.ceil(PLAYOUT_RATE/frmRt)-1
+            else:
+                switching_config_inter_skip_cnts = PLAYOUT_RATE  # math.ceil(PLAYOUT_RATE/current_config_frmRt)-1  # PLAYOUT_RATE
+                
             skipped_frm_cnt = 0       
-            select_frm_cnt += 1
-            #switching_config_skipped_frm = 0
+            select_frm_cnt += 1 
+            switching_config_skipped_frm = 0
 
         previous_frm_indx += 1
         
         #how many are used for traing, validation, and test
-        if previous_frm_indx > (max_frame_example_used-1):
+        if index > (max_frame_example_used-1):
             break 
     
     
@@ -382,7 +387,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
        
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
 
-    print ("input_x_arr, ", select_frm_cnt, input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape, current_delay, len(selected_configs_acc_lst), sum(selected_configs_acc_lst)/len(selected_configs_acc_lst))
+    print ("input_x_arraaaxxx, ", select_frm_cnt, input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape, current_delay, len(selected_configs_acc_lst), sum(selected_configs_acc_lst)/len(selected_configs_acc_lst))
 
     return input_x_arr, y_out_arr
 
@@ -1018,7 +1023,7 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
             #print ("total_features_arr: ", frm_id-1)
             #previous_frm_indx = 1
                 
-            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold)
+            y_out_arr[select_frm_cnt+1], current_delay = select_config(acc_frame_arr, spf_frame_arr, history_frame_num, select_frm_cnt+1, switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy, current_delay, minDelayTreshold, id_config_dict)
                         
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
@@ -1063,7 +1068,7 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
 
 
 
-def select_config(acc_frame_arr, spf_frame_arr, history_frame_num, index_id, switching_frm_num,  minAccuracy, current_delay, minDelayTreshold):
+def select_config(acc_frame_arr, spf_frame_arr, history_frame_num, index_id, switching_frm_num,  minAccuracy, current_delay, minDelayTreshold, id_config_dict):
     '''
     index start from 0
     
@@ -1089,8 +1094,17 @@ def select_config(acc_frame_arr, spf_frame_arr, history_frame_num, index_id, swi
     #print ("gggg: ", current_delay_cpy)
     for r in indx_acc_selected_arr[0][::-1] :    # descending
         
-        current_delay_cpy += spf_frame_arr[indx_config_above_minAcc[0][r]][index_id]    # consumed time
-        current_delay_cpy -= (switching_frm_num+1)*(1/PLAYOUT_RATE)       # streamed time only 1 frame by 1 frame
+        selected_config_id = indx_config_above_minAcc[0][r]
+        
+        selected_config = id_config_dict[selected_config_id]
+        frmRt = int(selected_config.split('-')[1])
+        inter= math.ceil(PLAYOUT_RATE/frmRt)
+        i = 0
+        while (i < PLAYOUT_RATE):
+            #current_delay_cpy += spf_frame_arr[indx_config_above_minAcc[0][r]][index_id]    # consumed time
+            current_delay_cpy += spf_frame_arr[indx_config_above_minAcc[0][r]][index_id+i]    # consumed time
+            i += inter
+        current_delay_cpy -= (switching_frm_num+1)*(1.0/PLAYOUT_RATE)       # streamed time only 1 s
         #print ("mmmmmm: ", current_delay_cpy, spf_frame_arr[indx_config_above_minAcc[0][r]][index_id], (switching_frm_num+1)*(1/PLAYOUT_RATE))
         if current_delay_cpy <= 0:
             current_delay_cpy = 0.0
@@ -1109,8 +1123,18 @@ def select_config(acc_frame_arr, spf_frame_arr, history_frame_num, index_id, swi
     selected_config_indx = indx_config_above_minAcc[0][tmp_config_indx]      # final selected indx from all config_indx
     #print ("final selected_config_indx:",selected_config_indx, spf_frame_arr[selected_config_indx, frm_id-1] )
     
-    current_delay_cpy += spf_frame_arr[selected_config_indx][index_id]    # consumed time
-    current_delay_cpy  -=  (1/PLAYOUT_RATE)        # streamed time
+        
+    selected_config = id_config_dict[selected_config_indx]
+    frmRt = int(selected_config.split('-')[1])
+    inter= math.ceil(PLAYOUT_RATE/frmRt)
+    i = 0
+    while (i < PLAYOUT_RATE):
+        #current_delay_cpy += spf_frame_arr[indx_config_above_minAcc[0][r]][index_id]    # consumed time
+        current_delay_cpy += spf_frame_arr[selected_config_indx][index_id+i]    # consumed time
+
+        i += inter
+            
+    current_delay_cpy  -=  (switching_frm_num+1)*(1.0/PLAYOUT_RATE)        # streamed time
     
     #print ("current_delay selected_config_indx: ", current_delay_cpy, selected_config_indx)
     return selected_config_indx, current_delay_cpy

@@ -149,17 +149,13 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = None, shuffle = True) 
     
-    
-    
-    #from imblearn.over_sampling import RandomOverSampler
-    #ros = RandomOverSampler(random_state=0)
-    #X_train, y_train = ros.fit_resample(X_train, y_train)
-    
-    
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
 
     getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_dir)   
     
+    #from imblearn.over_sampling import RandomOverSampler
+    #ros = RandomOverSampler(random_state=0)
+    #X_train, y_train = ros.fit_resample(X_train, y_train)
     
     #xxx
     #count_y_dict = dict(zip(unique, counts))
@@ -183,7 +179,7 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     startTime = time.time()
      
     #svm_model = SVC(kernel = kernel, C = 1, class_weight='balanced').fit(X_train, y_train) 
-    svm_model = SVC(kernel = kernel, C = 10).fit(X_train, y_train) 
+    svm_model = SVC(kernel = kernel, C = 1).fit(X_train, y_train) 
     #    svm_model = SVC(kernel = kernel, C = 1, gamma=1e-3).fit(X_train, y_train) 
     print ("elapsed training time: ", time.time() - startTime)
     
@@ -297,7 +293,7 @@ def execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_
 
     data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
     minAccuracy = 0.9
-    minDelayTreshold = 2        # 2 sec
+    minDelayTreshold = 2      # 2 sec
     
     if feature_calculation_flag == 'most_expensive_config':
         from data_proc_features_03_02 import getOnePersonFeatureInputOutput01
@@ -353,7 +349,7 @@ def executeTest_feature_classification():
                     'output_007_yoga/', 'output_008_cardio/', \
                     'output_009_cardio/', 'output_010_cardio/']
         
-    for video_dir in video_dir_lst[0:1]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst[2:3]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
         
         history_frame_num = 1  #1          # 
         max_frame_example_used =  8000 # 20000 #8025   # 8000
@@ -406,9 +402,57 @@ def executeTest_feature_classification():
 
     plt.savefig(outputPlotPdf)
 
+
+def combineMultipleVideoDataTrainTest():
+    '''
+    combine mutlipel data example together to train and test
+    '''
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                    'output_003_dance/', 'output_004_dance/',  \
+                    'output_005_dance/', 'output_006_yoga/', \
+                    'output_007_yoga/', 'output_008_cardio/', \
+                    'output_009_cardio/', 'output_010_cardio/']
+        
+
+    X_lst = blist()
+    y_lst = blist()
+    for video_dir in video_dir_lst[0:4]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+        data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
+            
+        history_frame_num = 1  #1          # 
+        max_frame_example_used =  10000 # 20000 #8025   # 10000
+        
+        execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+
+        xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
+        yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl" #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+        
+        #xfile = 'X_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
+        #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+        X,y= load_data_all_features(data_examples_dir, xfile, yfile)
+        print("X: ", X.shape, y.shape)
+        
+        X_lst.append(X)
+        y_lst.append(y.reshape(-1, 1))
+    
+    total_X = np.vstack(X_lst)
+    total_y = np.vstack(y_lst)
+    
+    print("total_X: ", total_X.shape, total_y.shape)
+    
+    data_pose_keypoint_dir =  dataDir3 + video_dir
+    
+    kernel =  'rbf'  # 'rbf' #'poly'  #'sigmoid'  # 'rbf'    # 'linear'
+    data_plot_dir = dataDir3 + video_dir +'classifier_result/'
+    if not os.path.exists(data_plot_dir):
+        os.mkdir(data_plot_dir)
+
+    svm_model, train_acc_score, test_acc_score = svmTrainTest(data_plot_dir, data_pose_keypoint_dir, total_X, total_y, kernel)
+            
     
 if __name__== "__main__": 
     
     data_examples_dir =  dataDir3 + 'output_001_dance/' + 'data_examples_files/'
 
-    executeTest_feature_classification()
+    #executeTest_feature_classification()
+    combineMultipleVideoDataTrainTest()
