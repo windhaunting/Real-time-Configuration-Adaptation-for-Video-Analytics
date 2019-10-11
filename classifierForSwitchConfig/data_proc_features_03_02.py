@@ -66,7 +66,27 @@ COCO_KP_NUM = 17      # total 17 keypoints
 {18, "Bkg"}},
 '''
 
+# the keypoint printout in csv is actually tensorflow coco format
 
+'''
+0	nose
+1	leftEye
+2	rightEye
+3	leftEar
+4	rightEar
+5	leftShoulder
+6	rightShoulder
+7	leftElbow
+8	rightElbow
+9	leftWrist
+10	rightWrist
+11	leftHip
+12	rightHip
+13	leftKnee
+14	rightKnee
+15	leftAnkle
+16	rightAnkle
+'''
 # use EMA EMA(current) = ( (Price(current) - EMA(prev) ) x Multiplier) + EMA(prev)
 # =  Price(current)  x Multiplier)   + (1-Multiplier) * EMA(prev) 
 
@@ -563,13 +583,14 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
     return input_x_arr, y_out_arr
 
 
-def getConfigFeature(history_config_arr, prev_config_aver):
+def getConfigFeature(history_config_arr, select_frm_cnt, prev_config_aver):
     
     
-    if history_config_arr.shape[0] < 10:
-        current_confg_aver = np.mean(history_config_arr)
+    if select_frm_cnt < 2:
+        current_confg_aver = np.mean(history_config_arr[:select_frm_cnt+1])
     else:
-        current_confg_aver = np.mean(history_config_arr[0:10])
+        current_confg_aver = np.mean(history_config_arr[select_frm_cnt-1:select_frm_cnt])
+    #print ("CCCCCCCC:" , history_config_arr, prev_config_aver)
     feature_confg = int(current_confg_aver * ALPHA_EMA  + (1-ALPHA_EMA) * prev_config_aver)
 
     return feature_confg

@@ -56,7 +56,7 @@ def load_openPose_model(model, reso):
 
 def transfer_coco_keyPoint_format(humanDict, img_w, img_h):
     '''
-    transfer to coco format of keypoint
+    transfer from coco format of keypoint
     https://www.tensorflow.org/lite/models/pose_estimation/overview    
     https://www.learnopencv.com/deep-learning-based-human-pose-estimation-using-opencv-cpp-python/
     '''

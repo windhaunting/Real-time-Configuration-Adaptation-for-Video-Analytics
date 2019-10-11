@@ -17,8 +17,12 @@ import numpy as np
 
 from glob import glob
 from blist import blist
+from matplotlib import pyplot as plot
+from matplotlib.backends.backend_pdf import PdfPages
 
 from sklearn.preprocessing import OneHotEncoder
+from common_plot import plotTwoLinesOneFigure
+from common_plot import plotTwoSubplots
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -56,6 +60,54 @@ def load_data_all_features(data_examples_dir, xfile, yfile):
     return x_input_arr, y_out_arr          # debug only 1000 first
 
 
+def parseToResolution(cls_id, id_config_dict):
+    #
+    
+    cls_id = int(cls_id)
+    config = id_config_dict[cls_id]
+    
+    reso = int(config.split("-")[0].split("x")[1])
+    
+    return reso
+    
+def checkCorrelationPlot(data_pose_keypoint_dir, input_x_arr, out_y_arr, id_config_dict):
+    '''
+    visualize correlation
+    '''
+    outDir = data_pose_keypoint_dir + "classifier_result/"
+    
+    pdf_pages = PdfPages( outDir + 'correlation_vis_all_config.pdf')
+
+
+    print ("out_y_arr: ", input_x_arr.shape, out_y_arr.shape)
+    out_y_arr = out_y_arr.reshape((-1, 1))
+    #output y class transfer to resolution
+    reso_out_y_arr = np.apply_along_axis(parseToResolution, 1, out_y_arr, id_config_dict)
+    
+    print ("reso_out_y_arr: ", reso_out_y_arr)
+    instance_num = input_x_arr.shape[0]
+    feature_num = input_x_arr.shape[1]
+    
+    
+    xList = range(0, instance_num)
+    for i in range(0, feature_num):
+        
+        yList1 = input_x_arr[:, i]
+        yList2 =  reso_out_y_arr
+    # Create a figure instance (ie. a new page)
+        xlabel = 'Instance number'
+        ylabel1 = 'Feature value'
+        ylabel2 = 'Ouput_class(Resolution)'
+        title_name = ''
+        #fig = plotTwoLinesOneFigure(xList, yList1, yList2, xlabel, ylabel, title_name)
+        
+        fig = plotTwoSubplots(xList, yList1, yList2, xlabel, ylabel1, ylabel2, title_name)
+        # Plot whatever you wish to plot
+     
+        # Done with the page
+        pdf_pages.savefig(fig)
+    pdf_pages.close()
+    
 
 
 def feature_selection(data_examples_dir, history_frame_num, max_frame_example_used):
@@ -75,7 +127,30 @@ def feature_selection(data_examples_dir, history_frame_num, max_frame_example_us
     np.savetxt( data_examples_dir + "data_example_history_frms1.csv", data_example_arr, delimiter=",", header = header_lst)
     
  
-
+    
+def getParetoBoundary(acc_arr, spf_arr):
+    #acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
+    
+    
+    # given a config of accuracy and spf
+    num_confg = acc_arr.shape[0]
+    
+    config_ind_pareto = []
+    print ("acc_shape: ", num_confg)
+    for i in range(0, num_confg):
+        found_flag = True
+        for j in range(0, num_confg):
+            if i == j:
+                continue
+            if acc_arr[j] > acc_arr[i] and spf_arr[j] < spf_arr[i]:
+                found_flag = False
+                break
+            
+        if found_flag:
+            config_ind_pareto.append(i)
+        
+    return config_ind_pareto
+    
 def getNewconfig(reso, model):
     '''
     get new config from all available frames
@@ -151,7 +226,7 @@ def read_poseEst_conf_frm(data_pickle_dir):
     #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
     #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
     
-    print ("confg_est_frm_arr ", type(confg_est_frm_arr))
+    print ("confg_est_frm_arr ", type(confg_est_frm_arr), confg_est_frm_arr.shape)
     
     return confg_est_frm_arr
 
@@ -313,9 +388,9 @@ if __name__== "__main__":
                     'output_007_yoga/', 'output_008_cardio/', \
                     'output_009_cardio/', 'output_010_cardio/']
     
-    for video_dir in video_dir_lst[0:1]: 
+    for video_dir in video_dir_lst[4:5]:  #[0:1]: 
         history_frame_num = 1  #1          # 
-        max_frame_example_used =  8000 # 20000 #8025   # 8000
+        max_frame_example_used = 10000 # 8000 # 20000 #8025   # 8000
         
         data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
         #data_examples_dir =  dataDir2 + 'output_006-cardio_condition-20mins/' + 'data_examples_files_resoFR_tuple/'

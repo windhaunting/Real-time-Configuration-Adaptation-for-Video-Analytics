@@ -226,7 +226,7 @@ def combineMultipleVideoDataTrainTest():
 
     X_lst = blist()
     y_lst = blist()
-    for video_dir in video_dir_lst[0:3]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst[0:5]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
         data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
             
         history_frame_num = 1  #1          # 

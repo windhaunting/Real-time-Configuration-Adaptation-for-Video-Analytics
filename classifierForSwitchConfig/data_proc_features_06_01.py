@@ -557,13 +557,14 @@ def getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  h
     return input_x_arr, y_out_arr
 
 
-def getConfigFeature(history_config_arr, prev_config_aver):
+def getConfigFeature(history_config_arr, select_frm_cnt, prev_config_aver):
     
     
-    if history_config_arr.shape[0] < 10:
-        current_confg_aver = np.mean(history_config_arr)
+    if select_frm_cnt < 2:
+        current_confg_aver = np.mean(history_config_arr[:select_frm_cnt+1])
     else:
-        current_confg_aver = np.mean(history_config_arr[0:10])
+        current_confg_aver = np.mean(history_config_arr[select_frm_cnt-1:select_frm_cnt])
+    #print ("CCCCCCCC:" , history_config_arr, prev_config_aver)
     feature_confg = int(current_confg_aver * ALPHA_EMA  + (1-ALPHA_EMA) * prev_config_aver)
 
     return feature_confg

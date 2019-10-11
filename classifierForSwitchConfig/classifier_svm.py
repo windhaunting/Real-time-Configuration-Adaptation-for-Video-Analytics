@@ -29,7 +29,7 @@ from imblearn.over_sampling import SMOTE
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
 
-from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, classification_report, balanced_accuracy_score
+from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, precision_recall_fscore_support, classification_report, balanced_accuracy_score, precision_recall_curve, roc_curve
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.svm import SVC 
 from sklearn.externals import joblib
@@ -145,7 +145,13 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     '''
     '''
     
-    print ("svmTrainTest y output datasample config: ", y)
+    #print ("svmTrainTest y output datasample config: ", y)
+    
+    
+    #from sklearn.feature_selection import SelectKBest
+    #from sklearn.feature_selection import chi2
+    #X = SelectKBest(chi2, k = 20).fit_transform(X, y)
+
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = None, shuffle = True) 
     
@@ -164,17 +170,18 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     
     #print ("count_y_dict: ", count_y_dict, type(unique), counts, len(unique))
     
-    #return
-    #pca = PCA(n_components=5, svd_solver='full')
+    #pca = PCA(n_components=15, svd_solver='full')
     #X_train = pca.fit_transform(X_train)
     #X_test = pca.fit_transform(X_test)
+    
+    
     
     scaler =  RobustScaler()   # StandardScaler() 
     X_train = scaler.fit_transform(X_train)
     X_test =  scaler.fit_transform(X_test)
     
     
-    print ("X_train X_test shape:",X_train.shape, X_test.shape)
+    print ("X_train X_test shape:", X_train.shape, X_test.shape)
     # training a linear SVM classifier 
     startTime = time.time()
      
@@ -197,9 +204,16 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     print ("svmTrainTest training acc: ", train_acc_score)
     print ("svmTrainTest testing acc cm, f1-score: ", test_acc_score, cm, F1_test_score)
 
+    precision, recall, fscore, support = precision_recall_fscore_support(y_test, y_pred)
+
+    print('svmTrainTest precision: {}'.format(precision))
+    print('svmTrainTest recall: {}'.format(recall))
+    print('svmTrainTest f1score: {}'.format(fscore))
+    print('svmTrainTest support: {}'.format(support))
+
     return svm_model, train_acc_score, test_acc_score
 
-    
+
 def svmCrossValidTrainTest(X,y, model_output_path):
         # Splitting data into train, validation and test set
     # 70% training set, 30% test set
@@ -244,16 +258,18 @@ def execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_u
         
 
     data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
-    minAccuracy = 0.9
+    minAccuracy = 0.85
 
     if feature_calculation_flag == 'most_expensive_config':
-        from data_proc_features_03 import getOnePersonFeatureInputOutput01
+        from data_proc_features_03 import getOnePersonFeatureInputOutputAll001
         
-    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
-            
+
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+ 
     x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
             
     # add current config as a feature
@@ -292,7 +308,7 @@ def execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_
 
 
     data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
-    minAccuracy = 0.9
+    minAccuracy = 0.85
     minDelayTreshold = 2      # 2 sec
     
     if feature_calculation_flag == 'most_expensive_config':
@@ -416,13 +432,13 @@ def combineMultipleVideoDataTrainTest():
 
     X_lst = blist()
     y_lst = blist()
-    for video_dir in video_dir_lst[0:4]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst[0:7]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
         data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
             
         history_frame_num = 1  #1          # 
         max_frame_example_used =  10000 # 20000 #8025   # 10000
-        
-        execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+        execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+        #execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
 
         xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
         yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl" #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
