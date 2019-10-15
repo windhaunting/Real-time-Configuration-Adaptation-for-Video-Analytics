@@ -424,7 +424,7 @@ def executeWriteIntoPickleOnePeron():
                     'output_009_cardio/', 'output_010_cardio/']
     
     
-    for vd_dir in video_dir_lst[2:3]:        # [3:4]:   # [0:1]:
+    for vd_dir in video_dir_lst[0:1]:        # [3:4]:   # [0:1]:
         
         data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
         if not os.path.exists(data_pickle_dir):
@@ -433,12 +433,12 @@ def executeWriteIntoPickleOnePeron():
             
         write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir)
         
+        '''
         data_pose_keypoint_dir = dataDir3 +  vd_dir
         confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
         write_config_frm_acc_result(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir)
         
-        #write_config_frm_acc_result2(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir)
-        
+        '''
 
 
 if __name__== "__main__":

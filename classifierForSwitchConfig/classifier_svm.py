@@ -148,9 +148,9 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     #print ("svmTrainTest y output datasample config: ", y)
     
     
-    #from sklearn.feature_selection import SelectKBest
-    #from sklearn.feature_selection import chi2
-    #X = SelectKBest(chi2, k = 20).fit_transform(X, y)
+    from sklearn.feature_selection import SelectKBest
+    from sklearn.feature_selection import chi2
+    X = SelectKBest(chi2, k = 20).fit_transform(X, y)
 
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = None, shuffle = True) 

@@ -36,9 +36,12 @@ current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
 
 
-from profiling.common_prof import dataDir2
+from profiling.common_prof import dataDir3
 from profiling.common_prof import frameRates
 from profiling.common_prof import PLAYOUT_RATE
+
+from profiling.common_prof import computeOKS
+from profiling.common_prof import computeOKSAP
 
 COCO_KP_NUM = 17      # total 17 keypoints
 
@@ -92,7 +95,7 @@ COCO_KP_NUM = 17      # total 17 keypoints
 # =  Price(current)  x Multiplier)   + (1-Multiplier) * EMA(prev) 
 
 
-ALPHA_EMA = 0.9      # EMA
+ALPHA_EMA = 0.2      # EMA
 
 def getPersonEstimation(est_res, personNo):
     '''
@@ -1048,6 +1051,9 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
 
 
 def getFeatureRelativeDistanceClosenessKeyPoint(history_pose_est_arr, current_frm_id):
+    '''
+    closeness feature; relative vector distance
+    '''
     
     cur_frm_est_arr = history_pose_est_arr[current_frm_id]
     #[9, 10, 15, 16, 11];  [9, 10, 15, 16, 12];   [9, 10, 15, 16, 5] [9, 10, 15, 16, 6] 
@@ -1087,6 +1093,9 @@ def getFeatureRelativeDistanceClosenessKeyPoint(history_pose_est_arr, current_fr
 
 
 def getFeatureDistanceToCamera(history_pose_est_arr, current_frm_id):
+    '''
+    person size feature
+    '''
     
     cur_frm_est_arr = history_pose_est_arr[current_frm_id]
     #[9, 10, 15, 16, 11];  [9, 10, 15, 16, 12];   [9, 10, 15, 16, 5] [9, 10, 15, 16, 6] 
@@ -1100,6 +1109,23 @@ def getFeatureDistanceToCamera(history_pose_est_arr, current_frm_id):
     
     return cameraDistance_feature
 
+
+def blurrinessFeature(confg_est_frm_arr, current_frm_id):
+    '''
+    blurrinessScore can be calculated in 2 ways, 1th using the direct opencv Lapcian method to calculate the frame's blurriness
+    2nd use the lowest resolution's acc to indirectly simulate the bllurriness
+    '''
+    lowest_config_id = 70
+    gt_result = confg_est_frm_arr[0, current_frm_id]
+    est_result = confg_est_frm_arr[lowest_config_id, current_frm_id]
+    img_path = str(current_frm_id) + '.jpg'
+    
+    blurrinessScore = computeOKS(est_result, gt_result, img_path)
+    
+    print ("blurrinessScore: ", blurrinessScore)
+    
+    xxx
+    return blurrinessScore
 
 def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy):
     '''
@@ -1166,7 +1192,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     
     input_x_arr = np.zeros((max_frame_example_used, 66, 2))       # 17 + 4*4 + 4*4 + 5
-    y_out_arr = np.zeros((max_frame_example_used), dtype=int)
+    y_out_arr = np.zeros((max_frame_example_used+1), dtype=int)
     
     prev_EMA_speed_arr = np.zeros((COCO_KP_NUM, 2))
     
@@ -1187,6 +1213,9 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     frmRt_feature_arr = np.zeros(max_frame_example_used)
     history_frmRt_arr = np.zeros(max_frame_example_used)
     prev_frmRt_aver = 0.0
+    
+    
+    blurriness_feature_arr = np.zeros(max_frame_example_used)
     
     select_frm_cnt = 0
     skipped_frm_cnt = 0
@@ -1251,7 +1280,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             feature5_relative_speed_arr = getFeatureOnePersonRelativeSpeed3(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr5)
             prev_EMA_relative_speed_arr5 = feature5_relative_speed_arr
             
-                        
+            
             current_frame_relative_distance_arr = getFeatureRelativeDistanceClosenessKeyPoint(history_pose_est_arr, select_frm_cnt)
             
             cameraDistance_feature = getFeatureDistanceToCamera(history_pose_est_arr, select_frm_cnt)
@@ -1276,7 +1305,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             #print ("total_features_arr: ", frm_id-1)
             #previous_frm_indx = 1
                 
-            y_out_arr[select_frm_cnt] = select_config(acc_frame_arr, spf_frame_arr,  select_frm_cnt+1+switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy)
+            y_out_arr[select_frm_cnt+1] = select_config(acc_frame_arr, spf_frame_arr,  select_frm_cnt+1+switching_config_inter_skip_cnts+skipped_frm_cnt, minAccuracy)
                         
             current_cofig = id_config_dict[int(y_out_arr[select_frm_cnt])]
             
@@ -1322,6 +1351,10 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             
             frmRt_feature_arr[select_frm_cnt] = curr_frmRt_aver
             
+            
+            blurrinessFeature =  blurrinessFeature(confg_est_frm_arr, current_frm_id)
+            blurriness_feature_arr[select_frm_cnt] = blurrinessFeature
+            
             skipped_frm_cnt = 0       
             select_frm_cnt += 1 
             switching_config_skipped_frm = 0
@@ -1349,8 +1382,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     
     
-    y_out_arr = y_out_arr[history_frame_num:select_frm_cnt]
-    print ("reso_feature_arr, ",reso_feature_arr.shape, reso_feature_arr)
+    y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt]
+    print ("reso_feature_arr, ", reso_feature_arr.shape, reso_feature_arr)
     print ("feature1_speed_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
 
     #checkCorrelationPlot(data_pose_keypoint_dir, input_x_arr, y_out_arr, id_config_dict)
