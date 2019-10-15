@@ -92,7 +92,7 @@ COCO_KP_NUM = 17      # total 17 keypoints
 # =  Price(current)  x Multiplier)   + (1-Multiplier) * EMA(prev) 
 
 
-ALPHA_EMA = 0.7      # EMA
+ALPHA_EMA = 0.9      # EMA
 
 def getPersonEstimation(est_res, personNo):
     '''
@@ -1338,8 +1338,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     input_x_arr = input_x_arr[history_frame_num:select_frm_cnt].reshape(input_x_arr[history_frame_num:select_frm_cnt].shape[0], -1)
     
-    frmRt_feature_arr = frmRt_feature_arr[history_frame_num:select_frm_cnt].reshape(frmRt_feature_arr[history_frame_num:select_frm_cnt].shape[0], -1)
-    input_x_arr = np.hstack((input_x_arr, frmRt_feature_arr))
+    #frmRt_feature_arr = frmRt_feature_arr[history_frame_num:select_frm_cnt].reshape(frmRt_feature_arr[history_frame_num:select_frm_cnt].shape[0], -1)
+    #input_x_arr = np.hstack((input_x_arr, frmRt_feature_arr))
     
     reso_feature_arr = reso_feature_arr[history_frame_num:select_frm_cnt].reshape(reso_feature_arr[history_frame_num:select_frm_cnt].shape[0], -1)
     input_x_arr = np.hstack((input_x_arr, reso_feature_arr))
