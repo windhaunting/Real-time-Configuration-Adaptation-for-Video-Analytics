@@ -154,9 +154,9 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     X = X[:, 1:]
     
     #feature selection with chi2
-    from sklearn.feature_selection import SelectKBest
-    from sklearn.feature_selection import chi2
-    X = SelectKBest(chi2, k = 20).fit_transform(X, y)
+    #from sklearn.feature_selection import SelectKBest
+    #from sklearn.feature_selection import chi2
+    #X = SelectKBest(chi2, k = 20).fit_transform(X, y)
 
     #print ("X_train data column 0 :", X[:, 0])
     #print ("X_train data column 1 :", X[:, 1], video_frm_id_arr.shape, X.shape)    
@@ -171,6 +171,8 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     
     
     test_video_frm_id_arr = X_test[:, 0]
+    #test_video_frm_id_arr = X_train[:, 0]
+
     
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
 
@@ -206,7 +208,7 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     startTime = time.time()
      
     #svm_model = SVC(kernel = kernel, C = 1, class_weight='balanced').fit(X_train, y_train) 
-    svm_model = SVC(kernel = kernel, C = 1).fit(X_train, y_train) 
+    svm_model = SVC(kernel = kernel, C = 5).fit(X_train, y_train) 
     #    svm_model = SVC(kernel = kernel, C = 1, gamma=1e-3).fit(X_train, y_train) 
     print ("elapsed training time: ", time.time() - startTime)
     
@@ -231,6 +233,8 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     print('svmTrainTest f1score: {}'.format(fscore))
     print('svmTrainTest support: {}'.format(support))
 
+    #y_pred = svm_model.predict(X_train)  # look at training 
+    #y_test = y_train
     return svm_model, train_acc_score, test_acc_score, test_video_frm_id_arr, y_pred, y_test
 
 
