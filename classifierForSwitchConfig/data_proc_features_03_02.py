@@ -198,7 +198,7 @@ def relativeVectorDistance(arr):
     #print ("val ", arr, num_kp)
     rel_val_arr = np.zeros((num_kp-1, 2))
     for i in range(0, num_kp-1):
-        rel_val_arr[i] =  [arr[i][1] -arr[num_kp-1][1], arr[i][0] -arr[num_kp-1][0]]
+        rel_val_arr[i] =  [abs(arr[i][1] -arr[num_kp-1][1]), abs(arr[i][0] -arr[num_kp-1][0])]
     
     #print ("rel_dist_arrrrrr: ", arr[i], arr[4], rel_val_arr)
     
@@ -305,6 +305,10 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
     
     
     input_x_arr = np.zeros((max_frame_example_used, 21, 2))       # 17 + 4
+    
+    current_instance_start_frm_path_arr = np.zeros(max_frame_example_used, dtype=object)
+
+
     y_out_arr = np.zeros((max_frame_example_used+1), dtype=int)
     
     prev_EMA_speed_arr = np.zeros((COCO_KP_NUM, 2))
@@ -392,6 +396,9 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
             else:
                 switching_config_inter_skip_cnts = PLAYOUT_RATE  # math.ceil(PLAYOUT_RATE/current_config_frmRt)-1  # PLAYOUT_RATE
                 
+                
+            current_instance_start_frm_path_arr[select_frm_cnt] = row['Image_path']
+
             skipped_frm_cnt = 0       
             select_frm_cnt += 1 
             switching_config_skipped_frm = 0
@@ -404,7 +411,9 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  h
     
     
     input_x_arr = input_x_arr[history_frame_num:select_frm_cnt].reshape(input_x_arr[history_frame_num:select_frm_cnt].shape[0], -1)
-       
+    current_instance_start_frm_path_arr = current_instance_start_frm_path_arr[history_frame_num:select_frm_cnt].reshape(current_instance_start_frm_path_arr[history_frame_num:select_frm_cnt].shape[0], -1)
+    input_x_arr = np.hstack((current_instance_start_frm_path_arr, input_x_arr))
+
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
 
     print ("input_x_arraaaxxx, ", select_frm_cnt, input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape, current_delay, len(selected_configs_acc_lst), sum(selected_configs_acc_lst)/len(selected_configs_acc_lst))

@@ -339,21 +339,6 @@ def getOnePersonAllKPHistorySpeed(data_pose_keypoint_dir, previous_history_frms,
     return input_x_arr[history_frame_num:]
 
 
-def readProfilingResultNumpy(data_pickle_dir):
-    '''
-   # read profiling from pickle
-   # the pickle file is created from the file "writeIntoPickle.py"
-    
-    '''
-    
-    acc_frame_arr = np.load(data_pickle_dir + 'acc_frame.pkl')
-    spf_frame_arr = np.load(data_pickle_dir + 'spf_frame.pkl')
-    #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
-    #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
-    
-    print ("acc_frame_arr ", type(acc_frame_arr), acc_frame_arr)
-    
-    return acc_frame_arr, spf_frame_arr
 
 
 def select_config(acc_frame_arr, spf_frame_arr, frm_id, minAccuracy):

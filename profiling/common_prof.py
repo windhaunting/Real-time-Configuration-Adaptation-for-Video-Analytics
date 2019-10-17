@@ -505,6 +505,75 @@ def computeOKSAP(est_result, gt_result, img_path):
     #return aver_prec/thresholds.size
     return aver_acc/thresholds.size
 
+
+def computeOKSFromOrigin(est_result, gt_result, img_path):
+    '''
+    calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
+    
+    est_result's format:
+        [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
+    
+    change to [0.02, 0.3, 2,....]
+    
+    the img_w, img_h may be not used
+    '''
+    
+    if est_result == [] or est_result is None or est_result == '' or est_result == '0':
+        return 0
+    
+    if gt_result == [] or gt_result is None or gt_result == '' or gt_result == '0':
+        return 0
+    #print ("computeOKSAP est_result, gt_result, img_path:", est_result, gt_result, img_path)
+    # parse the file for each human
+    est_lst = parse_pose_result(est_result, False)
+        
+    #print ("computeOKSAP after est_lst :", est_lst)
+    dts = []
+    det_scores = 0.0
+    for i, human in enumerate(est_lst):
+        item = {
+            'image_id': img_path,
+            'category_id': 1,
+            'keypoints': human[i],
+            'score': human['score']
+        }
+        dts.append(item)
+        det_scores += item['score']
+        
+    #det_avg_score = det_scores / len(est_lst) if len(est_lst) > 0 else 0
+    
+    gt_lst = parse_pose_result(gt_result, True)
+    #print ("computeOKSAP gt est_lst :", gt_lst)
+    
+    gts = []
+    gt_scores = 0.0
+    for i, human in enumerate(gt_lst):
+        item = {
+            'image_id': img_path,
+            'category_id': 1,
+            'keypoints': human[i],
+            'score': human['score'],
+            'bbox': human['bbox'],
+            'area': human['area']
+        }
+        gts.append(item)
+        gt_scores += item['score']
+        
+    #gt_avg_score = gt_scores / len(gt_lst) if len(gt_lst) > 0 else 0
+    
+    #print ("est_lst, gt_lst11: ", est_lst)
+    #print ("est_lst, gt_lst22: ", gt_lst)
+    
+    # compute oks
+    #print ("len(gts), dts:", len(gts), len(dts))
+    ious = computeOKS(gts, dts)      # ((len(dts), len(gts)))
+ 
+    #print ("ious:", ious)
+
+    ious = np.transpose(ious)         # transpose
+    iousScore = float(blurrinessScore[0, 0])
+    return iousScore
+
 def executeVideoToFrames():
     
     '''

@@ -178,7 +178,7 @@ def relativeVectorDistance(arr):
     #print ("val ", arr, num_kp)
     rel_val_arr = np.zeros((num_kp-1, 2))
     for i in range(0, num_kp-1):
-        rel_val_arr[i] =  [arr[i][1] -arr[num_kp-1][1], arr[i][0] -arr[num_kp-1][0]]
+        rel_val_arr[i] =  [abs(arr[i][1] -arr[num_kp-1][1]), abs(arr[i][0] -arr[num_kp-1][0])]
     
     #print ("rel_dist_arrrrrr: ", arr[i], arr[4], rel_val_arr)
     

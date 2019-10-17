@@ -147,13 +147,30 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     
     #print ("svmTrainTest y output datasample config: ", y)
     
+
+    video_frm_id_arr = X[:, :1]
     
+    # remove the first two columns, which is the video id and frame_id
+    X = X[:, 1:]
+    
+    #feature selection with chi2
     from sklearn.feature_selection import SelectKBest
     from sklearn.feature_selection import chi2
     X = SelectKBest(chi2, k = 20).fit_transform(X, y)
 
-
+    #print ("X_train data column 0 :", X[:, 0])
+    #print ("X_train data column 1 :", X[:, 1], video_frm_id_arr.shape, X.shape)    
+    
+    # add to video_id and frame_id back to know the instance
+    X = np.hstack((video_frm_id_arr, X))
+    
+    #print ("X_train data column 0 bbbb :", X[:, 0])
+    #print ("X_train data column 1 bbbb :", X[:, 1])   
+    
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = None, shuffle = True) 
+    
+    
+    test_video_frm_id_arr = X_test[:, 0]
     
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
 
@@ -175,13 +192,16 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     #X_test = pca.fit_transform(X_test)
     
     
-    
-    scaler =  RobustScaler()   # StandardScaler() 
+    X_train = X_train[:, 1:]
+    X_test = X_test[:, 1:]
+
+    scaler = StandardScaler()   #  RobustScaler()   # StandardScaler() 
     X_train = scaler.fit_transform(X_train)
     X_test =  scaler.fit_transform(X_test)
     
     
     print ("X_train X_test shape:", X_train.shape, X_test.shape)
+
     # training a linear SVM classifier 
     startTime = time.time()
      
@@ -211,7 +231,8 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     print('svmTrainTest f1score: {}'.format(fscore))
     print('svmTrainTest support: {}'.format(support))
 
-    return svm_model, train_acc_score, test_acc_score
+    return svm_model, train_acc_score, test_acc_score, test_video_frm_id_arr, y_pred, y_test
+
 
 
 def svmCrossValidTrainTest(X,y, model_output_path):
@@ -258,7 +279,7 @@ def execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_u
         
 
     data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
-    minAccuracy = 0.85
+    minAccuracy = 0.9
 
     if feature_calculation_flag == 'most_expensive_config':
         from data_proc_features_03 import getOnePersonFeatureInputOutputAll001
@@ -432,11 +453,11 @@ def combineMultipleVideoDataTrainTest():
 
     X_lst = blist()
     y_lst = blist()
-    for video_dir in video_dir_lst[0:7]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst[0:8]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
         data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
             
         history_frame_num = 1  #1          # 
-        max_frame_example_used =  10000 # 20000 #8025   # 10000
+        max_frame_example_used =  12000 # 20000 #8025   # 10000
         execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
         #execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
 
@@ -446,7 +467,9 @@ def combineMultipleVideoDataTrainTest():
         #xfile = 'X_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
         #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
         X,y= load_data_all_features(data_examples_dir, xfile, yfile)
-        print("X: ", X.shape, y.shape)
+        
+        print("X y shape: ", X.shape, y.shape)
+        
         
         X_lst.append(X)
         y_lst.append(y.reshape(-1, 1))
@@ -463,8 +486,11 @@ def combineMultipleVideoDataTrainTest():
     if not os.path.exists(data_plot_dir):
         os.mkdir(data_plot_dir)
 
-    svm_model, train_acc_score, test_acc_score = svmTrainTest(data_plot_dir, data_pose_keypoint_dir, total_X, total_y, kernel)
+    svm_model, train_acc_score, test_acc_score, video_frm_id_arr, y_pred, y_test = svmTrainTest(data_plot_dir, data_pose_keypoint_dir, total_X, total_y, kernel)
             
+    
+    return video_frm_id_arr, y_pred, y_test 
+    
     
 if __name__== "__main__": 
     

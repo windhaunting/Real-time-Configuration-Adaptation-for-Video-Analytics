@@ -243,7 +243,7 @@ def readProfilingResultNumpy(data_pickle_dir):
     #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
     #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
     
-    print ("acc_frame_arr ", type(acc_frame_arr), acc_frame_arr)
+    print ("acc_frame_arr ", type(acc_frame_arr), acc_frame_arr.shape)
     
     return acc_frame_arr, spf_frame_arr
 
@@ -388,7 +388,7 @@ if __name__== "__main__":
                     'output_007_yoga/', 'output_008_cardio/', \
                     'output_009_cardio/', 'output_010_cardio/']
     
-    for video_dir in video_dir_lst[4:5]:  #[0:1]: 
+    for video_dir in video_dir_lst[0:7]:  #[0:1]: 
         history_frame_num = 1  #1          # 
         max_frame_example_used = 10000 # 8000 # 20000 #8025   # 8000
         

@@ -58,10 +58,11 @@ def xgbBoostTrainTest(X, y):
     ros = RandomOverSampler(random_state=0)
     X_train, y_train = ros.fit_resample(X_train, y_train)
     print ("X_train X_test shape:", X_train.shape, X_Test.shape)
+    
     # Feature Scaling
     sc_X = StandardScaler()
     X_train = sc_X.fit_transform(X_train)
-    X_Test = sc_X.transform(X_Test)
+    X_Test = sc_X.fit_transform(X_Test)
     
     # Fitting the classifier into the Training set
     xgb_model = XGBClassifier()
@@ -85,22 +86,26 @@ def xgbBoostTrainTest(X, y):
 
     return xgb_model, train_acc_score, test_acc_score
 
-def execute_get_feature_boundedAcc(video_dir):
+def execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_used, video_dir, feature_calculation_flag):
     '''
     most expensive config's pose result to get feature
     '''
     data_pose_keypoint_dir =  dataDir3 + video_dir
         
-    history_frame_num = 1  #1          # 
-    max_frame_example_used =  8025 # 10000 #8025   # 8000
+
     data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
     minAccuracy = 0.85
 
+    if feature_calculation_flag == 'most_expensive_config':
+        from data_proc_features_03 import getOnePersonFeatureInputOutputAll001
+        
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
-    x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
-            
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+
+    x_input_arr, y_out_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+ 
     x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
             
     # add current config as a feature
@@ -125,6 +130,7 @@ def execute_get_feature_boundedAcc(video_dir):
         
     with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
         pickle.dump(y_out_arr, fs)
+            
 
 
 def execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, feature_calculation_flag):
@@ -226,13 +232,13 @@ def combineMultipleVideoDataTrainTest():
 
     X_lst = blist()
     y_lst = blist()
-    for video_dir in video_dir_lst[0:5]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst[0:8]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
         data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
             
         history_frame_num = 1  #1          # 
-        max_frame_example_used =  8000 # 20000 #8025   # 8000
-        
-        execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+        max_frame_example_used =  10000 # 20000 #8025   # 8000
+        execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+        #execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
 
         xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
         yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl" #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
@@ -252,7 +258,6 @@ def combineMultipleVideoDataTrainTest():
     
     data_pose_keypoint_dir =  dataDir3 + video_dir
     
-    kernel =  'rbf'  # 'rbf' #'poly'  #'sigmoid'  # 'rbf'    # 'linear'
     data_plot_dir = dataDir3 + video_dir +'classifier_result/'
     if not os.path.exists(data_plot_dir):
         os.mkdir(data_plot_dir)
