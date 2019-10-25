@@ -12,12 +12,14 @@ Created on Mon Sep 16 15:54:42 2019
 
 #swtiching config use bounded accuracy only
 
-
+import re
 import sys
 import os
 import csv
 import pickle
 import math
+import cv2
+import time
 
 import numpy as np
 import pandas as pd
@@ -97,9 +99,9 @@ COCO_KP_NUM = 17      # total 17 keypoints
 
 ALPHA_EMA = 0.8   # EMA
 
-def getPersonEstimation(est_res, personNo):
+def getPersonEstimation(est_res, width, height):
     '''
-    analyze the personNo's pose estimation result"
+    analyze the personNo's pose estimation result with highest confidence score
     input: 
         [500, 220, 2, 514, 214, 2, 498, 210, 2, 538, 232, 2, 0, 0, 0, 562, 308, 2, 470, 304, 2, 614, 362, 2, 420, 362, 2, 674, 398, 2, 372, 394, 2, 568, 468, 2, 506, 468, 2, 596, 594, 2, 438, 554, 2, 616, 696, 2, 472, 658, 2],1.4246317148208618;
         [974, 168, 2, 988, 162, 2, 968, 158, 2, 1004, 180, 2, 0, 0, 0, 1026, 244, 2, 928, 250, 2, 1072, 310, 2, 882, 302, 2, 1112, 360, 2, 810, 346, 2, 1016, 398, 2, 948, 396, 2, 1064, 518, 2, 876, 482, 2, 1060, 630, 2, 900, 594, 2],1.4541109800338745;
@@ -110,7 +112,7 @@ def getPersonEstimation(est_res, personNo):
     output:
         a specific person's detection result arr (17x2)
     '''
-    
+    '''
     #print ("est_res: ", type(est_res), est_res)
     person_est = est_res.split(';')[personNo].split('],')[0].replace('[', '')
     
@@ -124,10 +126,24 @@ def getPersonEstimation(est_res, personNo):
         #    kp_arr[int(ind/3), ind%3] = float(kp)*832
         if ind%3 != 2:
             kp_arr[int(ind/3), ind%3] = float(kp)
+    '''
+    
+    strLst = re.findall(r'],\d.\d+', est_res)
+    person_lst = [re.findall(r'\d.\d+', st) for st in strLst]
+    
+    personNo = np.argmax(person_lst)
+    
+    
+    est_res = est_res.split(';')[personNo]
+    
+    lst_points = [[float(t[0]), float(t[1])] for t in re.findall(r'(0(?:\.\d*)?), (0(?:\.\d*)?), ([0123])', est_res)]
 
+    kp_arr = np.array(lst_points)
+    
+    #print ("kp_arr: ", kp_arr.shape, kp_arr)
     return kp_arr
     
-
+    
 
 def getEuclideanDist(val, time_frm_interval):
     '''
@@ -1043,7 +1059,7 @@ def getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  h
     input_x_arr = np.hstack((input_x_arr, reso_feature_arr))
    
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
-    print ("reso_feature_arr, ",reso_feature_arr.shape, reso_feature_arr)
+    #print ("reso_feature_arr, ",reso_feature_arr.shape, reso_feature_arr)
     print ("feature1_speed_arr, ", input_x_arr, input_x_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
 
     return input_x_arr, y_out_arr
@@ -1110,13 +1126,14 @@ def getFeatureDistanceToCamera(history_pose_est_arr, current_frm_id):
     return cameraDistance_feature
 
 
-def getBlurrinessFeature(confg_est_frm_arr, acc_frame_arr, lowest_config_id, current_iterative_frm_id):
+def getBlurrinessFeature(imagePath, current_iterative_frm_id):
     '''
     blurrinessScore can be calculated in 2 ways, 1th using the direct opencv Lapcian method to calculate the frame's blurriness
     2nd se the lowest resolution's acc to indirectly simulate the bllurriness
     '''
     
-    blurrinessScore_arr = acc_frame_arr[lowest_config_id, current_iterative_frm_id]
+   # blurrinessScore_arr = acc_frame_arr[lowest_config_id, current_iterative_frm_id]
+    
     '''
     gt_result = confg_est_frm_arr[0, current_iterative_frm_id]
     est_result = confg_est_frm_arr[lowest_config_id, current_iterative_frm_id]
@@ -1131,6 +1148,13 @@ def getBlurrinessFeature(confg_est_frm_arr, acc_frame_arr, lowest_config_id, cur
     
     #print ("blurrinessScore: ", current_frm_id, blurrinessScore)
     '''
+    image = cv2.imread(imagePath)
+    if image is None:
+        return 250
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    blurrinessScore_arr = cv2.Laplacian(gray, cv2.CV_64F).var()
+    
     return blurrinessScore_arr
 
 def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy):
@@ -1160,23 +1184,24 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     # save to file to have a look
     #outDir = data_pose_keypoint_dir + "classifier_result/"
     #np.savetxt(outDir + "accuracy_above_threshold" + str(minAccuracy) + ".tsv", acc_frame_arr[:, :5000], delimiter="\t")
-    '''
-    config_ind_pareto = getParetoBoundary(acc_frame_arr[:, 0], spf_frame_arr[:, 0])
     
+    
+    #config_ind_pareto = getParetoBoundary(acc_frame_arr[:, 0], spf_frame_arr[:, 0])
+    config_ind_pareto = [0, 1, 2, 4, 6, 8, 10, 12, 15, 17, 19, 21, 24, 27, 29, 31, 33, 37, 39, 42, 44, 47, 49, 52, 54, 56, 58, 61, 63, 66, 69]          #     # only testing cmu model not ther pareto boundary, testing only
+
     print ("getOnePersonFeatureInputOutput01 config_ind_pareto: ", config_ind_pareto)
     acc_frame_arr = acc_frame_arr[config_ind_pareto, :]
     spf_frame_arr =  spf_frame_arr[config_ind_pareto, :]
-    '''
+    
     print ("getOnePersonFeatureInputOutput01 acc_frame_arr: ", acc_frame_arr[:, 0], acc_frame_arr.shape)
 
     # select one person, i.e. no 0
-    personNo = 0
     
     #max_frame_example_used = 1000   # 8000
     #current_frame_id = 25
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
 
-    '''
+    
     # get new id map based on pareto boundary/'s result
     new_id_config_dict = defaultdict()
     for i, ind in enumerate(config_ind_pareto):
@@ -1184,7 +1209,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     id_config_dict = new_id_config_dict
     
     print ("config_id_dict: ", len(config_id_dict), id_config_dict)
-    '''
+    
     
     # only read the most expensive config
     filePathLst = sorted(glob(data_pose_keypoint_dir + "*1120x832_25_cmu_estimation_result*.tsv"))  # must read ground truth file(the most expensive config) first
@@ -1207,10 +1232,10 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     prev_EMA_speed_arr = np.zeros((COCO_KP_NUM, 2))
     
-    prev_EMA_relative_speed_arr2 = np.zeros((4, 2))        # only get 4 keypoint
-    prev_EMA_relative_speed_arr3 = np.zeros((4, 2))        # only get 4 keypoint
-    prev_EMA_relative_speed_arr4 = np.zeros((4, 2))        # only get 4 keypoint
-    prev_EMA_relative_speed_arr5 = np.zeros((4, 2))        # only get 4 keypoint
+    prev_EMA_relative_speed_arr2 = np.zeros((4, 2))        # only get 4 keypoints
+    prev_EMA_relative_speed_arr3 = np.zeros((4, 2))        # only get 4 keypoints
+    prev_EMA_relative_speed_arr4 = np.zeros((4, 2))        # only get 4 keypoints
+    prev_EMA_relative_speed_arr5 = np.zeros((4, 2))        # only get 4 keypoints
     
     
     reso_feature_arr = np.zeros(max_frame_example_used, dtype=int)
@@ -1226,7 +1251,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     prev_frmRt_aver = 0.0
     
     
-    blurriness_feature_arr = np.zeros((max_frame_example_used, 4))
+    blurriness_feature_arr = np.zeros((max_frame_example_used, 1))
     
     frm_id_debug_only_arr = np.zeros(max_frame_example_used)
 
@@ -1239,7 +1264,9 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     selected_configs_acc_lst = blist()      # check the selected config's for all frame's lst, in order to get the accuracy
     
     #video_id = int(data_pose_keypoint_dir.split('/')[-2].split('_')[1])
- 
+    
+    #arr_feature_frameIndex = np.zeros(max_frame_example_used)        # defaultdict(int) each interval's starting point -- corresponding frame index
+    
     for index, row in df_det.iterrows():  
         #print ("index, row: ", index, row)
         #reso = row['Resolution']
@@ -1250,11 +1277,14 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
         if index >= acc_frame_arr.shape[1]:
             break            
         
-        current_iterative_frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
+        imgPath = row['Image_path']
+        current_iterative_frm_id = int(imgPath.split('/')[-1].split('.')[0])
         
 
         est_res = row['Estimation_result']
-        
+        reso = row['Resolution']
+        width = int(reso.split('x')[0])
+        height = int(reso.split('x')[1])
         if str(est_res) == 'nan':  # here select_frm_cnt does not increase
             skipped_frm_cnt += 1
             print ("nan nan est_res: ", est_res, index, select_frm_cnt)
@@ -1265,7 +1295,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             continue
         #print ("frm_id num_humans, ", reso, model, frm_id)
             
-        kp_arr = getPersonEstimation(est_res, personNo)
+        kp_arr = getPersonEstimation(est_res, width, height)
         #history_pose_est_dict[previous_frm_indx] = kp_arr
          
         history_pose_est_arr[previous_frm_indx] = kp_arr
@@ -1317,6 +1347,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             #print ("total_features_arr2: ", total_features_arr.shape, input_x_arr.shape)
             
             input_x_arr[select_frm_cnt]= total_features_arr  #  input_x_arr[frm_id-1] = total_features_arr
+            
+            #arr_feature_frameIndex[select_frm_cnt] = index+1          # frame_index because this start from 1 ***.jpg
             #print ("total_features_arr: ", frm_id-1)
             #previous_frm_indx = 1
                 
@@ -1367,8 +1399,10 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             #frmRt_feature_arr[select_frm_cnt] = curr_frmRt_aver
             
             #current_iterative_frm_id = previous_frm_indx + skipped_frm_cnt + switching_config_skipped_frm
-            lowest_config_id = [19, 10, 6, 2] 
-            blurrinessScore_arr =  getBlurrinessFeature(confg_est_frm_arr, old_acc_frm_arr, lowest_config_id, current_iterative_frm_id-1)
+            #lowest_config_id = [19, 10, 6, 2] 
+            #stTime = time.time()
+            blurrinessScore_arr =  getBlurrinessFeature(imgPath, current_iterative_frm_id-1)
+            #print ("end TimeTimeTime: ", time.time()-stTime)
             blurriness_feature_arr[select_frm_cnt] = blurrinessScore_arr
             
             
@@ -1387,11 +1421,9 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
         #how many are used for traing, validation, and test
         if previous_frm_indx > (max_frame_example_used-1):
             break 
+        
     
-    
-    
-    
-    
+    #arr_feature_frameIndex = arr_feature_frameIndex[history_frame_num:select_frm_cnt]
     input_x_arr = input_x_arr[history_frame_num:select_frm_cnt].reshape(input_x_arr[history_frame_num:select_frm_cnt].shape[0], -1)
     
     current_instance_start_frm_path_arr = current_instance_start_frm_path_arr[history_frame_num:select_frm_cnt].reshape(current_instance_start_frm_path_arr[history_frame_num:select_frm_cnt].shape[0], -1)
@@ -1401,9 +1433,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     #current_instance_start_video_path_arr = current_instance_start_video_path_arr[history_frame_num:select_frm_cnt].reshape(current_instance_start_video_path_arr[history_frame_num:select_frm_cnt].shape[0], -1)
     #input_x_arr = np.hstack((current_instance_start_video_path_arr, input_x_arr))
     
-    
-    #frmRt_feature_arr = frmRt_feature_arr[history_frame_num:select_frm_cnt].reshape(frmRt_feature_arr[history_frame_num:select_frm_cnt].shape[0], -1)
-    #input_x_arr = np.hstack((input_x_arr, frmRt_feature_arr))
+    frmRt_feature_arr = frmRt_feature_arr[history_frame_num:select_frm_cnt].reshape(frmRt_feature_arr[history_frame_num:select_frm_cnt].shape[0], -1)
+    input_x_arr = np.hstack((input_x_arr, frmRt_feature_arr))
     
     reso_feature_arr = reso_feature_arr[history_frame_num:select_frm_cnt].reshape(reso_feature_arr[history_frame_num:select_frm_cnt].shape[0], -1)
     input_x_arr = np.hstack((input_x_arr, reso_feature_arr))
@@ -1418,11 +1449,11 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     #input_x_arr = np.hstack((input_x_arr, frm_id_debug_only_arr))
             
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
-    print ("reso_feature_arr, ", reso_feature_arr.shape, reso_feature_arr)
-    print ("feature1_speed_arr, ", input_x_arr, input_x_arr.shape, y_out_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
+    #print ("reso_feature_arr, ", reso_feature_arr.shape, reso_feature_arr)
+    print ("feature1_speed_arr, ", input_x_arr.shape, y_out_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
 
     #checkCorrelationPlot(data_pose_keypoint_dir, input_x_arr, y_out_arr, id_config_dict)
-    return input_x_arr, y_out_arr
+    return input_x_arr, y_out_arr, id_config_dict
 
 
 def select_config(acc_frame_arr, spf_frame_arr, index_id, minAccuracy):

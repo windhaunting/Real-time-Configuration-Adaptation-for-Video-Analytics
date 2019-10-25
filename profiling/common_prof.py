@@ -26,7 +26,6 @@ modelMethods_openPose = ['cmu', 'mobilenet_v2_small']
 modelMethods_cpn = ['a_cpn']  #  'cmu']   # , 'mobilenet_v2_small'] # ['a_cpn']   #     ['a_cpn', 'cmu', 'mobilenet_v2_small']  #  ['mobilenet_v2_small']      # ['mobilenet_thin']  # ['cmu']  #  ["openPose"]
 
 
-
 # simulate without buffer to check how many accuracy we can achieve and the lag with the segment number
 dataDir1 = '../input_output/mpii_dataset/'
 dataDir2 = '../input_output/diy_video_dataset/'
@@ -302,6 +301,11 @@ def computeOKSAP(est_result, gt_result, img_path, w, h):
 '''
 
 def computeOKS(gts, dts):
+    
+    '''
+    calculate object keypoint similarity
+    reference: https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/cocoeval.py
+    '''
        
     kpt_oks_sigmas = np.array([.26, .25, .25, .35, .35, .79, .79, .72, .72, .62,.62, 1.07, 1.07, .87, .87, .89, .89])/10.0
     maxDets = [20]
@@ -399,6 +403,8 @@ def parse_pose_result(pose_result_str, gt_flag):
     return human_points_lst
     
         
+
+
 
 def computeOKSAP(est_result, gt_result, img_path):
     '''
@@ -518,6 +524,7 @@ def computeOKSFromOrigin(est_result, gt_result, img_path):
     the img_w, img_h may be not used
     '''
     
+    
     if est_result == [] or est_result is None or est_result == '' or est_result == '0':
         return 0
     
@@ -562,16 +569,19 @@ def computeOKSFromOrigin(est_result, gt_result, img_path):
     #gt_avg_score = gt_scores / len(gt_lst) if len(gt_lst) > 0 else 0
     
     #print ("est_lst, gt_lst11: ", est_lst)
-    #print ("est_lst, gt_lst22: ", gt_lst)
     
     # compute oks
     #print ("len(gts), dts:", len(gts), len(dts))
+    #print ("est_lst, gt_lst22: ", gts)
+    #print ("est_lst, dts222: ", dts)
     ious = computeOKS(gts, dts)      # ((len(dts), len(gts)))
  
     #print ("ious:", ious)
 
     ious = np.transpose(ious)         # transpose
-    iousScore = float(blurrinessScore[0, 0])
+    #print ("est_lst, ious: ", ious)
+    iousScore = float(ious[0, 0])
+    
     return iousScore
 
 def executeVideoToFrames():
@@ -591,6 +601,7 @@ def executeVideoToFrames():
     filePathLst = sorted(glob(inputDir + "*.mp4"))         # [5:6]
     
     print ("filePathLst:", filePathLst)
+    
     outParentDir = inputDir  # "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/diy_video_dataset/"
     for filePath in filePathLst :
         

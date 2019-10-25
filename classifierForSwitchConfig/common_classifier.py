@@ -368,7 +368,26 @@ def read_config_name_resolution_only(data_pose_keypoint_dir, write_flag):
 
 
 
-
+def paddingZeroToInter(ind):
+    '''
+    padding to 6digits at most,  1 -> 000001, 10->000010
+    
+    '''
+    
+    if ind < 10:
+        ind_str = '00000' + str(ind)
+    elif ind < 100:
+        ind_str = '0000' + str(ind)
+    elif ind < 1000:
+        ind_str = '000' + str(ind)
+    elif ind < 10000:
+        ind_str = '00' + str(ind)
+    elif ind < 100000:
+        ind_str = '0' + str(ind)
+    else:    
+        ind_str = str(ind)
+        
+    return ind_str
 
 if __name__== "__main__": 
 

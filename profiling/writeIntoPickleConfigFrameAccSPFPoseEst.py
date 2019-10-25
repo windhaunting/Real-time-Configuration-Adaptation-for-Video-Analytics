@@ -14,7 +14,7 @@ Created on Fri Sep 20 15:31:00 2019
 
 # combine the functions of segmentProcess.py and writeIntoPickle.py two files together
 
-
+import re
 import os
 import math
 import pandas as pd
@@ -215,7 +215,7 @@ def readConfigFrmEstFile(data_pickle_dir):
     #pickle_dir = dataDir2 + 'output_006-cardio_condition-20mins/' + 'pickle_files/'
     
     pickleFile = data_pickle_dir + 'config_estimation_frm.pkl'
-    confg_frm_est_arr = np.load(pickleFile)
+    confg_frm_est_arr = np.load(pickleFile, allow_pickle=True)
 
     #print ("confg_frm_est_arr: ", (confg_frm_est_arr[:, 0]))
     #return
@@ -319,6 +319,18 @@ def write_config_frm_acc_result2(data_pose_keypoint_dir, confg_frm_est_arr, data
     # not finished yet
 '''
 
+def getOnePersonEstimation(ests_arr):
+    '''
+   use only one person select the confidence score higher
+    '''
+    strLst = re.findall(r'],\d.\d+', ests_arr)
+    person_lst = [re.findall(r'\d.\d+', st) for st in strLst]
+    
+    ind = np.argmax(person_lst)
+    #print ("ind: ", person_lst, ind)
+    
+    return ests_arr.split(';')[ind]
+
 def apply_acc_fun(arrs):
     
     #print ("commmmmmm: ", type((arrs[0])), arrs[0])
@@ -331,7 +343,11 @@ def apply_acc_fun(arrs):
         return 0.0
     elif str(arrs[0]) != 'nan' and str(arrs[1]) == 'nan':
         return 0.0
-    acc = computeOKSAP(str(arrs[0]), str(arrs[1]), '')
+    
+    arr0 = getOnePersonEstimation(arrs[0])
+    arr1 = getOnePersonEstimation(arrs[1])
+    acc = computeOKSAP(arr0, arr1, '')
+    
     return acc
     
 def calculate_config_frm_acc(ests_arr, gts_arr):
@@ -421,7 +437,8 @@ def executeWriteIntoPickleOnePeron():
                     'output_003_dance/', 'output_004_dance/',  \
                     'output_005_dance/', 'output_006_yoga/', \
                     'output_007_yoga/', 'output_008_cardio/', \
-                    'output_009_cardio/', 'output_010_cardio/']
+                    'output_009_cardio/', 'output_010_cardio/'
+                    'output_011_dance/']
     
     
     for vd_dir in video_dir_lst[0:1]:        # [3:4]:   # [0:1]:
@@ -430,15 +447,14 @@ def executeWriteIntoPickleOnePeron():
         if not os.path.exists(data_pickle_dir):
             os.mkdir(data_pickle_dir)
             
-            
         write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir)
         
         '''
         data_pose_keypoint_dir = dataDir3 +  vd_dir
         confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
         write_config_frm_acc_result(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir)
-        
         '''
+        
 
 
 if __name__== "__main__":
