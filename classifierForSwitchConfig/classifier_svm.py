@@ -170,13 +170,17 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state = None, shuffle = True) 
     
     
+    uniques, counts = np.unique(y_train, return_counts=True)
+    count_y_dict = dict(zip(uniques, counts))
+    
+    print ("len(count_y_dict): ", len(count_y_dict),counts )
     test_video_frm_id_arr = X_test[:, 0]
     #test_video_frm_id_arr = X_train[:, 0]
 
     
-    config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
+    #config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
 
-    getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_dir)   
+    #getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_dir)   
     
     #from imblearn.over_sampling import RandomOverSampler
     #ros = RandomOverSampler(random_state=0)
@@ -208,7 +212,7 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     startTime = time.time()
      
     #svm_model = SVC(kernel = kernel, C = 1, class_weight='balanced').fit(X_train, y_train) 
-    svm_model = SVC(kernel = kernel, C = 5).fit(X_train, y_train) 
+    svm_model = SVC(kernel = kernel, C = 5, gamma='scale').fit(X_train, y_train) 
     #    svm_model = SVC(kernel = kernel, C = 1, gamma=1e-3).fit(X_train, y_train) 
     print ("elapsed training time: ", time.time() - startTime)
     
@@ -293,7 +297,7 @@ def execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_u
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
 
-    x_input_arr, y_out_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    x_input_arr, y_out_arr, id_config_dict = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
  
     x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
             
@@ -457,7 +461,7 @@ def combineMultipleVideoDataTrainTest():
 
     X_lst = blist()
     y_lst = blist()
-    for video_dir in video_dir_lst[0:8]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+    for video_dir in video_dir_lst[0:10]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
         data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
             
         history_frame_num = 1  #1          # 
@@ -485,7 +489,7 @@ def combineMultipleVideoDataTrainTest():
     
     data_pose_keypoint_dir =  dataDir3 + video_dir
     
-    kernel =  'rbf'  # 'rbf' #'poly'  #'sigmoid'  # 'rbf'    # 'linear'
+    kernel = 'rbf'  # 'rbf' #'poly'  #'sigmoid'  # 'rbf'    # 'linear'
     data_plot_dir = dataDir3 + video_dir +'classifier_result/'
     if not os.path.exists(data_plot_dir):
         os.mkdir(data_plot_dir)

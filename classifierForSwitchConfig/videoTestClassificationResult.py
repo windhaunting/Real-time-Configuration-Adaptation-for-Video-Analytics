@@ -11,39 +11,14 @@ Created on Wed Oct 16 15:40:23 2019
 
 
 import sys
-import math
 import os
-import pickle
 import numpy as np
-import time
-import matplotlib.backends.backend_pdf
-import matplotlib.pyplot as plt
-from blist import blist
+
 
 from collections import defaultdict
-from imblearn.over_sampling import SMOTE
-
-#from sklearn import datasets 
-from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import StandardScaler
-
-from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, precision_recall_fscore_support, classification_report, balanced_accuracy_score, precision_recall_curve, roc_curve
-from sklearn.model_selection import train_test_split, KFold
-from sklearn.svm import SVC 
-from sklearn.externals import joblib
-from sklearn.decomposition import PCA
-
-from common_classifier import readProfilingResultNumpy
-from common_classifier import load_data_all_features
-from common_classifier import read_config_name_from_file
-from common_classifier import feature_selection
-
-from common_plot import plotScatterLineOneFig
-from common_plot import plotOneScatterLine
-from common_plot import plotOneBar
-from common_plot import plotTwoLinesOneFigure
 
 from classifier_svm import combineMultipleVideoDataTrainTest
+from common_classifier import readProfilingResultNumpy
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -131,29 +106,30 @@ def testVideoClassificationResultDelay(dict_spf_frm_arr, x_video_frm_id_arr, y_p
     combined_gt_arr = np.hstack((video_video_frm_arr, y_gt_out))
     spf_gt_arr = np.apply_along_axis(getDelayFromEachConfigHelper, 1, combined_gt_arr, dict_spf_frm_arr)
     delay_gt_arr = spf_gt_arr*25 - 1
-    print ("delay_gt_arr gt test video clip length: %s; delay: %s ", delay_gt_arr.shape[0], np.sum(delay_gt_arr))
+    #print ("delay_gt_arr gt test video clip length: %s; delay: %s ", delay_gt_arr.shape[0], np.sum(delay_gt_arr))
     
     
     combined_pred_arr = np.hstack((video_video_frm_arr, y_pred))
     spf_pred_arr = np.apply_along_axis(getDelayFromEachConfigHelper, 1, combined_pred_arr, dict_spf_frm_arr)
     delay_pred_arr = spf_pred_arr*25 - 1
-    print ("delay_pred_arr, pred test video clip length;  delay,  ", delay_pred_arr.shape[0], np.sum(delay_pred_arr))
+    #print ("delay_pred_arr, pred test video clip length;  delay,  ", delay_pred_arr.shape[0], np.sum(delay_pred_arr))
     
     
-    total_delay_gt = 0
+    total_delay_gt = []
     for d in delay_gt_arr:
-        total_delay_gt += d
-        if total_delay_gt < 0:
-            total_delay_gt = 0
-            
-    
-    total_delay_pred = 0
-    for d in delay_pred_arr:
-        total_delay_pred += d
-        if total_delay_pred < 0:
-            total_delay_pred = 0
+        if d < 0:
+            d = 0
+        total_delay_gt.append(d)
         
-    print ("total_delay_gt pred  delay,  ", total_delay_gt, total_delay_pred)
+    total_delay_pred = []
+    for d in delay_pred_arr:
+        if d < 0:
+            d = 0
+        total_delay_pred.append(d)
+    
+    aver_total_delay_gt = sum(total_delay_gt)/len(total_delay_gt)   
+    aver_total_delay_pred = sum(total_delay_pred)/len(total_delay_pred)   
+    print ("total_delay_gt pred  delay,  ", aver_total_delay_gt, aver_total_delay_pred)
     #print ("delay_pred_arr  delay,  ", delay_pred_arr)
 
 def getAccSpfArrAllVideo():
@@ -166,7 +142,7 @@ def getAccSpfArrAllVideo():
         
     dict_acc_frm_arr = defaultdict()
     dict_spf_frm_arr = defaultdict()
-    for video_dir in video_dir_lst[0:8]:
+    for video_dir in video_dir_lst[0:10]:
         data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
     
         acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
