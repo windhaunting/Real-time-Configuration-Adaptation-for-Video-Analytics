@@ -13,7 +13,7 @@ import utilPose
 # -------- part 1: convert estimation record files to data matrix --------
 
 REGEX_KEY_POINT_ONE=re.compile(r'(0(?:\.\d*)?), (0(?:\.\d*)?), ([\d])')
-REGEX_KEY_POINT_LIST=re.compile(r'\[(.+?)\],(\d+(?:\.\d+))')
+REGEX_KEY_POINT_LIST=re.compile(r'\[([\d\., ]+?)\],(\d+(?:\.\d+))')
 NUM_KEY_POINTS=17
 
 
@@ -39,7 +39,7 @@ def record2mat(filename):
     nh = df['numberOfHumans'].to_numpy()
     kplist = df['Estimation_result']
     kps=[None for _ in range(n)]
-    cs=np.zero(n)
+    cs=np.zeros(n)
     for i in range(n):
         if nh[i] == 1:
             kps[i], cs[i] = kpString2Info(kplist[i])
@@ -56,7 +56,7 @@ def record2mat(filename):
             kps[i] = [[0.0, 0.0, 0] for _ in range(NUM_KEY_POINTS)]
             #cs[i] = 0.0
     pt = df['Time_SPF'].to_numpy()
-    return np.array(kps), pt, np.cs
+    return np.array(kps), pt, cs
 
 
 '''
@@ -84,7 +84,7 @@ def records2mat(prefix, fnList):
     return np.stack(kpm), np.stack(ptm), np.stack(csm)
 
 
-# -------- part 2: compute OKS and accuracy for loaded key points --------
+# -------- part 2: compute OKS for loaded key points --------
 
 '''
 Compute the object keypoint similarity (OKS) for all poses <kpm>, taking the
@@ -98,7 +98,7 @@ def pose2oks(kpm, ref=None, refID=None):
     assert ref is not None or refID is not None
     assert kpm.ndim == 4
     if ref is None:
-        assert kpm.shape[0] < refID
+        assert kpm.shape[0] > refID
         ref = kpm[refID,:]
     else:
         assert ref.ndim == 3 and kpm.shape[1:] == ref.shape
@@ -109,19 +109,12 @@ def pose2oks(kpm, ref=None, refID=None):
         res[:,i] = utilPose.computeOKS_list(ref[i], kpm[:,i,:,:])
     return res
 
-
-'''
-Compute the accuracy from OKS
-'''
-def oks2acc(oksMat):
-    pass
-
 # -------- part 3: IO of converted matrix --------
 
 '''
 I/O all computed matrices
 '''
-def saveData(kpm, ptm, csm, oks, acc, filename):
+def saveData(kpm, ptm, csm, oks, filename):
     pass
 
 def loadData(filename):
@@ -176,10 +169,13 @@ def makeERFilename(resolution, fps, model):
 
 def __test__():
     rl = listResolution()
+    rl.reverse()
     fl = [makeERFilename(r,25,'cmu') for r in rl]
     print(fl)
     kpm, ptm, csm = records2mat('../pose_estimation/', fl)
     print(kpm.shape, ptm.shape, csm.shape)
+    oks = pose2oks(kpm, refID=4)
+    print(oks.mean(1))
     
     fl2 = fl[0,1,3,4]
     #...
