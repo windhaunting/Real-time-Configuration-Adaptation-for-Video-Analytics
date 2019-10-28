@@ -8,6 +8,9 @@ Created on Fri Oct 25 09:49:38 2019
 import pandas as pd
 import re
 import numpy as np
+import utilPose
+
+# -------- part 1: convert estimation record files to data matrix --------
 
 REGEX_KEY_POINT_ONE=re.compile(r'(0(?:\.\d*)?), (0(?:\.\d*)?), ([\d])')
 REGEX_KEY_POINT_LIST=re.compile(r'\[(.+?)\],(\d+(?:\.\d+))')
@@ -81,6 +84,74 @@ def records2mat(prefix, fnList):
     return np.stack(kpm), np.stack(ptm), np.stack(csm)
 
 
+# -------- part 2: compute OKS and accuracy for loaded key points --------
+
+'''
+Compute the object keypoint similarity (OKS) for all poses <kpm>, taking the
+  <ref> as the reference.
+It is also allowed to use <refID> to specify one pose list as the reference.
+Pre-condition:
+    kpm.ndim == 4 and ref.ndim == 3
+    kpm.shape[1:] == ref.shape
+'''
+def pose2oks(kpm, ref=None, refID=None):
+    assert ref is not None or refID is not None
+    assert kpm.ndim == 4
+    if ref is None:
+        assert kpm.shape[0] < refID
+        ref = kpm[refID,:]
+    else:
+        assert ref.ndim == 3 and kpm.shape[1:] == ref.shape
+    nconf = kpm.shape[0]
+    nframe = kpm.shape[1]
+    res = np.zeros((nconf, nframe))
+    for i in range(nframe):
+        res[:,i] = utilPose.computeOKS_list(ref[i], kpm[:,i,:,:])
+    return res
+
+
+'''
+Compute the accuracy from OKS
+'''
+def oks2acc(oksMat):
+    pass
+
+# -------- part 3: IO of converted matrix --------
+
+'''
+I/O all computed matrices
+'''
+def saveData(kpm, ptm, csm, oks, acc, filename):
+    pass
+
+def loadData(filename):
+    pass
+
+'''
+I/O for a simple matrix (ptm, csm, oks, acc)
+'''
+def saveMat(mat, filename):
+    np.save(filename, mat)
+
+def loadMat(filename):
+    if not filename.endswith('.npy'):
+        filename += '.npy'
+    return np.load(filename, allow_pickle=True)
+
+'''
+I/O for the pose (key points) data
+'''
+def savePose(pose, filename):
+    np.savez_compressed(filename, pose=pose)
+
+def loadPose(filename):
+    if not filename.endswith('.npz'):
+        filename += '.npz'
+    temp = np.load(filename, allow_pickle=True)
+    return temp['pose']
+
+# -------- part 4: helper functions to get the estimation record files --------
+
 RESOLUTION_LIST_DEFAULT = ['320x240','480x352','640x480','960x720','1120x832']
 RESOLUTION_LIST_CMU = ['320x240','480x352','640x480','960x720','1120x832']
 RESOLUTION_LIST_MOBILENET_V2 = ['320x240','480x352','640x480','960x720','1120x832']
@@ -101,4 +172,17 @@ def makeERFilename(resolution, fps, model):
     return '%s_%d_%s_estimation_result.tsv' % (resolution, fps, model.lower())
 
 
+# -------- test and example part --------  
 
+def __test__():
+    rl = listResolution()
+    fl = [makeERFilename(r,25,'cmu') for r in rl]
+    print(fl)
+    kpm, ptm, csm = records2mat('../pose_estimation/', fl)
+    print(kpm.shape, ptm.shape, csm.shape)
+    
+    fl2 = fl[0,1,3,4]
+    #...
+    
+    
+    
