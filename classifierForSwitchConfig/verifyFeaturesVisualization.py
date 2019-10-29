@@ -405,7 +405,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
         #print("image curr_start_frm_index", curr_start_frm_index)
         
         
-        if i == 7*60: # 7*60:
+        if i == 10: # 7*60:
             break   # debug only
     
     print("readFeatureValues finished ")

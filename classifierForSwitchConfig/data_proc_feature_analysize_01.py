@@ -180,7 +180,7 @@ def getEuclideanDist(val, time_frm_interval):
     
 
 
-def getFeatureOnePersonMovingSpeed(history_pose_est_arr, current_frm_id, prev_EMA_speed_arr):
+def getFeatureOnePersonMovingSpeed(history_pose_est_arr, used_prev_frm, used_current_frm, prev_EMA_speed_arr):
     '''
     feature1: One person’s moving speed of all keypoints V i,k based on the
     euclidean d distance of current frame with the previous frame {f j−m , m =
@@ -190,19 +190,19 @@ def getFeatureOnePersonMovingSpeed(history_pose_est_arr, current_frm_id, prev_EM
     
     output: feature1_speed_arr COCO_KP_NUM x 1
     '''
-    cur_frm_est_arr = history_pose_est_arr[current_frm_id]
+    cur_frm_est_arr = history_pose_est_arr[used_current_frm]
     #print ("aaaa, ", current_frm_id, cur_frm_est_arr, len(range(current_frm_id-1, current_frm_id-1-history_frame_num-1, -1)))
     
     #feature1_speed_arr = np.zeros((COCO_KP_NUM, 2))
     
     
-    prev_frm_est_arr = history_pose_est_arr[current_frm_id-1]
+    prev_frm_est_arr = history_pose_est_arr[used_prev_frm]
     
     # get the current speed based on current frame and previous frame
     hstack_arr = np.hstack((cur_frm_est_arr, prev_frm_est_arr))
     #frmInter = math.ceil(PLAYOUT_RATE/curr_frm_rate)          # frame rate sampling frames in interval, +1 every other
 
-    time_frm_interval = 1.0/PLAYOUT_RATE
+    time_frm_interval = (1.0/PLAYOUT_RATE)*(used_current_frm - used_prev_frm)            # interval 1 second
     #time_frm_interval = 1.0/PLAYOUT_RATE
     current_speed_angle_arr = np.apply_along_axis(getEuclideanDist, 1, hstack_arr, time_frm_interval)    
     
@@ -253,7 +253,7 @@ def relativeSpeed(arr1, arr2, time_frm_interval):
     return relative_speed_arr
     
 
-def getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, current_frm_id, prev_EMA_relative_speed_arr):
+def getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, used_prev_frm, used_current_frm, prev_EMA_relative_speed_arr):
     '''
     feature 2 One person arm/feet’s relative speed to the torso of all keypoints
     with the previous frames.
@@ -269,13 +269,13 @@ def getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, current_frm_id, prev
     selected_kp_history_pose_est_arr = history_pose_est_arr[:, selected_kp_index, :]
     #print ("selected_kp_history_pose_est_arr aaa, ", selected_kp_history_pose_est_arr[0])
     
-    curr_frm_rel_dist_arr = selected_kp_history_pose_est_arr[current_frm_id]   #np.apply_along_axis(relativeDistance, 2, selected_kp_history_pose_est_arr)
+    curr_frm_rel_dist_arr = selected_kp_history_pose_est_arr[used_current_frm]   #np.apply_along_axis(relativeDistance, 2, selected_kp_history_pose_est_arr)
     
-    previous_frm_arr = selected_kp_history_pose_est_arr[current_frm_id-1]
+    previous_frm_arr = selected_kp_history_pose_est_arr[used_prev_frm]
 
     #frmInter = math.ceil(PLAYOUT_RATE/curr_frm_rate)          # frame rate sampling frames in interval, +1 every other
 
-    time_frm_interval = 1.0/PLAYOUT_RATE
+    time_frm_interval = (1.0/PLAYOUT_RATE)* (used_current_frm - used_prev_frm)
     
     current_speed_arr = relativeSpeed(curr_frm_rel_dist_arr, previous_frm_arr, time_frm_interval)
     
@@ -622,24 +622,26 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     
     index_frm = 0
-    while index_frm < num_frames:        
+    previous_frm_indx = 0
+    while index_frm < num_frames:           # index_frm is 1 sec interval      
         
-        est_res = confg_est_frm_arr[0][index_frm]         # 0 corresponds to ground truth original big array without extract_specific_config_name_from_file function
+        est_res = confg_est_frm_arr[0][previous_frm_indx]   # confg_est_frm_arr[0][index_frm]         # 0 corresponds to ground truth original big array without extract_specific_config_name_from_file function
         
         kp_arr = getPersonEstimation(est_res)
 
-        
         #if kp_arr == 'nan' or kp_arr == '' or kp_arr = '0':
         history_pose_est_arr[previous_frm_indx] = kp_arr
         
         #print ("kp_arr kp_arr, ", kp_arr)
-        #print ("index index index: ",interval_jump,  index_frm)
+        #print ("index index index: ", interval_jump,  index_frm)
         if index_frm >= history_frame_num:              # jump interval;  jump the first interval/frame, because calculating speed from second to previous interval/frame
                         
-            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, index_frm, prev_EMA_speed_arr)
+            used_current_frm = index_frm-1
+            used_prev_frm = used_current_frm - 10      # used_current_frm - PLAYOUT_RATE    # previous frame not previous sec
+            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, used_prev_frm, used_current_frm, prev_EMA_speed_arr)
             prev_EMA_speed_arr = feature1_speed_arr
 
-            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, index_frm, prev_EMA_relative_speed_arr2)
+            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, used_prev_frm, used_current_frm, prev_EMA_relative_speed_arr2)
             prev_EMA_relative_speed_arr2 = feature2_relative_speed_arr
             #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
    
@@ -659,7 +661,6 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             select_frm_cnt += 1
             
             
-
         previous_frm_indx += 1
         
         index_frm +=  interval_jump   
@@ -668,7 +669,6 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             break 
 
     input_x_arr = input_x_arr[:select_frm_cnt].reshape(input_x_arr[:select_frm_cnt].shape[0], -1)
-    
     
     current_instance_start_frm_path_arr = current_instance_start_frm_path_arr[:select_frm_cnt].reshape(current_instance_start_frm_path_arr[:select_frm_cnt].shape[0], -1)
     input_x_arr = np.hstack((current_instance_start_frm_path_arr, input_x_arr))
