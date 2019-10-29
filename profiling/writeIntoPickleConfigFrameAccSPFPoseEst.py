@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Sep 20 15:31:00 2019
-
 @author: fubao
 """
 
@@ -19,6 +18,7 @@ import os
 import math
 import pandas as pd
 import numpy as np
+import time
 
 import sys
 import csv
@@ -37,6 +37,7 @@ from common_prof import  dataDir3
 from common_prof import frameRates
 from common_prof import PLAYOUT_RATE
 from common_prof import computeOKSAP
+from common_prof import computeOKSFromOrigin
 
 
 '''
@@ -47,7 +48,6 @@ def modelToInt(model):
         return 2
     else: 
         return 1
-
 '''
 
 
@@ -283,17 +283,17 @@ def write_config_frm_acc_result(data_pose_keypoint_dir, confg_frm_est_arr, data_
 
     print('config, ddd: ', config, col_ind, confg_frm_acc_arr.shape)
 
-    
     out_frm_acc_pickle_file = data_pickle_out_dir + "config_acc_frm.pkl"      # acc for config vs each frame
     
     with open(out_frm_acc_pickle_file,'wb') as fs:
         pickle.dump(confg_frm_acc_arr, fs)   
         
-'''
-def write_config_frm_acc_result2(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_out_dir):
-    #frame-by-frame consideration
+        
+def write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_out_dir, interval, metric):
+    #1second interval consideration to calculate oks or acc
     #get each config acc for each frame, use actual pose estimation to replace the undetected frames 
     # when calculating low frame rate
+    # metric, us oks or acc
     
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
 
@@ -306,23 +306,47 @@ def write_config_frm_acc_result2(data_pose_keypoint_dir, confg_frm_est_arr, data
         
         print ("lst_indx: ", lst_indx, len(lst_indx))
         frm_extracted_index_dict[frmRt] = lst_indx
+
+    # row [0] is ground truth
+    gts_arr = confg_frm_est_arr[0]  #ground truth for each frame    1120*83-25-cmu
+    print ("confg_frm_est_arr dimen: ",confg_frm_est_arr.shape)
         
-    tmp_arr = np.zeros((confg_frm_est_arr.shape[0], confg_frm_est_arr.shape[1]-PLAYOUT_RATE))
+    confg_frm_acc_arr = np.zeros((confg_frm_est_arr.shape[0], confg_frm_est_arr.shape[1]-PLAYOUT_RATE)) # oks or acc
+    for row_ind in range(0, confg_frm_est_arr.shape[0]):
+        config = id_config_dict[row_ind]
+        print('config, row_ind: ', config, row_ind)
+        frmRt = int(config.split('-')[1])
+        lst_indx = frm_extracted_index_dict[frmRt]
+        for col_ind in range(0, confg_frm_est_arr.shape[1]-PLAYOUT_RATE, PLAYOUT_RATE):
+            #print('config, col_ind: ', config, col_ind, confg_frm_est_arr[row_ind][col_ind])
+            # construct 25 frames result
+            conf_arr_origin = confg_frm_est_arr[row_ind][col_ind:col_ind+PLAYOUT_RATE]
+            conf_arr_new = getPredictedPoseEst(conf_arr_origin, lst_indx)
+            #print ("conf_arr_new dimen: ",lst_indx, conf_arr_new)
+            
+            gts_arr = confg_frm_est_arr[0][col_ind:col_ind+PLAYOUT_RATE] 
+            
+            #calculate the accuracy
+            acc = np.mean(calculate_config_frm_acc(conf_arr_new, gts_arr, metric))
+            #print ("acc_arr: ",config, acc_arr.shape, acc_arr)
+            confg_frm_acc_arr[row_ind][col_ind] = acc
+            
+
+    print('config, ddd: ', config, col_ind, confg_frm_acc_arr.shape)
     
-    tmp_arr = confg_frm_est_arr[:, 0:0+PLAYOUT_RATE]
-    for col_ind in range(1, confg_frm_est_arr.shape[1]-PLAYOUT_RATE):
-        tmp_arr = np.hstack((tmp_arr, confg_frm_est_arr[:, col_ind:col_ind+PLAYOUT_RATE]))
+    out_frm_acc_pickle_file = data_pickle_out_dir + "config_" + metric + "_interval_1sec.pkl"      # acc for config vs each frame
         
-    print('tmp_arr, ddd: ', col_ind,  tmp_arr.shape)
-    
-    
-    # not finished yet
-'''
+    with open(out_frm_acc_pickle_file,'wb') as fs:
+        pickle.dump(confg_frm_acc_arr, fs)   
+        
+        
 
 def getOnePersonEstimation(ests_arr):
     '''
    use only one person select the confidence score higher
     '''
+    #print ("ests_arr ests_arr: ", ests_arr)
+    
     strLst = re.findall(r'],\d.\d+', ests_arr)
     person_lst = [re.findall(r'\d.\d+', st) for st in strLst]
     
@@ -331,7 +355,8 @@ def getOnePersonEstimation(ests_arr):
     
     return ests_arr.split(';')[ind]
 
-def apply_acc_fun(arrs):
+
+def apply_acc_fun(arrs, metric):
     
     #print ("commmmmmm: ", type((arrs[0])), arrs[0])
     #print ("commmmmmm22: ", str(arrs[0]) == 'nan')
@@ -343,14 +368,22 @@ def apply_acc_fun(arrs):
         return 0.0
     elif str(arrs[0]) != 'nan' and str(arrs[1]) == 'nan':
         return 0.0
+    elif str(arrs[0]) == '' or str(arrs[1]) == '':
+        return 0.0
+    elif str(arrs[0]) == '0' or str(arrs[1]) == '0':        # no pose estimation detected for the low config
+        return 0.0
     
     arr0 = getOnePersonEstimation(arrs[0])
     arr1 = getOnePersonEstimation(arrs[1])
-    acc = computeOKSAP(arr0, arr1, '')
     
+    if metric == 'acc':
+        acc = computeOKSAP(arr0, arr1, '')
+    elif metric == 'oks':
+        acc = computeOKSFromOrigin(arr0, arr1, '')
+        
     return acc
     
-def calculate_config_frm_acc(ests_arr, gts_arr):
+def calculate_config_frm_acc(ests_arr, gts_arr, metric):
     #each input it's the array of all frames
 
     
@@ -359,12 +392,11 @@ def calculate_config_frm_acc(ests_arr, gts_arr):
     combine_arr = np.vstack((ests_arr, gts_arr))
     
     #print ("combine_arr shape: ", combine_arr.shape)
-    acc_arr = np.apply_along_axis(apply_acc_fun, 0, combine_arr)
+    acc_arr = np.apply_along_axis(apply_acc_fun, 0, combine_arr, metric)
     
     #print ("acc_arr: ", acc_arr.shape, acc_arr)
     
     return acc_arr
-
 
 
 def readConfigFrmSPfFile(data_pickle_dir):
@@ -383,51 +415,6 @@ def readConfigFrmSPfFile(data_pickle_dir):
 
 
 
-'''
-def write_config_seg_acc_spf_result(segment_time, confg_frm_est_arr, confg_frm_spf_arr):
-    #segtime by segment
-    #consider switching config by the segment_time interval. i.e. switch config every 1 sec
-    #therefore, we calculate the acc and spf (on the average) offline, use the selected frames' pose as pose estimation.
-    # calculate 1 sec first
-    
-    basic_unit = 1           # 1 sec
-    
-    # extract frame according to different frame rate
-    frm_extracted_index_dict = defaultdict()
-    
-    for frmRt in frameRates:
-        frmInter = math.ceil(PLAYOUT_RATE/frmRt)          # frame rate sampling frames in interval, +1 every other
-        lst_indx = range(0, PLAYOUT_RATE, frmInter)
-        
-        print ("lst_indx: ", lst_indx, len(lst_indx))
-        frm_extracted_index_dict[frmRt] = lst_indx
-    
-    
-    #print ("aaa: ", aaa)
-'''
-
-
-def executeWriteIntoPickle():
-    
-    video_dir_lst = ['output_001-dancing-10mins/', 'output_002-video_soccer-20mins/', 
-                     'output_003-bike_race-10mins/', 'output_006-cardio_condition-20mins/',
-                     'output_008-Marathon-20mins/'
-                     ]
-    
-    for vd_dir in video_dir_lst[4:5]:        # [3:4]:   # [0:1]:
-        
-        data_pickle_dir = dataDir2 +  vd_dir + 'frames_pickle_result/'
-        if not os.path.exists(data_pickle_dir):
-            os.mkdir(data_pickle_dir)
-            
-            
-        write_config_frm_poseEst_result(dataDir2 +  vd_dir, data_pickle_dir)
-        
-        data_pose_keypoint_dir = dataDir2 +  vd_dir
-        confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
-        write_config_frm_acc_result(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir)
-        
-        #write_config_frm_acc_result2(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir)
 
 
 def executeWriteIntoPickleOnePeron():
@@ -441,21 +428,27 @@ def executeWriteIntoPickleOnePeron():
                     'output_011_dance/']
     
     
-    for vd_dir in video_dir_lst[0:1]:        # [3:4]:   # [0:1]:
+    for vd_dir in video_dir_lst[0:10]:        # [3:4]:   # [0:1]:
         
         data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
         if not os.path.exists(data_pickle_dir):
             os.mkdir(data_pickle_dir)
             
-        write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir)
+        st_time = time.time()
+        #write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir)
         
-        '''
         data_pose_keypoint_dir = dataDir3 +  vd_dir
         confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
-        write_config_frm_acc_result(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir)
-        '''
         
-
+        interval = 1        # 1 sec
+        metric = 'oks'
+        write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, interval, metric)
+        
+        metric = 'acc'
+        write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, interval, metric)
+        
+        end_time = time.time() - st_time
+        print ("elapsed_time for each file: ", end_time - st_time)
 
 if __name__== "__main__":
     

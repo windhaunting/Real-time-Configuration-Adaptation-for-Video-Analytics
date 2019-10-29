@@ -15,6 +15,7 @@ import csv
 
 import numpy as np
 
+from collections import defaultdict
 from glob import glob
 from blist import blist
 from matplotlib import pyplot as plot
@@ -164,7 +165,7 @@ def getNewconfig(reso, model):
     return config_lst
 
 
-def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
+def read_all_config_name_from_file(data_pose_keypoint_dir, write_flag):
     '''
     read config info and order based on resolution*frame rate and then order them in descending order
     and make it a dictionary
@@ -215,6 +216,31 @@ def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
 
 
 
+def extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_set, frame_set, model_set):
+    '''
+    extract the specific config from a certain resolution, frame_rate, and/or model
+    
+    resolution_lst, frame_lst,  model_lst
+    
+    '''
+    write_flag = False
+    config_id_dict, id_config_dict = read_all_config_name_from_file(data_pose_keypoint_dir, write_flag)
+    lst_id_subconfig = []     # include the original id    
+    for conf, idx in config_id_dict.items():
+        
+        reso = conf.split("-")[0]
+        frmRt = int(conf.split("-")[1])
+        model = conf.split("-")[2]
+        
+        if reso in resolution_set and frmRt in frame_set and model in model_set:
+            lst_id_subconfig.append(idx)
+        
+    #print ("lst_id_subconfig: ", lst_id_subconfig, config_id_dict)
+
+    return lst_id_subconfig, id_config_dict
+
+
+
 def read_poseEst_conf_frm(data_pickle_dir):
     '''
     read profiling conf's pose of each frame from pickle 
@@ -231,14 +257,18 @@ def read_poseEst_conf_frm(data_pickle_dir):
     return confg_est_frm_arr
 
 
-def readProfilingResultNumpy(data_pickle_dir):
+def readProfilingResultNumpy(data_pickle_dir, intervalFlag):
     '''
     read profiling from pickle
     the pickle file is created from the file "writeIntoPickle.py"
     
     '''
-    
-    acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl')
+    if intervalFlag == 'frame':
+        acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl')
+    elif intervalFlag == 'sec':
+        #acc_frame_arr = np.load(data_pickle_dir + 'config_acc_interval_1sec.pkl')
+        acc_frame_arr = np.load(data_pickle_dir + 'config_oks_interval_1sec.pkl')
+
     spf_frame_arr = np.load(data_pickle_dir + 'config_spf_frm.pkl')
     #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
     #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])

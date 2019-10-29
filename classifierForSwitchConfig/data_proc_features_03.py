@@ -28,11 +28,12 @@ from glob import glob
 from blist import blist
 from collections import defaultdict
 
-from common_classifier import read_config_name_from_file
+from common_classifier import read_all_config_name_from_file
 from common_classifier import read_poseEst_conf_frm
 from common_classifier import readProfilingResultNumpy
 from common_classifier import getParetoBoundary
 from common_classifier import checkCorrelationPlot
+from common_classifier import extract_specific_config_name_from_file
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -129,9 +130,9 @@ def getPersonEstimation(est_res, width, height):
     '''
     
     strLst = re.findall(r'],\d.\d+', est_res)
-    person_lst = [re.findall(r'\d.\d+', st) for st in strLst]
+    person_score = [re.findall(r'\d.\d+', st) for st in strLst]
     
-    personNo = np.argmax(person_lst)
+    personNo = np.argmax(person_score)
     
     
     est_res = est_res.split(';')[personNo]
@@ -1177,8 +1178,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
     
-    confg_est_frm_arr = read_poseEst_conf_frm(data_pickle_dir)
-    old_acc_frm_arr = acc_frame_arr
+    #confg_est_frm_arr = read_poseEst_conf_frm(data_pickle_dir)
+    #old_acc_frm_arr = acc_frame_arr
     #print ("getOnePersonFeatureInputOutput01 acc_frame_arr: ", acc_frame_arr.shape)
 
     # save to file to have a look
@@ -1187,11 +1188,16 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     
     #config_ind_pareto = getParetoBoundary(acc_frame_arr[:, 0], spf_frame_arr[:, 0])
-    config_ind_pareto = [0, 1, 2, 4, 6, 8, 10, 12, 15, 17, 19, 21, 24, 27, 29, 31, 33, 37, 39, 42, 44, 47, 49, 52, 54, 56, 58, 61, 63, 66, 69]          #     # only testing cmu model not ther pareto boundary, testing only
+    
+    resolution_set = ["1120x832"]  #, "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
+    frame_set = [25, 15, 10, 5, 2, 1]     #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
+    model_set = ['cmu']   #, 'mobilenet_v2_small']
 
-    print ("getOnePersonFeatureInputOutput01 config_ind_pareto: ", config_ind_pareto)
-    acc_frame_arr = acc_frame_arr[config_ind_pareto, :]
-    spf_frame_arr =  spf_frame_arr[config_ind_pareto, :]
+    lst_id_subconfig, id_config_dict = extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_set, frame_set, model_set)
+
+    print ("getOnePersonFeatureInputOutput01 config_ind_pareto: ", lst_id_subconfig)
+    acc_frame_arr = acc_frame_arr[lst_id_subconfig, :]
+    spf_frame_arr =  spf_frame_arr[lst_id_subconfig, :]
     
     print ("getOnePersonFeatureInputOutput01 acc_frame_arr: ", acc_frame_arr[:, 0], acc_frame_arr.shape)
 
@@ -1199,12 +1205,12 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     #max_frame_example_used = 1000   # 8000
     #current_frame_id = 25
-    config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
+    config_id_dict, id_config_dict = read_all_config_name_from_file(data_pose_keypoint_dir, False)
 
     
     # get new id map based on pareto boundary/'s result
     new_id_config_dict = defaultdict()
-    for i, ind in enumerate(config_ind_pareto):
+    for i, ind in enumerate(lst_id_subconfig):
         new_id_config_dict[i] = id_config_dict[ind]
     id_config_dict = new_id_config_dict
     
