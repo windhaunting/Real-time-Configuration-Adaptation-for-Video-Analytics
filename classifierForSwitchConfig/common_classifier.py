@@ -8,10 +8,11 @@ Created on Sun Sep 15 15:12:00 2019
 
 # common file for classification of switching config
 
-
+import re
 import sys
 import os
 import csv
+import cv2
 
 import numpy as np
 
@@ -32,9 +33,109 @@ sys.path.insert(0, current_file_cur + '/..')
 from profiling.common_prof import dataDir3
 from profiling.common_prof import frameRates
 
+COCO_KP_NUM = 17      # total 17 keypoints
+
+
+'''
+0	nose
+1	leftEye
+2	rightEye
+3	leftEar
+4	rightEar
+5	leftShoulder
+6	rightShoulder
+7	leftElbow
+8	rightElbow
+9	leftWrist
+10	rightWrist
+11	leftHip
+12	rightHip
+13	leftKnee
+14	rightKnee
+15	leftAnkle
+16	rightAnkle
+
+'''
 
 
 
+def drawHuman(npimg, est_arr):
+    '''
+    draw the skeleton according to the estimation point
+    
+    # only one person here
+    '''
+    dict_part_id = {'nose' : 0, 'leftEye': 1, 'rightEye': 2, 'leftEar': 3, 'rightEar': 4, 'leftShoulder': 5,
+                 'rightShoulder': 6, 'leftElbow' : 7, 'rightElbow': 8, 'leftWrist': 9, 
+                 'rightWrist': 10, 'leftHip': 11, 'rightHip':12, 'leftKnee': 13, 'rightKnee': 14,
+                 'leftAnkle': 15, 'rightAnkle': 16}
+    
+    pairs_parts = [('leftShoulder', 'leftElbow'), ('leftElbow', 'leftWrist'), ('leftShoulder', 'leftHip'),
+                  ('leftHip','leftKnee'),  ('leftKnee', 'leftAnkle'), ('leftShoulder', 'rightShoulder'),
+                  ('leftHip','rightHip'), ('rightShoulder', 'rightHip'), ('rightHip', 'rightKnee'),
+                  ('rightKnee','rightAnkle'), ('rightShoulder', 'rightElbow'), ('rightElbow', 'rightWrist')]
+    
+    image_h, image_w = npimg.shape[:2]
+
+    kp_arr = getPersonEstimation(est_arr)
+
+    centers = [None]*COCO_KP_NUM
+
+
+    # draw point
+    point_num = kp_arr.shape[0]
+    for i in range(0, point_num):
+        body_part = kp_arr[i]
+        center = (int(body_part[0] * image_w + 0.5), int(body_part[1] * image_h + 0.5))
+        
+        #print ("center: ", center, body_part[0])
+        centers[i] = center
+        cv2.circle(npimg, center, 3, (0, 255, 255), thickness=3, lineType=8, shift=0)
+        cv2.putText(npimg, str(i), center, 2, 0.6, (0, 0, 0), 1, cv2.LINE_AA)
+
+    #print ("kp_arr: ", kp_arr.shape, )
+    
+    #dict_id_part = {v:k for k, v in dict_part_id.items()}
+    for pr in pairs_parts:
+        
+        #print ("pr: ", pr, dict_part_id)
+        pt1 = centers[dict_part_id[pr[0]]]
+        pt2 = centers[dict_part_id[pr[1]]]
+        cv2.line(npimg, pt1, pt2, (0, 255, 255), 3)
+
+    return npimg
+    
+def getPersonEstimation(est_res):
+    '''
+    analyze the personNo's pose estimation result with highest confidence score
+    input: 
+        [500, 220, 2, 514, 214, 2, 498, 210, 2, 538, 232, 2, 0, 0, 0, 562, 308, 2, 470, 304, 2, 614, 362, 2, 420, 362, 2, 674, 398, 2, 372, 394, 2, 568, 468, 2, 506, 468, 2, 596, 594, 2, 438, 554, 2, 616, 696, 2, 472, 658, 2],1.4246317148208618;
+        [974, 168, 2, 988, 162, 2, 968, 158, 2, 1004, 180, 2, 0, 0, 0, 1026, 244, 2, 928, 250, 2, 1072, 310, 2, 882, 302, 2, 1112, 360, 2, 810, 346, 2, 1016, 398, 2, 948, 396, 2, 1064, 518, 2, 876, 482, 2, 1060, 630, 2, 900, 594, 2],1.4541109800338745;
+        [6, 172, 2, 16, 164, 2, 6, 162, 2, 48, 182, 2, 0, 0, 0, 68, 256, 2, 10, 254, 2, 112, 312, 2, 0, 0, 0, 168, 328, 2, 0, 0, 0, 70, 412, 2, 28, 420, 2, 108, 600, 2, 0, 0, 0, 144, 692, 2, 0, 0, 0],1.283275842666626;
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 74, 162, 2, 0, 0, 0, 92, 208, 2, 42, 206, 2, 134, 250, 2, 0, 0, 0, 176, 284, 2, 0, 0, 0, 118, 334, 2, 86, 334, 2, 126, 396, 2, 80, 396, 2, 148, 548, 2, 0, 0, 0],0.9429177641868591
+        
+        
+    output:
+        a specific person's detection result arr (17x2)
+    '''
+    
+    #print ("est_res: ", est_res)
+    strLst = re.findall(r'],\d.\d+', est_res)
+    person_score = [re.findall(r'\d.\d+', st) for st in strLst]
+    
+    personNo = np.argmax(person_score)
+    
+    
+    est_res = est_res.split(';')[personNo]
+    
+    lst_points = [[float(t[0]), float(t[1]), float(t[2])] for t in re.findall(r'(0(?:\.\d*)?), (0(?:\.\d*)?), (\d\.[0]|[0123])', est_res)]
+
+    kp_arr = np.array(lst_points)
+    
+    #print ("kp_arr: ", kp_arr.shape, kp_arr)
+    return kp_arr
+
+    
 def load_data_all_features(data_examples_dir, xfile, yfile):
     '''
     data the data for traing and test with all the features, 
@@ -200,7 +301,7 @@ def read_all_config_name_from_file(data_pose_keypoint_dir, write_flag):
     config_lst.sort(key = lambda ele: int(ele.split('-')[0].split('x')[1])* int(ele.split('-')[1]), reverse=True)
     config_id_dict = dict(zip(config_lst,range(0, len(config_lst))))
         
-    id_config_dict = dict(zip(range(0, len(config_lst)), config_lst))
+    id_config_dict = {v:k for k, v in config_id_dict.items()} #    error dict(zip(range(0, len(config_lst)), config_lst))
 
     #print ("model_resoFrm_dict: ", id_config_dict, len(id_config_dict), config_id_dict)
     
@@ -264,7 +365,7 @@ def readProfilingResultNumpy(data_pickle_dir, intervalFlag):
     
     '''
     if intervalFlag == 'frame':
-        acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl')
+        acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl')          # frame by frame but it also calculate the 1sec interval with each frame starting
     elif intervalFlag == 'sec':
         #acc_frame_arr = np.load(data_pickle_dir + 'config_acc_interval_1sec.pkl')
         acc_frame_arr = np.load(data_pickle_dir + 'config_oks_interval_1sec.pkl')
@@ -396,6 +497,34 @@ def read_config_name_resolution_only(data_pose_keypoint_dir, write_flag):
                 
     return config_reso_id_dict, id_config_reso_dict
 
+
+def calculateDifferenceSumFrmRate(y_test, y_pred, id_config_dict):
+    '''
+    get the predicted config abs difference sum of frame rate overall
+    #2nd get the difference of predicted false
+    '''
+    # get the frame rate list
+    lst1 = [int(id_config_dict[int(x)].split("-")[1]) for x in y_test]       # frame rate
+    lst2 = [int(id_config_dict[int(x)].split("-")[1]) for x in y_pred]
+    
+    overall_diff = [abs(lst1[i]-lst2[i]) for i in range(0, len(lst1))]
+    print ("calculateDifferenceSumFrmRate: overall_diff ", len(overall_diff))
+    
+    overall_diffSum = sum(overall_diff)/len(overall_diff)
+    
+    lst1_sub = []   # the instance that predicted wrong
+    lst2_sub = []
+    for i in range(0, len(lst1)):
+        if lst1[i] != lst2[i]:
+            lst1_sub.append(lst1[i])
+            lst2_sub.append(lst2[i])
+       
+        
+    sub_diff = [abs(lst1_sub[i]-lst2_sub[i]) for i in range(0, len(lst1_sub))]
+
+    sub_diffSum = sum(sub_diff)/len(sub_diff)
+
+    return overall_diffSum, sub_diffSum
 
 
 def paddingZeroToInter(ind):

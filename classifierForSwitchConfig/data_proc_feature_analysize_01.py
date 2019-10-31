@@ -43,6 +43,8 @@ from common_classifier import getParetoBoundary
 from common_classifier import checkCorrelationPlot
 from common_classifier import extract_specific_config_name_from_file
 from common_classifier import paddingZeroToInter
+from common_classifier import COCO_KP_NUM
+from common_classifier import getPersonEstimation
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -55,7 +57,6 @@ from profiling.common_prof import PLAYOUT_RATE
 from profiling.common_prof import computeOKSAP
 from profiling.common_prof import computeOKSFromOrigin
 
-COCO_KP_NUM = 17      # total 17 keypoints
 
 
 '''
@@ -108,79 +109,96 @@ COCO_KP_NUM = 17      # total 17 keypoints
 
 
 ALPHA_EMA = 0.8   # EMA
-
-def getPersonEstimation(est_res):
-    '''
-    analyze the personNo's pose estimation result with highest confidence score
-    input: 
-        '[0.5232142857142857, 0.28846153846153844, 2, 0.5303571428571429, 0.27884615384615385, 2, 0.5142857142857142, 0.27884615384615385, 2, 
-        0.5428571428571428, 0.29086538461538464, 2, 0.5071428571428571, 0.2932692307692308, 2, 
-        0.5660714285714286, 0.35096153846153844, 2, 0.49464285714285716, 0.37259615384615385, 2, 0.5964285714285714, 0.41586538461538464, 2, 0.49464285714285716, 0.4735576923076923, 2, 0.5910714285714286, 0.5024038461538461, 2, 0.5035714285714286, 0.375, 2, 0.5642857142857143, 0.5264423076923077, 2, 0.5232142857142857, 0.53125, 2, 0.5625, 0.6538461538461539, 2, 0.5267857142857143, 0.6490384615384616, 2, 0.5607142857142857, 0.7451923076923077, 2, 0.5267857142857143, 0.7283653846153846, 2],1.41558039188385'
-        
-    output:
-        a specific person's detection result arr (17x2)
-    '''
-    '''
-    #print ("est_res: ", type(est_res), est_res)
-    person_est = est_res.split(';')[personNo].split('],')[0].replace('[', '')
-    
-    kp_arr = np.zeros((COCO_KP_NUM, 2))    # 17x2 each kp is a two-dimensional value
-    
-
-    for ind, kp in enumerate(person_est.split(',')):
-        #if ind%3 == 0:
-        #    kp_arr[int(ind/3), ind%3] = float(kp)*1120
-        #elif ind%3 == 1:
-        #    kp_arr[int(ind/3), ind%3] = float(kp)*832
-        if ind%3 != 2:
-            kp_arr[int(ind/3), ind%3] = float(kp)
-    '''
-    
-    strLst = re.findall(r'],\d.\d+', est_res)
-    person_lst = [re.findall(r'\d.\d+', st) for st in strLst]
-    
-    personNo = np.argmax(person_lst)
-    
-    
-    est_res = est_res.split(';')[personNo]
-    
-    lst_points = [[float(t[0]), float(t[1])] for t in re.findall(r'([0|1](?:\.\d*)?), ([0|1](?:\.\d*)?), ([0123])', est_res)]
-
-    kp_arr = np.array(lst_points)
-    
-    #print ("kp_arr: ", kp_arr.shape, kp_arr)
-    return kp_arr
-    
+  
     
 
 def getEuclideanDist(val, time_frm_interval):
     '''
     calculate the euclidean distance
-    val: [x1, y1, x2, y2]
+    val: [x1, y1, v1 x2, y2, v2]
     '''
-    #or vector distance
-    
+    #or vector distance    
     #speed_angle = [val[0]-val[2], val[1]-val[3]]
-
+    x1= val[0]
+    y1 = val[1]
+    x2 = val[2]
+    y2 = val[3]
     
-    dist = math.sqrt((val[1] - val[3])**2 + (val[0] - val[2])**2)
+    dist = math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
                
     speed = dist/time_frm_interval
     
-    if (math.sqrt(val[0]**2 + val[1]**2) *math.sqrt(val[2]**2 + val[3]**2)) == 0:
+    if (math.sqrt(x1**2 + y1*2) *math.sqrt(x2**2 + y2**2)) == 0:
         cos_angle = 0
     else:
-        cos_angle = (val[0]*val[2] + val[1]*val[3]) / (math.sqrt(val[0]**2 + val[1]**2) *math.sqrt(val[2]**2 + val[3]**2))
+        cos_angle = (x1*x2 + y1*y2) / (math.sqrt(x1**2 + y1**2) *math.sqrt(x2**2 + y2**2))
     
-    speed_angle = [speed, cos_angle]
+    speed_angle = [speed, cos_angle]       # 2 is visibility not used
     #print ("speed: ", val, speed)
 
     
     return speed_angle
     
 
+def fillEstimation(j, prev_frm_est_arr, cur_frm_est_arr):
+    
+    num_kp = prev_frm_est_arr.shape[0]
+    
+    for i in range(0, num_kp):
+        if cur_frm_est_arr[i][2] == 0:     # visibility is 0, not detected
+            #print ("prev_frm_est_arr: ", j, i, prev_frm_est_arr[i], cur_frm_est_arr[i][2])
+            cur_frm_est_arr[i] = prev_frm_est_arr[i]
+            
+    return cur_frm_est_arr
 
-def getFeatureOnePersonMovingSpeed(history_pose_est_arr, used_prev_frm, used_current_frm, prev_EMA_speed_arr):
+
+    
+def getCurrentAverageSpeed(history_pose_est_arr, used_current_frm):
+    
+    
+    used_prev_frm = used_current_frm-PLAYOUT_RATE    # 1sec
+    
+    j = used_current_frm
+    
+    current_speed_angle_arr = np.zeros(history_pose_est_arr.shape[1:])
+    while (j > used_prev_frm):
+        cur_frm_est_arr = history_pose_est_arr[j]    
+        prev_frm_est_arr = history_pose_est_arr[j-1]
+        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+        hstack_arr = np.hstack((cur_frm_est_arr, prev_frm_est_arr))
+        
+        #print ("current_speed_angle_arr: ", current_speed_angle_arr.shape, hstack_arr.shape)
+        time_frm_interval = (1.0/PLAYOUT_RATE)           # interval 1 frame
+        
+        current_speed_angle_arr += np.apply_along_axis(getEuclideanDist, 1, hstack_arr, time_frm_interval)    
+        j -= 1
+    
+    current_speed_angle_arr = current_speed_angle_arr/(used_current_frm - used_prev_frm)
+    
+    return current_speed_angle_arr
+
+
+def getCurrentAverageRelativeSpeed(history_pose_est_arr, used_current_frm):
+    
+    
+    used_prev_frm = used_current_frm-PLAYOUT_RATE    # previous 1 sec
+    
+    j = used_current_frm
+    
+    current_speed_angle_arr = np.zeros(history_pose_est_arr.shape[1:])
+    while (j > used_prev_frm):
+        cur_frm_est_arr = history_pose_est_arr[j]    
+        prev_frm_est_arr = history_pose_est_arr[j-1]
+        time_frm_interval = (1.0/PLAYOUT_RATE)           # interval 1 frame
+        current_speed_angle_arr = relativeSpeed(cur_frm_est_arr, prev_frm_est_arr, time_frm_interval)
+        j -= 1
+    
+    current_speed_angle_arr = current_speed_angle_arr/(used_current_frm - used_prev_frm)
+    return current_speed_angle_arr
+
+    
+def getFeatureOnePersonMovingSpeed(history_pose_est_arr, used_current_frm, prev_EMA_speed_arr):
     '''
     feature1: One person’s moving speed of all keypoints V i,k based on the
     euclidean d distance of current frame with the previous frame {f j−m , m =
@@ -190,13 +208,14 @@ def getFeatureOnePersonMovingSpeed(history_pose_est_arr, used_prev_frm, used_cur
     
     output: feature1_speed_arr COCO_KP_NUM x 1
     '''
-    cur_frm_est_arr = history_pose_est_arr[used_current_frm]
-    #print ("aaaa, ", current_frm_id, cur_frm_est_arr, len(range(current_frm_id-1, current_frm_id-1-history_frame_num-1, -1)))
-    
+    '''
+    used_prev_frm = used_current_frm-1
+    cur_frm_est_arr = history_pose_est_arr[used_current_frm]    
     #feature1_speed_arr = np.zeros((COCO_KP_NUM, 2))
-    
-    
+        
     prev_frm_est_arr = history_pose_est_arr[used_prev_frm]
+
+    #print ("getFeatureOnePersonMovingSpeed cur_frm_est_arr ", prev_frm_est_arr, cur_frm_est_arr)
     
     # get the current speed based on current frame and previous frame
     hstack_arr = np.hstack((cur_frm_est_arr, prev_frm_est_arr))
@@ -205,7 +224,9 @@ def getFeatureOnePersonMovingSpeed(history_pose_est_arr, used_prev_frm, used_cur
     time_frm_interval = (1.0/PLAYOUT_RATE)*(used_current_frm - used_prev_frm)            # interval 1 second
     #time_frm_interval = 1.0/PLAYOUT_RATE
     current_speed_angle_arr = np.apply_along_axis(getEuclideanDist, 1, hstack_arr, time_frm_interval)    
-    
+    '''
+    current_speed_angle_arr = getCurrentAverageSpeed(history_pose_est_arr, used_current_frm)
+    #print ("current_speed_angle_arr: ", current_speed_angle_arr)
     feature1_speed_arr = current_speed_angle_arr * ALPHA_EMA  + (1-ALPHA_EMA) * prev_EMA_speed_arr
     
     #print ("feature1_speed_arr, ", time_frm_interval, feature1_speed_arr)
@@ -253,7 +274,7 @@ def relativeSpeed(arr1, arr2, time_frm_interval):
     return relative_speed_arr
     
 
-def getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, used_prev_frm, used_current_frm, prev_EMA_relative_speed_arr):
+def getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, used_current_frm, prev_EMA_relative_speed_arr):
     '''
     feature 2 One person arm/feet’s relative speed to the torso of all keypoints
     with the previous frames.
@@ -263,12 +284,15 @@ def getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, used_prev_frm, used_
     output: feature2_relative_speed_arr 5 x history_frame_num-1
 
     '''
+
     # get left wrist, right wrist,left ankle, right ankle and the left hip
     # which corresponds to [7, 4, 13, 10, 11]
-    selected_kp_index = [9, 10, 15, 16, 11]   #  [7, 4, 13, 10, 11]
+    selected_kp_index = [9, 10, 13, 14, 11]   #  [7, 4, 13, 10, 11]
     selected_kp_history_pose_est_arr = history_pose_est_arr[:, selected_kp_index, :]
     #print ("selected_kp_history_pose_est_arr aaa, ", selected_kp_history_pose_est_arr[0])
     
+    '''
+    used_prev_frm = used_current_frm-1
     curr_frm_rel_dist_arr = selected_kp_history_pose_est_arr[used_current_frm]   #np.apply_along_axis(relativeDistance, 2, selected_kp_history_pose_est_arr)
     
     previous_frm_arr = selected_kp_history_pose_est_arr[used_prev_frm]
@@ -278,13 +302,16 @@ def getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, used_prev_frm, used_
     time_frm_interval = (1.0/PLAYOUT_RATE)* (used_current_frm - used_prev_frm)
     
     current_speed_arr = relativeSpeed(curr_frm_rel_dist_arr, previous_frm_arr, time_frm_interval)
+    '''
     
-    feature2_relative_speed_arr = current_speed_arr * ALPHA_EMA  + (1-ALPHA_EMA) * prev_EMA_relative_speed_arr
+    current_speed_arr = getCurrentAverageRelativeSpeed(selected_kp_history_pose_est_arr, used_current_frm)
+
+    feature1_relative_speed_arr = current_speed_arr * ALPHA_EMA  + (1-ALPHA_EMA) * prev_EMA_relative_speed_arr
     
-    return feature2_relative_speed_arr
+    return feature1_relative_speed_arr
 
 
-def getFeatureOnePersonRelativeSpeed2(history_pose_est_arr, current_frm_id, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr):
+def getFeatureOnePersonRelativeSpeed2(history_pose_est_arr, used_current_frm, prev_EMA_relative_speed_arr):
     '''
     feature 2 One person arm/feet’s relative speed to the torso of all keypoints
     with the previous frames.
@@ -294,28 +321,32 @@ def getFeatureOnePersonRelativeSpeed2(history_pose_est_arr, current_frm_id, skip
     output: feature2_relative_speed_arr 5 x history_frame_num-1
 
     '''
+
     # get left wrist, right wrist,left ankle, right ankle and the left hip
     # which corresponds to [7, 4, 13, 10, 11]
-    selected_kp_index = [9, 10, 15, 16, 12]        # [7, 4, 13, 10, 8]
+    selected_kp_index = [9, 10, 13, 14, 12]        # [7, 4, 13, 10, 8]
     selected_kp_history_pose_est_arr = history_pose_est_arr[:, selected_kp_index, :]
     #print ("selected_kp_history_pose_est_arr aaa, ", selected_kp_history_pose_est_arr[0])
+    '''
+    used_prev_frm = used_current_frm-1
+    curr_frm_rel_dist_arr = selected_kp_history_pose_est_arr[used_current_frm]   #np.apply_along_axis(relativeDistance, 2, selected_kp_history_pose_est_arr)
     
-    curr_frm_rel_dist_arr = selected_kp_history_pose_est_arr[current_frm_id]   #np.apply_along_axis(relativeDistance, 2, selected_kp_history_pose_est_arr)
-    
-    previous_frm_arr = selected_kp_history_pose_est_arr[current_frm_id-1]
+    previous_frm_arr = selected_kp_history_pose_est_arr[used_prev_frm]
 
     #frmInter = math.ceil(PLAYOUT_RATE/curr_frm_rate)          # frame rate sampling frames in interval, +1 every other
 
-    time_frm_interval = 1*(1.0/PLAYOUT_RATE)*(skipped_frm_cnt+1)
+    time_frm_interval = (1.0/PLAYOUT_RATE)* (used_current_frm - used_prev_frm)
     
     current_speed_arr = relativeSpeed(curr_frm_rel_dist_arr, previous_frm_arr, time_frm_interval)
+    '''
+    current_speed_arr = getCurrentAverageRelativeSpeed(selected_kp_history_pose_est_arr, used_current_frm)
     
     feature2_relative_speed_arr = current_speed_arr * ALPHA_EMA  + (1-ALPHA_EMA) * prev_EMA_relative_speed_arr
     
     return feature2_relative_speed_arr
 
 
-def getFeatureOnePersonRelativeSpeed3(history_pose_est_arr, current_frm_id, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr):
+def getFeatureOnePersonRelativeSpeed3(history_pose_est_arr, used_current_frm, prev_EMA_relative_speed_arr):
     '''
     feature 2 One person arm/feet’s relative speed to the torso of all keypoints
     with the previous frames.
@@ -325,27 +356,33 @@ def getFeatureOnePersonRelativeSpeed3(history_pose_est_arr, current_frm_id, skip
     output: feature2_relative_speed_arr 5 x history_frame_num-1
 
     '''
+
     # get left wrist, right wrist,left ankle, right ankle and the left hip
     # which corresponds to [7, 4, 13, 10, 11]
-    selected_kp_index = [9, 10, 15, 16, 5]    # [7, 4, 13, 10, 1]
+    selected_kp_index = [9, 10, 13, 14, 5]    # [7, 4, 13, 10, 1]
     selected_kp_history_pose_est_arr = history_pose_est_arr[:, selected_kp_index, :]
     #print ("selected_kp_history_pose_est_arr aaa, ", selected_kp_history_pose_est_arr[0])
+    '''
+    used_prev_frm = used_current_frm-1
+
+    curr_frm_rel_dist_arr = selected_kp_history_pose_est_arr[used_current_frm]   #np.apply_along_axis(relativeDistance, 2, selected_kp_history_pose_est_arr)
     
-    curr_frm_rel_dist_arr = selected_kp_history_pose_est_arr[current_frm_id]   #np.apply_along_axis(relativeDistance, 2, selected_kp_history_pose_est_arr)
-    
-    previous_frm_arr = selected_kp_history_pose_est_arr[current_frm_id-1]
+    previous_frm_arr = selected_kp_history_pose_est_arr[used_prev_frm]
 
     #frmInter = math.ceil(PLAYOUT_RATE/curr_frm_rate)          # frame rate sampling frames in interval, +1 every other
 
-    time_frm_interval = 1*(1.0/PLAYOUT_RATE)*(skipped_frm_cnt+1)
+    time_frm_interval = (1.0/PLAYOUT_RATE)* (used_current_frm - used_prev_frm)
     
     current_speed_arr = relativeSpeed(curr_frm_rel_dist_arr, previous_frm_arr, time_frm_interval)
+    '''
     
-    feature2_relative_speed_arr = current_speed_arr * ALPHA_EMA  + (1-ALPHA_EMA) * prev_EMA_relative_speed_arr
-    
-    return feature2_relative_speed_arr
+    current_speed_arr = getCurrentAverageRelativeSpeed(selected_kp_history_pose_est_arr, used_current_frm)
 
-def getFeatureOnePersonRelativeSpeed4(history_pose_est_arr, current_frm_id, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr):
+    feature3_relative_speed_arr = current_speed_arr * ALPHA_EMA  + (1-ALPHA_EMA) * prev_EMA_relative_speed_arr
+    
+    return feature3_relative_speed_arr
+
+def getFeatureOnePersonRelativeSpeed4(history_pose_est_arr, used_current_frm, prev_EMA_relative_speed_arr):
     '''
     feature 2 One person arm/feet’s relative speed to the torso of all keypoints
     with the previous frames.
@@ -355,25 +392,30 @@ def getFeatureOnePersonRelativeSpeed4(history_pose_est_arr, current_frm_id, skip
     output: feature2_relative_speed_arr 5 x history_frame_num-1
 
     '''
+
     # get left wrist, right wrist,left ankle, right ankle and the left hip
     # which corresponds to [7, 4, 13, 10, 11]
-    selected_kp_index = [9, 10, 15, 16, 6]    # [7, 4, 13, 10, 1]
+    selected_kp_index = [9, 10, 13, 14, 6]    # [7, 4, 13, 10, 1]
     selected_kp_history_pose_est_arr = history_pose_est_arr[:, selected_kp_index, :]
     #print ("selected_kp_history_pose_est_arr aaa, ", selected_kp_history_pose_est_arr[0])
+    '''
+    used_prev_frm = used_current_frm-1
+    curr_frm_rel_dist_arr = selected_kp_history_pose_est_arr[used_current_frm]   #np.apply_along_axis(relativeDistance, 2, selected_kp_history_pose_est_arr)
     
-    curr_frm_rel_dist_arr = selected_kp_history_pose_est_arr[current_frm_id]   #np.apply_along_axis(relativeDistance, 2, selected_kp_history_pose_est_arr)
-    
-    previous_frm_arr = selected_kp_history_pose_est_arr[current_frm_id-1]
+    previous_frm_arr = selected_kp_history_pose_est_arr[used_prev_frm]
 
     #frmInter = math.ceil(PLAYOUT_RATE/curr_frm_rate)          # frame rate sampling frames in interval, +1 every other
 
-    time_frm_interval = 1*(1.0/PLAYOUT_RATE)*(skipped_frm_cnt+1)
+    time_frm_interval = (1.0/PLAYOUT_RATE)* (used_current_frm - used_prev_frm)
     
     current_speed_arr = relativeSpeed(curr_frm_rel_dist_arr, previous_frm_arr, time_frm_interval)
+    '''
     
-    feature2_relative_speed_arr = current_speed_arr * ALPHA_EMA  + (1-ALPHA_EMA) * prev_EMA_relative_speed_arr
+    current_speed_arr = getCurrentAverageRelativeSpeed(selected_kp_history_pose_est_arr, used_current_frm)
+
+    feature4_relative_speed_arr = current_speed_arr * ALPHA_EMA  + (1-ALPHA_EMA) * prev_EMA_relative_speed_arr
     
-    return feature2_relative_speed_arr
+    return feature4_relative_speed_arr
 
 
 
@@ -528,6 +570,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     
     #config_ind_pareto = getParetoBoundary(acc_frame_arr[:, 0], spf_frame_arr[:, 0])
+    #resolution_set = ["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
     resolution_set = ["1120x832"]  #, "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
     frame_set = [25, 15, 10, 5, 2, 1]     #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
     model_set = ['cmu']   #, 'mobilenet_v2_small']
@@ -563,12 +606,11 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     #print ("filePath: ", filePathLst[0], len(df_det))
 
     
-    history_pose_est_arr = np.zeros((max_frame_example_used, COCO_KP_NUM, 2)) # np.zeros((len(df_det), COCO_KP_NUM, 2))        #  to make not shift when new frames comes, we store all values
     
     previous_frm_indx = 0
     
     
-    input_x_arr = np.zeros((max_frame_example_used, 21, 2))    # np.zeros((max_frame_example_used, 66, 2))       # 17 + 4*4 + 4*4 + 17
+    input_x_arr = np.zeros((max_frame_example_used, 33, 2))    # np.zeros((max_frame_example_used, 66, 2))       # 17 + 4*4 + 4*4 + 17
     y_out_arr = np.zeros((max_frame_example_used+1), dtype=int)
     
     #current_instance_start_video_path_arr = np.zeros(max_frame_example_used, dtype=int)
@@ -576,10 +618,10 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     prev_EMA_speed_arr = np.zeros((COCO_KP_NUM, 2))
     
+    prev_EMA_relative_speed_arr1 = np.zeros((4, 2))        # only get 4 keypoints
     prev_EMA_relative_speed_arr2 = np.zeros((4, 2))        # only get 4 keypoints
     prev_EMA_relative_speed_arr3 = np.zeros((4, 2))        # only get 4 keypoints
     prev_EMA_relative_speed_arr4 = np.zeros((4, 2))        # only get 4 keypoints
-    prev_EMA_relative_speed_arr5 = np.zeros((4, 2))        # only get 4 keypoints
     
     
     reso_feature_arr = np.zeros(max_frame_example_used, dtype=int)
@@ -620,37 +662,83 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     print ("num_frames :", num_frames)
     
     
+    history_pose_est_arr = np.zeros((max_frame_example_used, COCO_KP_NUM, 3)) # np.zeros((len(df_det), COCO_KP_NUM, 2))        #  to make not shift when new frames comes, we store all values
+    #first frame is not used?
+    for j in range(1, min(max_frame_example_used, confg_est_frm_arr.shape[1])):
+        #print ("est_res pre, ", confg_est_frm_arr[0][j])
+        est_res = confg_est_frm_arr[0][j]              # only most expensive config to calculate the feature
+        if str(est_res) == 'nan':
+            #print("eeeeest_res: ", j, est_res)
+            history_pose_est_arr[j] = history_pose_est_arr[j-1]
+            confg_est_frm_arr[0][j] = confg_est_frm_arr[0][j-1]
+        else:
+            history_pose_est_arr[j] = getPersonEstimation(est_res)
+            
+        history_pose_est_arr[j] = fillEstimation(j, history_pose_est_arr[j-1], history_pose_est_arr[j])
+        
+        tmp_arr_est = history_pose_est_arr[j].reshape(1, -1)
+        #print ("est_res, ", est_res)
+        tmp_arr_est = str(tmp_arr_est.tolist()[0]) + ',' + str(confg_est_frm_arr[0][j].split('],')[-1])
+        
+        confg_est_frm_arr[0][j] = tmp_arr_est
+        #print ("est_res after, ", confg_est_frm_arr[0][j])
+        
+    history_pose_est_arr = history_pose_est_arr[:, :, :2]
+    #history_pose_est_arr = confg_est_frm_arr
     
+    for j in range(1, min(max_frame_example_used, confg_est_frm_arr.shape[1])):
+        est_res = confg_est_frm_arr[0][j] 
+        if str(est_res) == 'nan':
+            print("nnnnnnneeeeest_res: ", j, est_res)
+            
+            
     index_frm = 0
     previous_frm_indx = 0
     while index_frm < num_frames:           # index_frm is 1 sec interval      
         
-        est_res = confg_est_frm_arr[0][previous_frm_indx]   # confg_est_frm_arr[0][index_frm]         # 0 corresponds to ground truth original big array without extract_specific_config_name_from_file function
+        #est_res = confg_est_frm_arr[0][previous_frm_indx]   # confg_est_frm_arr[0][index_frm]         # 0 corresponds to ground truth original big array without extract_specific_config_name_from_file function
         
-        kp_arr = getPersonEstimation(est_res)
+        #kp_arr = getPersonEstimation(est_res)
 
         #if kp_arr == 'nan' or kp_arr == '' or kp_arr = '0':
-        history_pose_est_arr[previous_frm_indx] = kp_arr
         
-        #print ("kp_arr kp_arr, ", kp_arr)
         #print ("index index index: ", interval_jump,  index_frm)
         if index_frm >= history_frame_num:              # jump interval;  jump the first interval/frame, because calculating speed from second to previous interval/frame
                         
             used_current_frm = index_frm-1
-            used_prev_frm = used_current_frm - 10      # used_current_frm - PLAYOUT_RATE    # previous frame not previous sec
-            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, used_prev_frm, used_current_frm, prev_EMA_speed_arr)
+            #used_prev_frm = used_current_frm - 1      # used_current_frm - PLAYOUT_RATE    # previous frame not previous sec
+            #print ("kp_arr kp_arr, ", history_pose_est_arr[used_current_frm])
+            
+            feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, used_current_frm, prev_EMA_speed_arr)
             prev_EMA_speed_arr = feature1_speed_arr
 
-            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, used_prev_frm, used_current_frm, prev_EMA_relative_speed_arr2)
-            prev_EMA_relative_speed_arr2 = feature2_relative_speed_arr
+
+            feature1_relative_speed_arr = getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, used_current_frm, prev_EMA_relative_speed_arr1)
+            prev_EMA_relative_speed_arr1 = feature1_relative_speed_arr
             #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
    
-            total_features_arr = np.vstack((feature1_speed_arr, feature2_relative_speed_arr))
+            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed2(history_pose_est_arr, used_current_frm, prev_EMA_relative_speed_arr2)
+            prev_EMA_relative_speed_arr2 = feature2_relative_speed_arr
+            
+            
+            feature3_relative_speed_arr = getFeatureOnePersonRelativeSpeed3(history_pose_est_arr, used_current_frm, prev_EMA_relative_speed_arr3)
+            prev_EMA_relative_speed_arr3 = feature1_relative_speed_arr
+            #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
+   
+            feature4_relative_speed_arr = getFeatureOnePersonRelativeSpeed2(history_pose_est_arr, used_current_frm, prev_EMA_relative_speed_arr4)
+            prev_EMA_relative_speed_arr4 = feature4_relative_speed_arr
+            
+            
+            total_features_arr = np.vstack((feature1_speed_arr, feature1_relative_speed_arr))            
+            total_features_arr = np.vstack((total_features_arr, feature2_relative_speed_arr))            
+            total_features_arr = np.vstack((total_features_arr, feature3_relative_speed_arr))            
+            total_features_arr = np.vstack((total_features_arr, feature4_relative_speed_arr))
+            
             
             input_x_arr[select_frm_cnt]= total_features_arr  #  input_x_arr[frm_id-1] = total_features_arr
             
             
-            current_iterative_frm_id = index_frm + interval_jump               # the next interval for predicting is the class output
+            current_iterative_frm_id = index_frm #  + interval_jump               # the next interval for predicting is the class output
             y_out_arr[select_frm_cnt] = select_config(acc_frame_arr, spf_frame_arr, current_iterative_frm_id, minAccuracy)
             #print ("current_iterative_frm_id current_iterative_frm_id, ", acc_frame_arr[:, current_iterative_frm_id])
 
@@ -684,7 +772,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     
 
-    return input_x_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr
+    return input_x_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr
 
 
 def select_config(acc_frame_arr, spf_frame_arr, index_id, minAccuracy):

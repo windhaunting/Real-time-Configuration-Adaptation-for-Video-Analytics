@@ -26,7 +26,8 @@ from collections import defaultdict
 
 from common_classifier import paddingZeroToInter
 from common_classifier import read_poseEst_conf_frm
-\
+from common_classifier import drawHuman
+
 from common_plot import plotScatterLineOneFig
 from common_plot import plotOneScatterLine
 from common_plot import plotOneBar
@@ -107,11 +108,12 @@ def plotLineInImage(im, point_lst, startX, startY, scaleFactor):
         startY += 70    
     
     
-def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, arr_feature_frameIndex, out_data_video_frm):
+    
+def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr, arr_feature_frameIndex, out_data_video_frm):
     '''
     look at the feature value
     x_input_arr: feature arr
-    arr_feature_frameIndex,   e.g '../input_output/one_person_diy_video_dataset/005_dance_frames/000026.jpg'
+    arr_feature_frameIndex,   e.g '../input_output/one_person_diy_video_dataset/005_dance_frames/000026.jpg', which is the actual frame path
     '''
 
     #read image
@@ -133,7 +135,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
     max_len_buffer = 10
     
     #correpsonding feature_index 
-    lst_absolute_speed_features_index = [18, 20, 30, 32]        #(speed, angle)
+    lst_absolute_speed_features_index = [18, 20, 26, 28]        #(speed, angle)
     lst_relative_speed_features_index1 = [34+0*2, 34+1*2, 34+2*2, 34+3*2]        #[9, 10, 15, 16, 11] to left hip
     lst_relative_speed_features_index2 = [42+0*2, 42+1*2, 42+2*2, 42+3*2]        #  the right hip.
     lst_relative_speed_features_index3 = [50+0*2, 50+1*2, 50+2*2, 50+3*2]   #  to the left shoulder.
@@ -144,11 +146,8 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
     lst_relative_distance_index3 = [82+0*2, 82+1*2, 82+2*2, 82+3*2] 
     lst_relative_distance_index4 = [90+0*2, 90+1*2, 90+2*2, 90+3*2] 
     
-    config_id_dict = defaultdict()
     
-    for k, v in id_config_dict.items():
-        config_id_dict[v] = k
-    
+    config_id_dict = {v:k for k, v in id_config_dict.items()}
     print("config_id_dict: ", config_id_dict) 
 
     for i in range(0, rows):
@@ -176,35 +175,40 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
             fourcc = cv2.VideoWriter_fourcc(*'mp4v') # Be sure to use lower case
             video = cv2.VideoWriter(video_name, fourcc, 25.0, (width, height))
             
-        
-        curr_start_frm_index = int(arr_feature_frameIndex[i].split('/')[-1].split('.')[0])
-        k = 0
-        
-        config= id_config_dict[y_out_arr[i]]              # predicted config
-        reso = config.split('-')[0].split('x')[1]
-        frm_rate = config.split('-')[1]
-            
-        buffer_reso.append(reso)
-        if len(buffer_reso) > max_len_buffer:
-            buffer_reso.pop(0)
+        else:         
+            used_conf_id = y_out_arr[i-1]   # config_id_dict[config]
+            config= id_config_dict[used_conf_id]              # i or i-1 ;  predicted config
+            reso = config.split('-')[0].split('x')[1]
+            frm_rate = config.split('-')[1]
                 
-        buffer_frmRate.append(frm_rate)
-        if len(buffer_frmRate) > max_len_buffer:
-            buffer_frmRate.pop(0)
+            buffer_reso.append(reso)
+            if len(buffer_reso) > max_len_buffer:
+                buffer_reso.pop(0)
+                    
+            buffer_frmRate.append(frm_rate)
+            if len(buffer_frmRate) > max_len_buffer:
+                buffer_frmRate.pop(0)
+            
+            
+            # oks or acc
+            acc = str(round(float(acc_frame_arr[used_conf_id][(i-1)*PLAYOUT_RATE]), 3))         # i + 2 not i or i +1 , because of y_out_ predict next in the function "getOnePersonFeatureInputOutputAll001"
+            buffer_acc.append(acc)
+            if len(buffer_acc) > max_len_buffer:
+                buffer_acc.pop(0)    
+            #print ("frm_rate: ", frm_rate, acc,  used_conf_id, acc_frame_arr[:, (i+2)*PLAYOUT_RATE])
+            
+            spf = str(round(float(spf_frame_arr[used_conf_id][(i-1)*PLAYOUT_RATE]), 3))         # i + 2 not i or i +1 , because of y_out_ predict next in the function "getOnePersonFeatureInputOutputAll001"
+            buffer_spf.append(spf)
+            if len(buffer_spf) > max_len_buffer:
+                buffer_spf.pop(0)      
+            
+            
+        curr_start_frm_index = int(arr_feature_frameIndex[i].split('/')[-1].split('.')[0])
         
-        used_conf_id = y_out_arr[i]   # config_id_dict[config]
+              
         
-        acc = str(round(float(acc_frame_arr[used_conf_id][(i+2)*PLAYOUT_RATE]), 3))         # i + 2 not i or i +1 , because of y_out_ predict next in the function "getOnePersonFeatureInputOutputAll001"
-        buffer_acc.append(acc)
-        if len(buffer_acc) > max_len_buffer:
-            buffer_acc.pop(0)    
-        #print ("frm_rate: ", frm_rate, acc,  used_conf_id, acc_frame_arr[:, (i+2)*PLAYOUT_RATE])
-        
-        spf = str(round(float(spf_frame_arr[used_conf_id][(i+2)*PLAYOUT_RATE]), 3))         # i + 2 not i or i +1 , because of y_out_ predict next in the function "getOnePersonFeatureInputOutputAll001"
-        buffer_spf.append(spf)
-        if len(buffer_spf) > max_len_buffer:
-            buffer_spf.pop(0)            
-        
+        k = 0
+
         while (k < (curr_start_frm_index - last_start_frm_index)):
             
             start_frm_path_indx = curr_start_frm_index + k
@@ -215,6 +219,11 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
             if im is None:
                 print ("img read failure22" )
                 
+            est_arr = confg_est_frm_arr[0][start_frm_path_indx]       #use the most expensive config to draw and also calculated feature here y_out_arr[i-1
+            
+            #print ("est_arrest_arrest_arrxxxx: ", est_arr)
+            drawHuman(im, est_arr)
+            
             font = cv2.FONT_HERSHEY_SIMPLEX 
             fontScale = 0.6
             startX = 10
@@ -239,7 +248,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
                 cv2.putText(im, strVal, (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
                 startY += 40     
                 
-            ''' 
+            
             startX += 120
             startY = 40
             cv2.putText(im, 'RelvSpd 2', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
@@ -271,6 +280,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
                 cv2.putText(im, strVal, (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
                 startY += 40 
                 
+            '''
                
             startX += 120
             startY = 40
@@ -343,7 +353,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
             startX = 100
             startY = 200
             scaleFactor = 0.13
-            plotLineInImage(im, buffer_reso[:-1], startX, startY, scaleFactor)
+            plotLineInImage(im, buffer_reso, startX, startY, scaleFactor)
             
             startX = 20
             startY = 300
@@ -352,7 +362,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
             startX = 100
             startY = 300
             scaleFactor = 3
-            plotLineInImage(im, buffer_frmRate[:-1], startX, startY, scaleFactor)
+            plotLineInImage(im, buffer_frmRate, startX, startY, scaleFactor)
             
             
             startX = 20
@@ -364,7 +374,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
             scaleFactor = 1000
             #print("XXXX  buffer_acc: ", buffer_acc)
 
-            plotLineInImage(im, buffer_acc[:-1], startX, startY, scaleFactor)
+            plotLineInImage(im, buffer_acc, startX, startY, scaleFactor)
             
             startX = 20
             startY = 500
@@ -375,7 +385,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
             scaleFactor = 1000
             #print("XXXX  buffer_acc: ", buffer_acc)
 
-            plotLineInImage(im, buffer_spf[:-1], startX, startY, scaleFactor)
+            plotLineInImage(im, buffer_spf, startX, startY, scaleFactor)
             
             video.write(im)
             
@@ -405,7 +415,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
         #print("image curr_start_frm_index", curr_start_frm_index)
         
         
-        if i == 10: # 7*60:
+        if i == 7*60: # 7*60:
             break   # debug only
     
     print("readFeatureValues finished ")
@@ -465,7 +475,7 @@ def exectuteVisualization():
         if feature_calculation_flag == 'most_expensive_config':
             from data_proc_feature_analysize_01 import getOnePersonFeatureInputOutputAll001
 
-        x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, minAccuracy)
+        x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, minAccuracy)
      
         
         print("x_input_arr y_out_arr shape: ", x_input_arr.shape, y_out_arr.shape)
@@ -477,7 +487,7 @@ def exectuteVisualization():
         
         arr_feature_frameIndex = x_input_arr[:, 0]
         x_input_arr = x_input_arr[:, 1:]
-        readFeatureValues(data_frame_path_dir, x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, arr_feature_frameIndex, out_data_video_frm)
+        readFeatureValues(data_frame_path_dir, x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr, arr_feature_frameIndex, out_data_video_frm)
         
     
 if __name__== "__main__": 

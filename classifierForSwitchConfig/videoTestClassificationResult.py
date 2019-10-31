@@ -17,7 +17,6 @@ import numpy as np
 
 from collections import defaultdict
 
-from classifier_svm import combineMultipleVideoDataTrainTest
 from common_classifier import readProfilingResultNumpy
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
@@ -29,12 +28,12 @@ from profiling.common_prof import dataDir3
 
 def parseFrmIdHelper(row):
     '''
-    each row format example: ../input_output/one_person_diy_video_dataset/005_dance_frames/000002.jpg
+    each row format example: ../input_output/one_person_diy_video_dataset/005_dance_frames/000001.jpg
     '''
     
     #print ("rowrowrowrowrow: ", row)
     video_id = int(row[0].split("/")[-2].split("_")[0])
-    frm_id = int(row[0].split('/')[-1].split('.')[0])
+    frm_id = int(row[0].split('/')[-1].split('.')[0])-1          # index starting at 0
     
     return [video_id, frm_id]
     
@@ -42,9 +41,9 @@ def getAccFromEachConfigHelper(row, dict_acc_frm_arr):
     '''
     each row is a video_id, frm_id, config id
     '''
-    row_config = row[2]
     video_id = row[0]
     frm_id = row[1]
+    row_config = row[2]
     
     acc_frm_arr = dict_acc_frm_arr[video_id]
 
@@ -64,13 +63,14 @@ def testVideoClassificationResultAcc(dict_acc_frm_arr, x_video_frm_id_arr, y_pre
     x_video_frm_id_arr = x_video_frm_id_arr.reshape(x_video_frm_id_arr.shape[0], -1)
     y_pred = y_pred.reshape(y_pred.shape[0], -1)
     
-    video_video_frm_arr = np.apply_along_axis(parseFrmIdHelper, 1, x_video_frm_id_arr)    
+    video_frm_id_arr = np.apply_along_axis(parseFrmIdHelper, 1, x_video_frm_id_arr)    
     
-    combined_gt_arr = np.hstack((video_video_frm_arr, y_gt_out))
+    combined_gt_arr = np.hstack((video_frm_id_arr, y_gt_out))
     acc_gt_arr = np.apply_along_axis(getAccFromEachConfigHelper, 1, combined_gt_arr, dict_acc_frm_arr)
     print ("acc_gt_arr: ", acc_gt_arr.shape, np.mean(acc_gt_arr))
     
-    combined_pred_arr = np.hstack((video_video_frm_arr, y_pred))
+    
+    combined_pred_arr = np.hstack((video_frm_id_arr, y_pred))
     acc_pred_arr = np.apply_along_axis(getAccFromEachConfigHelper, 1, combined_pred_arr, dict_acc_frm_arr)
     print ("acc_pred_arr: ", acc_pred_arr.shape, np.mean(acc_pred_arr))
     
@@ -145,7 +145,8 @@ def getAccSpfArrAllVideo():
     for video_dir in video_dir_lst[0:10]:
         data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
     
-        acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
+        intervalFlag = 'sec'
+        acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir, intervalFlag)
         video_id = int(video_dir.split("_")[1])
         
         dict_acc_frm_arr[video_id] = acc_frame_arr
@@ -157,6 +158,10 @@ def getAccSpfArrAllVideo():
 def executeTest():
     dict_acc_frm_arr, dict_spf_frm_arr = getAccSpfArrAllVideo()
     
+    #from classifier_svm import combineMultipleVideoDataTrainTest
+    from classifier_rft import combineMultipleVideoDataTrainTest
+    #from classifier_xgboost import combineMultipleVideoDataTrainTest
+
     x_video_frm_id_arr, y_pred, y_gt_out = combineMultipleVideoDataTrainTest()
 
     testVideoClassificationResultAcc(dict_acc_frm_arr, x_video_frm_id_arr, y_pred, y_gt_out)

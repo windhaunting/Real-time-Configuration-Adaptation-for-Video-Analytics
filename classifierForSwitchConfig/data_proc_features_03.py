@@ -34,6 +34,7 @@ from common_classifier import readProfilingResultNumpy
 from common_classifier import getParetoBoundary
 from common_classifier import checkCorrelationPlot
 from common_classifier import extract_specific_config_name_from_file
+from common_classifier import getPersonEstimation
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -100,49 +101,7 @@ COCO_KP_NUM = 17      # total 17 keypoints
 
 ALPHA_EMA = 0.8   # EMA
 
-def getPersonEstimation(est_res, width, height):
-    '''
-    analyze the personNo's pose estimation result with highest confidence score
-    input: 
-        [500, 220, 2, 514, 214, 2, 498, 210, 2, 538, 232, 2, 0, 0, 0, 562, 308, 2, 470, 304, 2, 614, 362, 2, 420, 362, 2, 674, 398, 2, 372, 394, 2, 568, 468, 2, 506, 468, 2, 596, 594, 2, 438, 554, 2, 616, 696, 2, 472, 658, 2],1.4246317148208618;
-        [974, 168, 2, 988, 162, 2, 968, 158, 2, 1004, 180, 2, 0, 0, 0, 1026, 244, 2, 928, 250, 2, 1072, 310, 2, 882, 302, 2, 1112, 360, 2, 810, 346, 2, 1016, 398, 2, 948, 396, 2, 1064, 518, 2, 876, 482, 2, 1060, 630, 2, 900, 594, 2],1.4541109800338745;
-        [6, 172, 2, 16, 164, 2, 6, 162, 2, 48, 182, 2, 0, 0, 0, 68, 256, 2, 10, 254, 2, 112, 312, 2, 0, 0, 0, 168, 328, 2, 0, 0, 0, 70, 412, 2, 28, 420, 2, 108, 600, 2, 0, 0, 0, 144, 692, 2, 0, 0, 0],1.283275842666626;
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 74, 162, 2, 0, 0, 0, 92, 208, 2, 42, 206, 2, 134, 250, 2, 0, 0, 0, 176, 284, 2, 0, 0, 0, 118, 334, 2, 86, 334, 2, 126, 396, 2, 80, 396, 2, 148, 548, 2, 0, 0, 0],0.9429177641868591
-        
-        
-    output:
-        a specific person's detection result arr (17x2)
-    '''
-    '''
-    #print ("est_res: ", type(est_res), est_res)
-    person_est = est_res.split(';')[personNo].split('],')[0].replace('[', '')
-    
-    kp_arr = np.zeros((COCO_KP_NUM, 2))    # 17x2 each kp is a two-dimensional value
-    
 
-    for ind, kp in enumerate(person_est.split(',')):
-        #if ind%3 == 0:
-        #    kp_arr[int(ind/3), ind%3] = float(kp)*1120
-        #elif ind%3 == 1:
-        #    kp_arr[int(ind/3), ind%3] = float(kp)*832
-        if ind%3 != 2:
-            kp_arr[int(ind/3), ind%3] = float(kp)
-    '''
-    
-    strLst = re.findall(r'],\d.\d+', est_res)
-    person_score = [re.findall(r'\d.\d+', st) for st in strLst]
-    
-    personNo = np.argmax(person_score)
-    
-    
-    est_res = est_res.split(';')[personNo]
-    
-    lst_points = [[float(t[0]), float(t[1])] for t in re.findall(r'(0(?:\.\d*)?), (0(?:\.\d*)?), ([0123])', est_res)]
-
-    kp_arr = np.array(lst_points)
-    
-    #print ("kp_arr: ", kp_arr.shape, kp_arr)
-    return kp_arr
     
     
 
@@ -388,7 +347,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir, hi
     
     '''
     
-    acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
+    acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir, 'sec')
 
     print ("getOnePersonFeatureInputOutput01 acc_frame_arr: ", acc_frame_arr[:, 0])
 
@@ -399,7 +358,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir, hi
     #max_frame_example_used = 1000   # 8000
     #current_frame_id = 25
     
-    config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
+    config_id_dict, id_config_dict = read_all_config_name_from_file(data_pose_keypoint_dir, False)
     
     print ("config_id_dict: ", len(config_id_dict))
     # only read the most expensive config
@@ -458,9 +417,9 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir, hi
         
         #print ("frm_id num_humans, ", reso, model, frm_id)
             
-        kp_arr = getPersonEstimation(est_res, personNo)
+        kp_arr = getPersonEstimation(est_res)
         #history_pose_est_dict[previous_frm_indx] = kp_arr
-         
+        kp_arr = kp_arr[:, :2]
         history_pose_est_arr[previous_frm_indx] = kp_arr
         #print ("kp_arr, ", kp_arr)
         #break    # debug only
@@ -475,7 +434,7 @@ def getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir, hi
             
             prev_EMA_speed_arr = feature1_speed_arr
             #calculate the relative moving speed feature (2)
-            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr)
+            feature2_relative_speed_arr = getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, select_frm_cnt, skipped_frm_cnt, curr_frm_rate, history_frame_num, prev_EMA_relative_speed_arr)
             
             prev_EMA_relative_speed_arr = feature2_relative_speed_arr
             #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
@@ -1176,7 +1135,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     add over a period of resolution a feature
     '''
     
-    acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
+    acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir, 'frame')
     
     #confg_est_frm_arr = read_poseEst_conf_frm(data_pickle_dir)
     #old_acc_frm_arr = acc_frame_arr
@@ -1230,7 +1189,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     previous_frm_indx = 0
     
     
-    input_x_arr = np.zeros((max_frame_example_used, 66, 2))       # 17 + 4*4 + 4*4 + 17
+    input_x_arr = np.zeros((max_frame_example_used, 33, 2))       # 17 + 4*4 + 4*4 + 17
     y_out_arr = np.zeros((max_frame_example_used+1), dtype=int)
     
     #current_instance_start_video_path_arr = np.zeros(max_frame_example_used, dtype=int)
@@ -1301,9 +1260,9 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             continue
         #print ("frm_id num_humans, ", reso, model, frm_id)
             
-        kp_arr = getPersonEstimation(est_res, width, height)
+        kp_arr = getPersonEstimation(est_res)
         #history_pose_est_dict[previous_frm_indx] = kp_arr
-         
+        kp_arr = kp_arr[:, :2]
         history_pose_est_arr[previous_frm_indx] = kp_arr
         #print ("kp_arr, ", kp_arr)
         #break    # debug only
@@ -1347,9 +1306,9 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             
             total_features_arr = np.vstack((total_features_arr, feature5_relative_speed_arr))
 
-            total_features_arr = np.vstack((total_features_arr, current_frame_relative_distance_arr))
+            #total_features_arr = np.vstack((total_features_arr, current_frame_relative_distance_arr))
             
-            total_features_arr = np.vstack((total_features_arr, cameraDistance_feature))
+            #total_features_arr = np.vstack((total_features_arr, cameraDistance_feature))
             #print ("total_features_arr2: ", total_features_arr.shape, input_x_arr.shape)
             
             input_x_arr[select_frm_cnt]= total_features_arr  #  input_x_arr[frm_id-1] = total_features_arr
@@ -1438,7 +1397,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     # add each instance's starting frame's path
     #current_instance_start_video_path_arr = current_instance_start_video_path_arr[history_frame_num:select_frm_cnt].reshape(current_instance_start_video_path_arr[history_frame_num:select_frm_cnt].shape[0], -1)
     #input_x_arr = np.hstack((current_instance_start_video_path_arr, input_x_arr))
-    
+    '''
     frmRt_feature_arr = frmRt_feature_arr[history_frame_num:select_frm_cnt].reshape(frmRt_feature_arr[history_frame_num:select_frm_cnt].shape[0], -1)
     input_x_arr = np.hstack((input_x_arr, frmRt_feature_arr))
     
@@ -1453,7 +1412,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
         
     #frm_id_debug_only_arr = frm_id_debug_only_arr[history_frame_num:select_frm_cnt].reshape(frm_id_debug_only_arr[history_frame_num:select_frm_cnt].shape[0], -1)
     #input_x_arr = np.hstack((input_x_arr, frm_id_debug_only_arr))
-            
+    
+    '''
     y_out_arr = y_out_arr[history_frame_num+1:select_frm_cnt+1]
     #print ("reso_feature_arr, ", reso_feature_arr.shape, reso_feature_arr)
     print ("feature1_speed_arr, ", input_x_arr.shape, y_out_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)

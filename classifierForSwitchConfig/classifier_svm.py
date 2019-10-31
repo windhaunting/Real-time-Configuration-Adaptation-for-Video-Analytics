@@ -21,7 +21,6 @@ import time
 import matplotlib.backends.backend_pdf
 import matplotlib.pyplot as plt
 from blist import blist
-
 from collections import defaultdict
 from imblearn.over_sampling import SMOTE
 
@@ -38,6 +37,7 @@ from sklearn.decomposition import PCA
 from common_classifier import load_data_all_features
 from common_classifier import read_all_config_name_from_file
 from common_classifier import feature_selection
+from common_classifier import calculateDifferenceSumFrmRate
 
 from common_plot import plotScatterLineOneFig
 from common_plot import plotOneScatterLine
@@ -141,13 +141,12 @@ def getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_
     corre = COVXY/(math.sqrt(VarX)*math.sqrt(VarY))
     print ("EXEX: ", EX, EY, EXY, COVXY, VarX, VarY, corre)
     
-def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
+def svmTrainTest(data_plot_dir, X, y, kernel):
     '''
     '''
     
     #print ("svmTrainTest y output datasample config: ", y)
     
-
     video_frm_id_arr = X[:, :1]
     
     # remove the first two columns, which is the video id and frame_id
@@ -212,12 +211,12 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     startTime = time.time()
      
     #svm_model = SVC(kernel = kernel, C = 1, class_weight='balanced').fit(X_train, y_train) 
-    svm_model = SVC(kernel = kernel, C = 5, gamma='scale').fit(X_train, y_train) 
+    svm_model = SVC(kernel = kernel, C = 1, gamma='scale').fit(X_train, y_train) 
     #    svm_model = SVC(kernel = kernel, C = 1, gamma=1e-3).fit(X_train, y_train) 
     print ("elapsed training time: ", time.time() - startTime)
     
     startTime = time.time()
-    y_pred = svm_model.predict(X_test)  # look at training 
+    y_pred = svm_model.predict(X_test)  # look at training  X_train
     print ("elapsed test time: ", time.time() - startTime)
     # model accuracy for X_test   
     test_acc_score = round(accuracy_score(y_test, y_pred), 3)  #svm_model.score(X_test, y_test) 
@@ -237,12 +236,13 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     print('svmTrainTest f1score: {}'.format(fscore))
     print('svmTrainTest support: {}'.format(support))
 
+    
     #y_pred = svm_model.predict(X_train)  # look at training 
     #y_test = y_train
     return svm_model, train_acc_score, test_acc_score, test_video_frm_id_arr, y_pred, y_test
 
 
-
+    
 def svmCrossValidTrainTest(X,y, model_output_path):
         # Splitting data into train, validation and test set
     # 70% training set, 30% test set
@@ -279,25 +279,23 @@ def svmCrossValidTrainTest(X,y, model_output_path):
     
     return svm_model, train_acc_score, test_acc_score
 
-def execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_used, video_dir, feature_calculation_flag):
+def execute_get_feature_config_boundedAcc(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, feature_calculation_flag):
     '''
     most expensive config's pose result to get feature
     '''
-    data_pose_keypoint_dir =  dataDir3 + video_dir
         
-
-    data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
     minAccuracy = 0.9
 
     if feature_calculation_flag == 'most_expensive_config':
-        from data_proc_features_03 import getOnePersonFeatureInputOutputAll001
-        
+        #from data_proc_features_03 import getOnePersonFeatureInputOutputAll001
+        from data_proc_feature_analysize_01 import getOnePersonFeatureInputOutputAll001
+
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
     #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
-
-    x_input_arr, y_out_arr, id_config_dict = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr, _ = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, minAccuracy)
  
     x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
             
@@ -325,6 +323,7 @@ def execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_u
         pickle.dump(y_out_arr, fs)
             
  
+    return id_config_dict
 
 def execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, feature_calculation_flag):
     '''
@@ -334,8 +333,6 @@ def execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_
     '''
 
     data_pose_keypoint_dir =  dataDir3 + video_dir
-
-
     data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
     minAccuracy = 0.85
     minDelayTreshold = 2      # 2 sec
@@ -380,7 +377,7 @@ def execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_
     with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
         pickle.dump(y_out_arr, fs)
         
-
+        
 
 def executeTest_feature_classification():
     '''
@@ -459,44 +456,100 @@ def combineMultipleVideoDataTrainTest():
                     'output_009_cardio/', 'output_010_cardio/']
         
 
-    X_lst = blist()
-    y_lst = blist()
-    for video_dir in video_dir_lst[0:10]:  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
-        data_examples_dir =  dataDir3 + video_dir + 'data_examples_files/'
-            
-        history_frame_num = 1  #1          # 
-        max_frame_example_used =  12000 # 20000 #8025   # 10000
-        execute_get_feature_config_boundedAcc(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
-        #execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+    input_video_frms_dir = ['001_dance_frames/', '002_dance_frames/', \
+                        '003_dance_frames/', '004_dance_frames/',  \
+                        '005_dance_frames/', '006_yoga_frames/', \
+                        '007_yoga_frames/', '008_cardio_frames/',
+                        '009_cardio_frames/', '010_cardio_frames/',
+                        '011_dance_frames/', '012_dance_frames/',
+                        '013_dance_frames/', '014_dance_frames/',
+                        '015_dance_frames/', '016_dance_frames/',
+                        '017_dance_frames/', '018_dance_frames/',
+                        '019_dance_frames/', '020_dance_frames/',
+                        '021_dance_frames/']
+   
+   
+    # judge file exist or not
+    data_classification_dir = dataDir3  +'test_classification_result/'
 
-        xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
-        yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl" #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+    history_frame_num = 1  #1          # 
+    max_frame_example_used =  12000 # 20000 #8025   # 10000
         
-        #xfile = 'X_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
-        #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
-        X,y= load_data_all_features(data_examples_dir, xfile, yfile)
+    xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
+    yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
+    
+    if os.path.exists(data_classification_dir+xfile) and os.path.exists(data_classification_dir+yfile):
         
-        print("X y shape: ", X.shape, y.shape)
+        total_X,total_y= load_data_all_features(data_classification_dir, xfile, yfile)
+    
+    
+    else:
+        X_lst = blist()
+        y_lst = blist()
         
-        
-        X_lst.append(X)
-        y_lst.append(y.reshape(-1, 1))
-    
-    total_X = np.vstack(X_lst)
-    total_y = np.vstack(y_lst)
-    
-    print("total_X: ", total_X.shape, total_y.shape)
-    
-    data_pose_keypoint_dir =  dataDir3 + video_dir
-    
-    kernel = 'rbf'  # 'rbf' #'poly'  #'sigmoid'  # 'rbf'    # 'linear'
-    data_plot_dir = dataDir3 + video_dir +'classifier_result/'
-    if not os.path.exists(data_plot_dir):
-        os.mkdir(data_plot_dir)
-
-    svm_model, train_acc_score, test_acc_score, video_frm_id_arr, y_pred, y_test = svmTrainTest(data_plot_dir, data_pose_keypoint_dir, total_X, total_y, kernel)
+        for i, video_dir in enumerate(video_dir_lst):  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
             
+            #if i  != 4:                    # check the 005_video only
+            #    continue
     
+            data_pose_keypoint_dir =  dataDir3 + video_dir
+            data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
+            data_frame_path_dir = dataDir3 + input_video_frms_dir[i]
+            
+            
+            out_frm_examles_pickle_dir =  dataDir3 + video_dir + 'data_examples_files/'
+            
+            history_frame_num = 1  #1          # 
+            max_frame_example_used =  12000 # 20000 #8025   # 10000
+            x_input_arr, y_out_arr, id_config_dict = execute_get_feature_config_boundedAcc(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, 'most_expensive_config')
+            #execute_get_feature_config_boundedAcc_minDelay(history_frame_num, max_frame_example_used, video_dir, 'most_expensive_config')
+    
+            if not os.path.exists(out_frm_examles_pickle_dir):
+                os.mkdir(out_frm_examles_pickle_dir)
+                        
+            with open(out_frm_examles_pickle_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+                pickle.dump(x_input_arr, fs)
+                    
+            with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+                pickle.dump(y_out_arr, fs)
+            
+            #xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
+            #yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl" #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+            
+            #xfile = 'X_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
+            #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+            #x_input_arr,y_out_arr= load_data_all_features(data_examples_dir, xfile, yfile)
+            
+            #print("X y shape: ", y_out_arr.shape, y_out_arr.shape)
+            
+            
+            X_lst.append(x_input_arr)
+            y_lst.append(y_out_arr.reshape(-1, 1))
+        
+        
+        
+        total_X = np.vstack(X_lst)
+        total_y = np.vstack(y_lst)
+        
+        print("total_X: ", total_X.shape, total_y.shape)
+        
+        data_pose_keypoint_dir =  dataDir3 + video_dir
+        
+        data_classification_dir = dataDir3 +'test_classification_result/'
+        if not os.path.exists(data_classification_dir):
+            os.mkdir(data_classification_dir)
+
+        with open(data_classification_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+            pickle.dump(total_X, fs)
+                
+        with open(data_classification_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+            pickle.dump(total_y, fs)    
+
+    kernel = 'rbf'
+    svm_model, train_acc_score, test_acc_score, video_frm_id_arr, y_pred, y_test = svmTrainTest(data_classification_dir, total_X, total_y, kernel)
+            
+    diffSum = calculateDifferenceSumFrmRate(y_test, y_pred, id_config_dict)
+    print ("combineMultipleVideoDataTrainTest diffSum: ", diffSum)
     return video_frm_id_arr, y_pred, y_test 
     
     
