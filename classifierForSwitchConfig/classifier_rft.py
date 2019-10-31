@@ -193,6 +193,8 @@ def rftTrainTest(data_classification_dir, X, y):
     print ("rftTrainTest training acc: ", train_acc_score)
     print ("rftTrainTest testing acc cm, f1-score: ", test_acc_score, cm, F1_test_score)
 
+    
+    
     return rf_model, train_acc_score, test_acc_score, test_video_frm_id_arr, y_pred, y_test
 
 
@@ -201,7 +203,7 @@ def execute_get_feature_config_boundedAcc(data_pose_keypoint_dir, data_pickle_di
     most expensive config's pose result to get feature
     '''
         
-    minAccuracy = 0.9
+    minAccuracy = 0.95
 
     if feature_calculation_flag == 'most_expensive_config':
         #from data_proc_features_03 import getOnePersonFeatureInputOutputAll001
@@ -315,7 +317,6 @@ def combineMultipleVideoDataTrainTest():
             
             X_lst.append(x_input_arr)
             y_lst.append(y_out_arr.reshape(-1, 1))
-        
         
         
         total_X = np.vstack(X_lst)
