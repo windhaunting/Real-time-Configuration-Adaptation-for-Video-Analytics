@@ -36,7 +36,7 @@ from sklearn.externals import joblib
 from sklearn.decomposition import PCA
 
 from common_classifier import load_data_all_features
-from common_classifier import read_config_name_from_file
+from common_classifier import read_all_config_name_from_file
 from common_classifier import feature_selection
 
 from common_plot import plotScatterLineOneFig
@@ -178,7 +178,7 @@ def svmTrainTest(data_plot_dir, data_pose_keypoint_dir, X, y, kernel):
     #test_video_frm_id_arr = X_train[:, 0]
 
     
-    #config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
+    #config_id_dict, id_config_dict = read_all_config_name_from_file(data_pose_keypoint_dir, False)
 
     #getYoutputStaticVariable(y_train, id_config_dict, config_id_dict, data_plot_dir)   
     

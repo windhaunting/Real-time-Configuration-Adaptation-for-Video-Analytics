@@ -8,6 +8,7 @@ Created on Wed Jun 12 16:54:58 2019
 
 # common profiling
 
+import re
 import os
 import cv2
 import logging
@@ -34,7 +35,9 @@ dataDir3 = '../input_output/one_person_diy_video_dataset/'
 
 
 PLAYOUT_RATE = 25
+NUM_KEYPOINT = 17
 
+__KPT_OKS_SIGMAS__ = np.array([.26, .25, .25, .35, .35, .79, .79, .72, .72, .62,.62, 1.07, 1.07, .87, .87, .89, .89])/10.0
 
 
 # added by fubao
@@ -121,191 +124,126 @@ def extractVideoFrames(inputVideoPath, outFramesPath):
     else:
         return None
 
+
+def extraction_kp_to_numpy(est_res, num_humans):
+    '''
+    input: key point 
+    output: only one person with maximum confidence score
+    two dimensional array
+    1, key points (3d-vector: x, y, v for each KP) for each frame (3d: frame-kp-xyv)
+    2, confidence score for each frame
+    '''
+    
+    if num_humans == 0:
+        return [[0.0, 0.0, 0] for _ in range(NUM_KEYPOINT)], 0
+
+    strLst = re.findall(r'],\d.\d+', est_res)
+    person_score = [re.findall(r'\d.\d+', st) for st in strLst]
+    
+    personNo = np.argmax(person_score)        # only fetch one person
+    
+       
+    est_res = est_res.split(';')[personNo]
+    
+    lst_points = [[float(t[0]), float(t[1]), int(t[2])] for t in re.findall(r'([0|1](?:\.\d*)?), ([0|1](?:\.\d*)?), ([0123])', est_res)]
+
+    kp_arr = np.array(lst_points)
+    
+    return kp_arr, person_score[personNo][0]
+    
+    
+
+
+
 '''
-def round_int(val):
-    return int(round(val))
+written by Tian
+Object Keypoint Similarity
+input:
+	<gts>: ground truth key points. Format: 2d array with shape (17,3) for the (x,y) coordinates of the 17 keypoints.
+	<dts>: destination key points. Format: the same as <gts>.
+'''
+def computeOKS_mat(gts, dts, sigmas = None):
+	#assert isinstance(gts, np.array) and gts.shape == (17,3)
+	#assert isinstance(dts, np.array) and dts.shape == (17,3)    
+	sigmas = np.array(__KPT_OKS_SIGMAS__ if sigmas is None else sigmas)
+	assert sigmas.shape == (17,)
+	k=len(sigmas)
+	vars = (sigmas * 2)**2
 
-def transfer_coco_keyPoint_format(humanDict, image_w, image_h):
-    
-    #transfer to coco format of keypoint
-    #https://www.tensorflow.org/lite/models/pose_estimation/overview
-    #https://www.learnopencv.com/deep-learning-based-human-pose-estimation-using-opencv-cpp-python/
-        
-    keypoints = []
-    coco_ids = [0, 15, 14, 17, 16, 5, 2, 6, 3, 7, 4, 11, 8, 12, 9, 13, 10]
-    for coco_id in coco_ids:
-        if coco_id not in humanDict.keys():
-            keypoints.extend([0, 0, 0])
-            continue
-        body_part = humanDict[coco_id]
-        keypoints.extend([round_int(body_part[0] * image_w), round_int(body_part[1]* image_h), 2])
-    return keypoints
-    
+	xg = gts[:,0]
+	yg = gts[:,1]
+	vg = gts[:,2]
+	k1 = np.count_nonzero(vg > 0)
 
-def oneHumanToDicthuman(human, w, h):
-    
-    #one human ; transfer to dictionary of body parts, score
-    #BodyPart:0-(0.77, 0.25) score=0.80 BodyPart:1-(0.79, 0.28) score=0.75 BodyPart:2-(0.77, 0.29) score=0.58...
+	xmin = xg.min(); xmax = xg.max(); xdif = xmax - xmin;
+	ymin = yg.min(); ymax = yg.max(); ydif = ymax - ymin;
+	area = (xmax - xmin)*(ymax - ymin)
+	
+	xd = dts[:,0]
+	yd = dts[:,1]
+	#vd = np.zeros_like(dg) + 2
+	#k2 = np.count_nonzero(vd > 0)
 
-    
-    humBodyPartsDict = defaultdict()
-    bodyPartsLst = human.split(' Body')
-    
-    avrScore = 0.0
-    
-    for i, bdScore in enumerate(bodyPartsLst):
-        
-        # split
-        bdStr = bdScore.split('score=')[0]
-        # get index
-        k = int(bdStr.split(':')[1].split('-')[0])   # body part id
-        v = bdStr.split(':')[1].split('-')[1]  # str
-        humBodyPartsDict[k] = (float(v.split(',')[0].replace('(', '')), float(v.split(',')[1].replace(')', '')))
-        
-        #print ("bdScore:", bdScore)
-        sc = bdScore.split('score=')[1]
-        avrScore += float(sc)
-    humBodyPartsDict['score'] = round(avrScore/len(bodyPartsLst), 3)
-    
-    # calculate the bounding box, estimate
-    minX = 2**32
-    maxX = -2**32
-    minY = 2**32
-    maxY = -2**32
-    for k, v in humBodyPartsDict.items():
-        if k != 'score':
-            if v[0] < minX:
-                minX = v[0]
-            if v[0] > maxX:
-                maxX = v[0]
-            if v[1] < minY:
-                minY = v[1]
-            if v[1] > maxY:
-                maxY = v[1]
-    
-    humBodyPartsDict['bbox'] = [minX*w, minY*h, (maxX-minX)*w, (maxY-minY)*h]
-    #print ("humBodyPartsDict bbox:", humBodyPartsDict['bbox'])
-    humBodyPartsDict['area'] = (maxX-minX)*w*(maxY-minY)*h
-    return humBodyPartsDict
-      
-def humanBodiesToLstDict(est_result, w, h):
-
-    #multiple humans into a list of dictionary
-    #image width, height
-
-    # extract humans
-    est_result = est_result.split('\t')[-1].replace('[', '').replace(']', '')    # preprocess
-    #print ("est_result: ", est_result)
-    
-    humansLst = []
-    begin = 0
-    for m in re.finditer(', BodyPart', est_result):
-        #print(' found', m.start(), m.end())
-    
-        human = est_result[begin:m.start()].strip()
-        
-        # human transfer to dictionary
-        humansLst.append(oneHumanToDicthuman(human, w, h))
-        
-        begin = m.start()+1
-        
-    human = est_result[begin::].strip()
-    humansLst.append(oneHumanToDicthuman(human, w, h))
-    
-    #print ("humansLst: ", humansLst)
-    
-    return humansLst
+	if k1>0:
+		# measure the per-keypoint distance if keypoints visible
+		dx = xd - xg
+		dy = yd - yg
+	else:
+		# measure minimum distance to keypoints in (x0,y0) & (x1,y1)
+		#bb = gt['bbox']
+		x0 = xmin - xdif; x1 = xmax + xdif;
+		y0 = ymin - ydif; y1 = ymax + ydif;
+		z = np.zeros((k))
+		dx = np.max((z, x0-xd),axis=0)+np.max((z, xd-x1),axis=0)
+		dy = np.max((z, y0-yd),axis=0)+np.max((z, yd-y1),axis=0)
+	e = (dx**2 + dy**2) / vars / (area+np.spacing(1)) / 2
+	if k1 > 0:
+		e=e[vg > 0]
+	return np.sum(np.exp(-(e.astype(float)))) / e.shape[0]
 
 
-def computeOKSAP(est_result, gt_result, img_path, w, h):
-    #calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
-    est_lst = humanBodiesToLstDict(est_result, w, h)
-   
-    dts = []
-    det_scores = 0.0
-    for human in est_lst:
-        item = {
-            'image_id': img_path,
-            'category_id': 1,
-            'keypoints': transfer_coco_keyPoint_format(human, w, h),
-            'score': human['score']
-        }
-        dts.append(item)
-        det_scores += item['score']
-        
-    det_avg_score = det_scores / len(est_lst) if len(est_lst) > 0 else 0
-    
-    
-    gt_lst = humanBodiesToLstDict(gt_result, w, h)
+def computeOKSACC(gts, dts, sigmas = None):
+    #calculate OKS and ACC as accuracy with different threshold[.5:.05:.95]
+    #est_result's format:      [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
+    #change to [0.02, 0.3, 2,....]
+    #the img_w, img_h may be not used
 
-    gts = []
-    gt_scores = 0.0
-    for human in gt_lst:
-        item = {
-            'image_id': img_path,
-            'category_id': 1,
-            'keypoints': transfer_coco_keyPoint_format(human, w, h),
-            'score': human['score'],
-            'bbox': human['bbox'],
-            'area': human['area']
-        }
-        gts.append(item)
-        gt_scores += item['score']
         
-    gt_avg_score = gt_scores / len(gt_lst) if len(gt_lst) > 0 else 0
-    
+    #gt_avg_score = gt_scores / len(gt_lst) if len(gt_lst) > 0 else 0
+    #print ("est_lst, gt_lst11: ", est_lst)
+    #print ("est_lst, gt_lst22: ", gt_lst)
     
     # compute oks
     #print ("len(gts), dts:", len(gts), len(dts))
-    ious = computeOKS(gts, dts)      # ((len(dts), len(gts)))
+    ious = computeOKS_mat(gts, dts)      # ((len(dts), len(gts)))
  
     #print ("ious:", ious)
-    
+
     ious = np.transpose(ious)         # transpose
     
     thresholds = np.arange(0.5, 0.95, 0.05)
-    aver_prec = 0.0
+    #aver_prec = 0.0
+    aver_acc = 0.0
     for thres in thresholds:
         # calculate the AP as the accuracy
-        TP = 0
-        FP = 0
-        FN = 0
-        for m in range(0, len(ious)):
-            eachGT_Detected = 0
-            for n in range(0, len(ious[m])):
-                if ious[m][n] > thres:
-                    if eachGT_Detected >= 1:
-                        FP += 1
-                    TP += 1
-                    eachGT_Detected += 1
-            if eachGT_Detected == 0:
-                FN += 1
-        if (TP+FP) == 0:
-            prec = 0
+        if ious > thres:
+            acc = 1
         else:
-            prec = TP/(TP+FP)     #len(gts)
-        if (TP+FN) == 0:
-            recall = 0
-        else:
-            recall = TP/(TP+FN)
-            
-        if (prec+recall) == 0:
             acc = 0
-        else:
-            acc = 2*prec*recall/(prec+recall)
         
         #print ("precision:", prec, recall, acc)
-        aver_prec += prec
-        
-    return aver_prec/thresholds.size
-'''
+        #aver_prec += prec
+        aver_acc += acc
+    #print ("aver_prec:",aver_prec/thresholds.size)
+    #return aver_prec/thresholds.size
+    return aver_acc/thresholds.size
+
+
 
 def computeOKS(gts, dts):
-    
-    '''
-    calculate object keypoint similarity
-    reference: https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/cocoeval.py
-    '''
+    # input a string object of gts, dts
+    #calculate object keypoint similarity
+    #reference: https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/cocoeval.py
        
     kpt_oks_sigmas = np.array([.26, .25, .25, .35, .35, .79, .79, .72, .72, .62,.62, 1.07, 1.07, .87, .87, .89, .89])/10.0
     maxDets = [20]
@@ -351,11 +289,8 @@ def computeOKS(gts, dts):
     return ious
 
 
-
 def parse_pose_result(pose_result_str, gt_flag):
-    '''
-    parse the rstring result
-    '''
+    #parse the rstring result
     #print ("parse_pose_result:", pose_result_str, gt_flag)
     human_points_lst = []          # each element is a dictionary
     humans = pose_result_str.split(';')
@@ -402,21 +337,12 @@ def parse_pose_result(pose_result_str, gt_flag):
     #print ("parse_pose_result human_points_lst: ", human_points_lst)
     return human_points_lst
     
-        
-
-
 
 def computeOKSAP(est_result, gt_result, img_path):
-    '''
-    calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
-    
-    est_result's format:
-        [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
-    
-    change to [0.02, 0.3, 2,....]
-    
-    the img_w, img_h may be not used
-    '''
+    #calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
+    #est_result's format:      [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
+    #change to [0.02, 0.3, 2,....]
+    #the img_w, img_h may be not used
     
     if est_result == [] or est_result is None or est_result == '' or est_result == '0':
         return 0
@@ -513,16 +439,14 @@ def computeOKSAP(est_result, gt_result, img_path):
 
 
 def computeOKSFromOrigin(est_result, gt_result, img_path):
-    '''
-    calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
+    #calculate OKS and AP as accuracy with different threshold[.5:.05:.95]
     
-    est_result's format:
-        [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
+    #est_result's format:
+    #    [211.0, 85.41145833333334, 2, ...],0.9433470508631538;[77.76388888888889, 94.78125, 2,...],0.5205954593770644
     
-    change to [0.02, 0.3, 2,....]
-    
-    the img_w, img_h may be not used
-    '''
+    #change to [0.02, 0.3, 2,....]
+    #the img_w, img_h may be not used
+  
     
     
     if est_result == [] or est_result is None or est_result == '' or est_result == '0':
@@ -583,6 +507,7 @@ def computeOKSFromOrigin(est_result, gt_result, img_path):
     iousScore = float(ious[0, 0])
     
     return iousScore
+
 
 def executeVideoToFrames():
     

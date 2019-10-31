@@ -9,7 +9,7 @@ import numpy as np
 
 
 __KPT_OKS_SIGMAS__ = np.array([.26, .25, .25, .35, .35, .79, .79, .72, .72, .62,.62, 1.07, 1.07, .87, .87, .89, .89])/10.0
-
+__NUM_KPT__ = 17
 
 '''
 Object Keypoint Similarity
