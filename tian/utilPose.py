@@ -108,3 +108,12 @@ def computeOKS_list(gts, dtsList, sigmas = None):
             e = (dx**2 + dy**2) / vars / (area+np.spacing(1)) / 2
             res[i] = np.sum(np.exp(-e)) / k
     return res
+
+
+def computeOKS_mat(gts, dtsMat, sigmas = None):
+    assert isinstance(gts, np.ndarray) and gts.shape == (17,3)
+    assert isinstance(dtsMat, np.ndarray) and dtsMat.shape[-2:] == (17,3)
+    
+    matShape = dtsMat.shape[:-2]
+    oksl = computeOKS_list(gts, dtsMat.reshape(-1,17,3))
+    return oksl.reshape(matShape)
