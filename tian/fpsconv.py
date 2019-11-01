@@ -128,22 +128,22 @@ def convertFR(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0):
 # -------- part 3: unify to time unit to second--------
 
 
-def merge2second(oksm, ptm, fps):
+def mergeData(oksm, ptm, unit):
     '''
     Unify to second. If the last second is not complete, it is cut off.
     Input:
         <oksm> object keypoint similarity matrix (2d or 1d: (conf)-frame)
         <ptm> processing time matrix (2d or 1d: (conf)-frame)
-        <fps> the FPS of the input <oksm> and <ptm>
+        <unit> the unit of the input <oksm> and <ptm>
     '''
     assert oksm.shape == ptm.shape
     ndim = oksm.ndim
     assert ndim == 1 or ndim == 2
-    assert 0 < fps
+    assert 0 < unit
     n = oksm.shape[-1]
-    if n % fps !=0:
-        m = n // fps
-        n2 = m*fps
+    if n % unit !=0:
+        m = n // unit
+        n2 = m*unit
         if ndim == 1:
             oksm=oksm[:n2]
             ptm=ptm[:n2]
@@ -151,11 +151,11 @@ def merge2second(oksm, ptm, fps):
             oksm=oksm[:,:n2]
             ptm=ptm[:,:n2]
     if ndim == 1:
-        resOks = np.mean(oksm.reshape(-1, fps), 1)
-        resPtm = np.sum(ptm.reshape(-1, fps), 1)
+        resOks = np.mean(oksm.reshape(-1, unit), 1)
+        resPtm = np.sum(ptm.reshape(-1, unit), 1)
     else:
         k = ptm.shape[0]
-        resOks = np.mean(oksm.reshape(k, -1, fps), 2)
-        resPtm = np.sum(ptm.reshape(k, -1, fps), 2)
+        resOks = np.mean(oksm.reshape(k, -1, unit), 2)
+        resPtm = np.sum(ptm.reshape(k, -1, unit), 2)
     return resOks, resPtm
 

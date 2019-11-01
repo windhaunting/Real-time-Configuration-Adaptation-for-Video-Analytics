@@ -8,6 +8,25 @@ Created on Fri Oct 25 02:33:57 2019
 import numpy as np
 
 
+# -------- part 1: pose fill --------
+
+def fillUnseen(kpm, method='same'):
+    assert kpm.dim == 4
+    assert kpm.shape[-2:] == (17,3)
+    assert method in ['same', 'estimate']
+    n, m = kpm.shape[:-2]
+    res = kpm.copy()
+    for i in range(17):
+        nz = kpm.nonzero(kpm[:,:,i,2] - 2)
+        for x,y in zip(nz[0],nz[1]):
+            p=y-1
+            while p >= 0 and res[x,p,i,2] == 0:
+                p-=1
+            res[x,y,i,2] = res[x,p,i,2]
+    return res
+
+# -------- part 2: OKS --------
+
 __KPT_OKS_SIGMAS__ = np.array([.26, .25, .25, .35, .35, .79, .79, .72, .72, .62,.62, 1.07, 1.07, .87, .87, .89, .89])/10.0
 __NUM_KPT__ = 17
 
