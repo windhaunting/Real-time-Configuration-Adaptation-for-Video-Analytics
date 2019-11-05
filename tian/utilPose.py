@@ -16,13 +16,28 @@ def fillUnseen(kpm, method='same'):
     assert method in ['same', 'estimate']
     n, m = kpm.shape[:-2]
     res = kpm.copy()
-    for i in range(17):
-        nz = kpm.nonzero(kpm[:,:,i,2] - 2)
-        for x,y in zip(nz[0],nz[1]):
-            p=y-1
-            while p >= 0 and res[x,p,i,2] == 0:
-                p-=1
-            res[x,y,i,2] = res[x,p,i,2]
+    if method == 'same':
+        for i in range(17):
+            nz = kpm.nonzero(kpm[:,:,i,2] - 2)
+            for x,y in zip(nz[0],nz[1]):
+                p=y-1
+                while p >= 0 and res[x,p,i,2] == 0:
+                    p-=1
+                if p >= 0:
+                    res[x,y,i,:2] = res[x,p,i,:2]
+    else:
+        for i in range(17):
+            nz = kpm.nonzero(kpm[:,:,i,2] - 2)
+            for x,y in zip(nz[0],nz[1]):
+                p=y-1
+                while p >= 0 and res[x,p,i,2] == 0:
+                    p-=1
+                q=p-1
+                while q >= 0 and res[x,q,i,2] == 0:
+                    q-=1
+                if q >= 0:
+                    s = res[x,p,i,:2] - res[x,q,i,:2]
+                    res[x,y,i,:2] = res[x,p,i,:2] + s / (p-q) * (y-p)
     return res
 
 # -------- part 2: OKS --------
