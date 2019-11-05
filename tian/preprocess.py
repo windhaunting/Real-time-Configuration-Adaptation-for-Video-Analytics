@@ -8,18 +8,12 @@ Created on Fri Oct 25 09:49:38 2019
 import pandas as pd
 import re
 import numpy as np
-<<<<<<< HEAD
-
-REGEX_KEY_POINT_ONE=re.compile(r'(0(?:\.\d*)?), (0(?:\.\d*)?), ([\d])')
-REGEX_KEY_POINT_LIST=re.compile(r'\[(.+?)\],(\d+(?:\.\d+))')
-=======
 import utilPose
 
 # -------- part 1: convert estimation record files to data matrix --------
 
 REGEX_KEY_POINT_ONE=re.compile(r'(0(?:\.\d*)?), (0(?:\.\d*)?), ([\d])')
 REGEX_KEY_POINT_LIST=re.compile(r'\[([\d\., ]+?)\],(\d+(?:\.\d+))')
->>>>>>> 623db63906159202cd4ecc884788f7f55e2a250d
 NUM_KEY_POINTS=17
 
 
@@ -62,11 +56,7 @@ def record2mat(filename):
             kps[i] = [[0.0, 0.0, 0] for _ in range(NUM_KEY_POINTS)]
             #cs[i] = 0.0
     pt = df['Time_SPF'].to_numpy()
-<<<<<<< HEAD
-    return np.array(kps), pt, np.cs
-=======
     return np.array(kps), pt, cs
->>>>>>> 623db63906159202cd4ecc884788f7f55e2a250d
 
 
 '''
@@ -94,8 +84,6 @@ def records2mat(prefix, fnList):
     return np.stack(kpm), np.stack(ptm), np.stack(csm)
 
 
-<<<<<<< HEAD
-=======
 # -------- part 2: compute OKS for loaded key points --------
 
 '''
@@ -157,7 +145,6 @@ def loadPose(filename):
 
 # -------- part 4: helper functions to get the estimation record files --------
 
->>>>>>> 623db63906159202cd4ecc884788f7f55e2a250d
 RESOLUTION_LIST_DEFAULT = ['320x240','480x352','640x480','960x720','1120x832']
 RESOLUTION_LIST_CMU = ['320x240','480x352','640x480','960x720','1120x832']
 RESOLUTION_LIST_MOBILENET_V2 = ['320x240','480x352','640x480','960x720','1120x832']
@@ -178,9 +165,6 @@ def makeERFilename(resolution, fps, model):
     return '%s_%d_%s_estimation_result.tsv' % (resolution, fps, model.lower())
 
 
-<<<<<<< HEAD
-
-=======
 # -------- test and example part --------  
 
 def __test__():
@@ -196,6 +180,3 @@ def __test__():
     fl2 = fl[0,1,3,4]
     #...
     
-    
-    
->>>>>>> 623db63906159202cd4ecc884788f7f55e2a250d
