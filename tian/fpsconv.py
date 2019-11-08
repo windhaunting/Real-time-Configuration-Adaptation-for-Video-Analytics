@@ -86,20 +86,22 @@ class FrameSampler:
 
 # -------- part 2: convert fps --------
 
-'''
-Convert OKS and SPF to another frame-rate by sampling frames
-input:
-    <kpm> key-point-matrix (4d or 3d: (conf)-frame-kp-xyv)
-    <ptm> processing-time-matrix (2d or 1d: (conf)-frame)
-    <tgtFps> target frame rate (frame/second)
-    <srcFps> the frame rate (frame/second) of input data
-    <offset> start from the <offset>-th frame
-    <refConf> the configuration used as OKS reference
-output:
-    <roks> oks for the target frame rate (average oks)
-    <rptm> ptm for the target frame rate (sampled frame)
-'''
-def convertFR(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0):
+def convertFR(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0, method='keep'):
+    '''
+    Convert OKS and SPF to another frame-rate by sampling frames
+    input:
+        <kpm> key-point-matrix (4d or 3d: (conf)-frame-kp-xyv)
+        <ptm> processing-time-matrix (2d or 1d: (conf)-frame)
+        <tgtFps> target frame rate (frame/second)
+        <srcFps> the frame rate (frame/second) of input data
+        <offset> start from the <offset>-th frame
+        <refConf> the configuration used as OKS reference and extrapolation
+        <method> method for estimating pose of the unprocessed frames.
+            including: keep-old-pose, linear, exponential average
+    output:
+        <roks> 2d (conf-frame) OKS matrix for the target frame rate (average oks)
+        <rptm> 2d (conf-frame) PT matrix for the target frame rate (sampled frame)
+    '''
     assert 0 < tgtFps < srcFps
     assert kpm.shape[-2:] == (17,3)
     if kpm.ndim == 3 and ptm.ndim == 1:
@@ -107,18 +109,36 @@ def convertFR(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0):
         ptm = ptm[np.newaxis, :]
     assert kpm.ndim == 4 and ptm.ndim == 2
     assert kpm.shape[:2] == ptm.shape
+    assert method in ['keep', 'linear', 'eam']
     sampler = FrameSampler(tgtFps, srcFps)
     sfi = sampler.getSampleFrameInterval()
     n, ms = ptm.shape
     mt = sampler.calcConvertedNumFrame(ms - offset)
     roks = np.zeros((n, mt))
     rptm = np.zeros((n, mt))
+    if method != 'keep':
+        kpmFill = utilPose.fillUnseen(kpm, 'linear')
+        diff = np.diff(kpmFill[:,:,:,[0,1]], axis=1, append=0)
+        diff[:,-1,:,:] = diff[:,-2,:,:]
+    if method == 'eam':
+        speedOld = diff[0,0,:,:]
+        alpha = 0.8
     fused = offset
     for i in range(mt):
         span = sfi[i % tgtFps]
         ftouse = range(fused, fused+span)
-        t=kpm[:,ftouse,:,:]
-        oksm = utilPose.computeOKS_mat(kpm[refConf,fused], t)
+        pose=kpm[:,ftouse,:,:]
+        if method == 'keep':
+            oksm = utilPose.computeOKS_mat(kpm[refConf,fused], pose)
+        else:
+            if method == 'linear':
+                speed = diff[:,ftouse,:,:].mean(1)
+            else: # eam
+                speed = diff[:,ftouse,:,:].mean(1)*alpha + speedOld*(1-alpha)
+                speedOld = speed
+            delta = np.stack([speed*i for i in range(1,span)], axis=1)
+            pose[:,1:,:,[0,1]] += delta
+            oksm = utilPose.computeOKS_pairMat(kpm[:,fused], pose)
         roks[:,i] = oksm.mean(1)
         rptm[:,i] = ptm[:,i]
         fused += span
