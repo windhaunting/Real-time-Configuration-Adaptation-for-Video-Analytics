@@ -69,7 +69,7 @@ def name2kp(data):
 def fillUnseen(kpm, method='same'):
     assert kpm.dim == 4
     assert kpm.shape[-2:] == (17,3)
-    assert method in ['same', 'estimate']
+    assert method in ['same', 'linear']
     n, m = kpm.shape[:-2]
     res = kpm.copy()
     if method == 'same':
@@ -153,10 +153,24 @@ def computeOKS_pair(gts, dts, sigmas = None):
     return np.sum(np.exp(-e)) / e.shape[0]
 
 
-'''
-return a list of OKS for each dts in <dtsList>
-'''
+def computeOKS_pairMat(gtsMat, dtsMat, sigmas = None):
+    assert gtsMat.shape == dtsMat.shape
+    assert gtsMat.ndim >= 3
+    assert gtsMat.shape[-2:] == (17, 3)
+    s = gtsMat.shape[:-2]
+    n = s[0] if s.ndim == 1 else np.multiply(*s)
+    res = np.zeros(n)
+    g = gtsMat.reshape(-1, 17, 3)
+    d = dtsMat.reshape(-1, 17, 3)
+    for i in range(n):
+        res[i] = computeOKS_pair(g[i], d[i], sigmas)
+    return res.reshape(s)
+
+
 def computeOKS_list(gts, dtsList, sigmas = None):
+    '''
+    return a list of OKS for each dts in <dtsList> using gts as the reference
+    '''
     assert isinstance(gts, np.ndarray) and gts.shape == (17,3)
     assert isinstance(dtsList[0], np.ndarray) and dtsList[0].shape == (17,3)
     sigmas = np.array(__KPT_OKS_SIGMAS__ if sigmas is None else sigmas)
@@ -202,6 +216,9 @@ def computeOKS_list(gts, dtsList, sigmas = None):
 
 
 def computeOKS_mat(gts, dtsMat, sigmas = None):
+    '''
+    return a matrix of OKS for each dts in <dtsMat> using gts as the reference
+    '''
     assert isinstance(gts, np.ndarray) and gts.shape == (17,3)
     assert isinstance(dtsMat, np.ndarray) and dtsMat.shape[-2:] == (17,3)
     
