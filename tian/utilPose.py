@@ -67,14 +67,14 @@ def name2kp(data):
 # -------- part 2: pose matrix operation --------
 
 def fillUnseen(kpm, method='same'):
-    assert kpm.dim == 4
+    assert kpm.ndim == 4
     assert kpm.shape[-2:] == (17,3)
     assert method in ['same', 'linear']
     n, m = kpm.shape[:-2]
     res = kpm.copy()
     if method == 'same':
         for i in range(17):
-            nz = kpm.nonzero(kpm[:,:,i,2] - 2)
+            nz = np.nonzero(kpm[:,:,i,2] - 2)
             for x,y in zip(nz[0],nz[1]):
                 p=y-1
                 while p >= 0 and res[x,p,i,2] == 0:
@@ -83,7 +83,7 @@ def fillUnseen(kpm, method='same'):
                     res[x,y,i,:2] = res[x,p,i,:2]
     else:
         for i in range(17):
-            nz = kpm.nonzero(kpm[:,:,i,2] - 2)
+            nz = np.nonzero(kpm[:,:,i,2] - 2)
             for x,y in zip(nz[0],nz[1]):
                 p=y-1
                 while p >= 0 and res[x,p,i,2] == 0:
@@ -158,7 +158,7 @@ def computeOKS_pairMat(gtsMat, dtsMat, sigmas = None):
     assert gtsMat.ndim >= 3
     assert gtsMat.shape[-2:] == (17, 3)
     s = gtsMat.shape[:-2]
-    n = s[0] if s.ndim == 1 else np.multiply(*s)
+    n = s[0] if len(s) == 1 else np.multiply(*s)
     res = np.zeros(n)
     g = gtsMat.reshape(-1, 17, 3)
     d = dtsMat.reshape(-1, 17, 3)

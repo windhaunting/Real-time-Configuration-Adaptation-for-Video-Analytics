@@ -138,7 +138,7 @@ def convertFR(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0, method='keep'):
                 speedOld = speed
             delta = np.stack([speed*i for i in range(1,span)], axis=1)
             pose[:,1:,:,[0,1]] += delta
-            oksm = utilPose.computeOKS_pairMat(kpm[:,fused], pose)
+            oksm = utilPose.computeOKS_pairMat(kpm[:,ftouse], pose)
         roks[:,i] = oksm.mean(1)
         rptm[:,i] = ptm[:,i]
         fused += span
