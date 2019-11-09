@@ -24,24 +24,17 @@ Created on Mon Sep 16 15:54:42 2019
 import re
 import sys
 import os
-import csv
-import pickle
 import math
 import cv2
-import time
 
 import numpy as np
-import pandas as pd
 
 from glob import glob
 from blist import blist
-from collections import defaultdict
 from common_classifier import read_all_config_name_from_file
 from common_classifier import read_poseEst_conf_frm
 from common_classifier import readProfilingResultNumpy
-from common_classifier import getParetoBoundary
-from common_classifier import checkCorrelationPlot
-from common_classifier import extract_specific_config_name_from_file
+from common_classifier import get_cmu_model_config_acc_spf
 from common_classifier import paddingZeroToInter
 from common_classifier import COCO_KP_NUM
 from common_classifier import getPersonEstimation
@@ -53,9 +46,6 @@ sys.path.insert(0, current_file_cur + '/..')
 from profiling.common_prof import dataDir3
 from profiling.common_prof import frameRates
 from profiling.common_prof import PLAYOUT_RATE
-
-from profiling.common_prof import computeOKSAP
-from profiling.common_prof import computeOKSFromOrigin
 
 
 
@@ -156,7 +146,7 @@ def fillEstimation(j, prev_frm_est_arr, cur_frm_est_arr):
 def getCurrentAverageSpeed(history_pose_est_arr, used_current_frm):
     
     
-    used_prev_frm = used_current_frm-PLAYOUT_RATE    # 1sec
+    used_prev_frm = used_current_frm - (PLAYOUT_RATE)   # 1sec
     
     j = used_current_frm
     
@@ -169,7 +159,7 @@ def getCurrentAverageSpeed(history_pose_est_arr, used_current_frm):
         hstack_arr = np.hstack((cur_frm_est_arr, prev_frm_est_arr))
         
         #print ("current_speed_angle_arr: ", current_speed_angle_arr.shape, hstack_arr.shape)
-        time_frm_interval = (1.0/PLAYOUT_RATE)           # interval 1 frame
+        time_frm_interval = 1.0       # 1 sec  #(1.0/PLAYOUT_RATE)/2            # interval 1 sec
         
         current_speed_angle_arr += np.apply_along_axis(getEuclideanDist, 1, hstack_arr, time_frm_interval)    
         j -= 1
@@ -182,7 +172,7 @@ def getCurrentAverageSpeed(history_pose_est_arr, used_current_frm):
 def getCurrentAverageRelativeSpeed(history_pose_est_arr, used_current_frm):
     
     
-    used_prev_frm = used_current_frm-PLAYOUT_RATE    # previous 1 sec
+    used_prev_frm = used_current_frm-PLAYOUT_RATE   # previous 1 sec
     
     j = used_current_frm
     
@@ -190,7 +180,7 @@ def getCurrentAverageRelativeSpeed(history_pose_est_arr, used_current_frm):
     while (j > used_prev_frm):
         cur_frm_est_arr = history_pose_est_arr[j]    
         prev_frm_est_arr = history_pose_est_arr[j-1]
-        time_frm_interval = (1.0/PLAYOUT_RATE)           # interval 1 frame
+        time_frm_interval =  1.0 # (1.0/PLAYOUT_RATE)          # interval 1 frame
         current_speed_angle_arr = relativeSpeed(cur_frm_est_arr, prev_frm_est_arr, time_frm_interval)
         j -= 1
     
@@ -538,8 +528,9 @@ def getBlurrinessFeature(imagePath, current_iterative_frm_id):
     return blurrinessScore_arr
 
 
-
-def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir,  history_frame_num, max_frame_example_used, minAccuracy):
+#def select_part_config_frmRateOnly():
+    
+def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold):
     '''
     get one person's all history keypoint,  plus over a period of resolution feature
     One person’s moving speed of all keypoints V i,k based on the euclidean d distance of current frame with the previous frame {f j−m , m = 1, 2, ..., 24}
@@ -556,6 +547,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     based on EMA
     add over a period of resolution a feature
     '''
+    
+    interval_frms = 1*PLAYOUT_RATE       # interval 1 sec for switching
     intervalFlag = 'sec'
     acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir, intervalFlag)
     
@@ -571,31 +564,10 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     #config_ind_pareto = getParetoBoundary(acc_frame_arr[:, 0], spf_frame_arr[:, 0])
     #resolution_set = ["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
-    resolution_set = ["1120x832"]  #, "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
-    frame_set = [25, 15, 10, 5, 2, 1]     #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
-    model_set = ['cmu']   #, 'mobilenet_v2_small']
-
-    lst_id_subconfig, id_config_dict = extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_set, frame_set, model_set)
-
-    print ("getOnePersonFeatureInputOutput01 lst_id_subconfig: ", lst_id_subconfig)
-    acc_frame_arr = acc_frame_arr[lst_id_subconfig, :]
-    spf_frame_arr =  spf_frame_arr[lst_id_subconfig, :]
     
-    print ("getOnePersonFeatureInputOutput01 acc_frame_arr: ", acc_frame_arr[:, 0], acc_frame_arr.shape)
-
-    # select one person, i.e. no 0
+    acc_frame_arr, spf_frame_arr, id_config_dict = get_cmu_model_config_acc_spf(data_pickle_dir, data_pose_keypoint_dir)
     
-    #max_frame_example_used = 1000   # 8000
-    #current_frame_id = 25
-    _, id_config_dict = read_all_config_name_from_file(data_pose_keypoint_dir, False)
-
-    
-    # get new id map based on pareto boundary/'s result
-    new_id_config_dict = defaultdict()
-    for i, ind in enumerate(lst_id_subconfig):
-        new_id_config_dict[i] = id_config_dict[ind]
-    id_config_dict = new_id_config_dict
-    
+  
     print ("config_id_dict: ", len(id_config_dict), id_config_dict)
     
     
@@ -605,8 +577,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     #df_det = pd.read_csv(filePathLst[0], delimiter='\t', index_col=False)         # det-> detection
     #print ("filePath: ", filePathLst[0], len(df_det))
 
-    
-    
+    current_delay = 0.0
+
     previous_frm_indx = 0
     
     
@@ -637,6 +609,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     prev_frmRt_aver = 0.0
     
     
+    delay_feature_arr = np.zeros(max_frame_example_used)
+
     blurriness_feature_arr = np.zeros((max_frame_example_used, 1))
     
     frm_id_debug_only_arr = np.zeros(max_frame_example_used)
@@ -653,7 +627,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     #arr_feature_frameIndex = np.zeros(max_frame_example_used)        # defaultdict(int) each interval's starting point -- corresponding frame index
     if intervalFlag == 'sec':
-        interval_jump = PLAYOUT_RATE            # one sec  25 frames
+        interval_jump = PLAYOUT_RATE        # one sec  25 frames
     elif intervalFlag == 'frame':
         interval_jump = 1                     # one frame
         
@@ -712,7 +686,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             feature1_speed_arr = getFeatureOnePersonMovingSpeed(history_pose_est_arr, used_current_frm, prev_EMA_speed_arr)
             prev_EMA_speed_arr = feature1_speed_arr
 
-
+            
             feature1_relative_speed_arr = getFeatureOnePersonRelativeSpeed1(history_pose_est_arr, used_current_frm, prev_EMA_relative_speed_arr1)
             prev_EMA_relative_speed_arr1 = feature1_relative_speed_arr
             #print ("feature1_speed_arr feature2_relative_speed_arr, ", feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
@@ -735,13 +709,20 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             total_features_arr = np.vstack((total_features_arr, feature4_relative_speed_arr))
             
             
-            input_x_arr[select_frm_cnt]= total_features_arr  #  input_x_arr[frm_id-1] = total_features_arr
+            input_x_arr[select_frm_cnt]=  total_features_arr  # feature1_speed_arr  # total_features_arr  #  input_x_arr[frm_id-1] = total_features_arr
             
             
             current_iterative_frm_id = index_frm #  + interval_jump               # the next interval for predicting is the class output
-            y_out_arr[select_frm_cnt] = select_config(acc_frame_arr, spf_frame_arr, current_iterative_frm_id, minAccuracy)
+                        
+            if minAccuracy == -1:
+                delay_feature_arr[select_frm_cnt] = current_delay
+                y_out_arr[select_frm_cnt], current_delay = select_config_boundedDelayOnly(acc_frame_arr, spf_frame_arr, current_iterative_frm_id, interval_frms, current_delay, minDelayTreshold)
+            else:
+                y_out_arr[select_frm_cnt] = select_config_boundedAccuracy(acc_frame_arr, spf_frame_arr, current_iterative_frm_id, minAccuracy)
+
             #print ("current_iterative_frm_id current_iterative_frm_id, ", acc_frame_arr[:, current_iterative_frm_id])
 
+            
             img_file_name = paddingZeroToInter(index_frm+1) + '.jpg'
             # '../input_output/one_person_diy_video_dataset/005_dance_frames/000026.jpg'
             current_instance_start_frm_path_arr[select_frm_cnt] = data_frame_path_dir + img_file_name
@@ -761,21 +742,23 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     current_instance_start_frm_path_arr = current_instance_start_frm_path_arr[:select_frm_cnt].reshape(current_instance_start_frm_path_arr[:select_frm_cnt].shape[0], -1)
     input_x_arr = np.hstack((current_instance_start_frm_path_arr, input_x_arr))
     
-    
+    if minAccuracy == -1:
+        delay_feature_arr = delay_feature_arr[:select_frm_cnt].reshape(delay_feature_arr[:select_frm_cnt].shape[0], -1)
+        input_x_arr = np.hstack((input_x_arr, delay_feature_arr))
+        
     y_out_arr = y_out_arr[:select_frm_cnt]
     #print ("reso_feature_arr, ", reso_feature_arr.shape, reso_feature_arr)
     print ("feature1_speed_arr, ", select_frm_cnt, input_x_arr.shape, y_out_arr.shape, feature1_speed_arr.shape, feature2_relative_speed_arr.shape)
 
-    print ("input_x_arr, ", input_x_arr[:, 1:])
+    print ("delay_feature_arr, ", delay_feature_arr)
     #checkCorrelationPlot(data_pose_keypoint_dir, input_x_arr, y_out_arr, id_config_dict)
     print ("y_out_arr, ", y_out_arr)
     
     
-
     return input_x_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr
 
 
-def select_config(acc_frame_arr, spf_frame_arr, index_id, minAccuracy):
+def select_config_boundedAccuracy(acc_frame_arr, spf_frame_arr, index_id, minAccuracy):
     '''
     need to use frm_id-1, index start from 0
     '''   
@@ -797,6 +780,67 @@ def select_config(acc_frame_arr, spf_frame_arr, index_id, minAccuracy):
     #print ("final selected_config_indx:",selected_config_indx, spf_frame_arr[selected_config_indx, frm_id-1] )
 
     return selected_config_indx
+
+
+
+def select_config_boundedDelayOnly(acc_frame_arr, spf_frame_arr, index_id, interval_frms, current_delay, minDelayTreshold):
+    '''
+    bounded delay, and then select the highest accuracy
+    
+    '''    
+    #print ("[:, frm_id-1]:", acc_frame_arr.shape, acc_frame_arr[:, frm_id-1], spf_frame_arr[:, frm_id-1])
+    '''
+    indx_config_above_minAcc = np.where(acc_frame_arr[:, index_id] >= minAccuracy)      # the index of the config above the threshold minAccuracy
+    #print("indx_config_above_minAcc: ", indx_config_above_minAcc, len(indx_config_above_minAcc[0]))
+    
+    
+    cpy_minAccuracy = minAccuracy
+    # in case no profiling config found satisfying the minAcc
+    while len(indx_config_above_minAcc[0]) == 0:
+        cpy_minAccuracy = cpy_minAccuracy - 0.05 
+        indx_config_above_minAcc = np.where(acc_frame_arr[:, index_id] >= cpy_minAccuracy)      # the index of the config above the threshold minAccuracy
+            
+    indx_acc_selected_arr = np.argsort(acc_frame_arr[indx_config_above_minAcc, index_id], axis=1) 
+    
+    '''
+    
+    #print ("spf_selected_arr: ", indx_config_above_minAcc, indx_acc_selected_arr, np.sort(acc_frame_arr[indx_config_above_minAcc, index_id], axis=1)  )
+    
+    current_delay_cpy = current_delay
+    #print ("gggg: ", current_delay_cpy)
+    
+    satisfied_indices = []
+    for c in range(0, spf_frame_arr.shape[0]):           #
+        
+        current_delay_cpy += (spf_frame_arr[c][index_id])*(interval_frms)   # consumed time
+        current_delay_cpy -= (interval_frms)*(1/PLAYOUT_RATE)       # streamed time only 1 frame by 1 frame
+        #print ("mmmmmm: ", current_delay_cpy, spf_frame_arr[indx_config_above_minAcc[0][r]][index_id], (switching_frm_num+1)*(1/PLAYOUT_RATE))
+        if current_delay_cpy <= 0:
+            current_delay_cpy = 0.0
+           
+        if current_delay_cpy <= minDelayTreshold:
+            #print ("rrrrrrrr: ", index_id, switching_frm_num, indx_config_above_minAcc[0][r], current_delay_cpy, tmp,  spf_frame_arr[indx_config_above_minAcc[0][r]][index_id])
+            satisfied_indices.append(c)
+        
+        current_delay_cpy = current_delay
+        #print ("ttttttttttttt: ", current_delay, current_delay_cpy)
+    #if we can not find a config that satisfying the bounded accu and delay
+    #print ("satisfied_indices satisfied_indices:", satisfied_indices)
+    # selected the config with the highest accuracy
+    tmp_config_indx = np.argmax(acc_frame_arr[satisfied_indices, index_id])   # selected the minimum spf, i.e. the fastest processing speed
+    #print ("tmp_config_indx tmp_config_indx:", tmp_config_indx )
+    
+    selected_config_indx = satisfied_indices[tmp_config_indx]      # final selected indx from all config_indx
+    #print ("final selected_config_indx:",selected_config_indx, (spf_frame_arr[selected_config_indx][index_id])*(interval_frms))
+    current_delay_cpy += (spf_frame_arr[selected_config_indx][index_id])*(interval_frms)     # consumed time
+    current_delay_cpy  -=  (interval_frms)*(1/PLAYOUT_RATE)        # streamed time
+    
+    #print ("current_delay_cpy current_delay_cpy:", current_delay_cpy, spf_frame_arr[selected_config_indx][index_id])
+    #print ("current_delay selected_config_indx: ", current_delay_cpy, selected_config_indx)
+    #if current_delay_cpy <= 0:
+    #    current_delay_cpy = 0.0
+        
+    return selected_config_indx, current_delay_cpy
 
 '''
 def getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num):

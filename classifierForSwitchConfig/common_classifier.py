@@ -15,7 +15,7 @@ import csv
 import cv2
 
 import numpy as np
-
+from collections import OrderedDict
 from collections import defaultdict
 from glob import glob
 from blist import blist
@@ -211,7 +211,8 @@ def checkCorrelationPlot(data_pose_keypoint_dir, input_x_arr, out_y_arr, id_conf
     pdf_pages.close()
     
 
-
+    
+    
 def feature_selection(data_examples_dir, history_frame_num, max_frame_example_used):
     '''
     transfer input output into a csv and run it in weka 
@@ -229,7 +230,34 @@ def feature_selection(data_examples_dir, history_frame_num, max_frame_example_us
     np.savetxt( data_examples_dir + "data_example_history_frms1.csv", data_example_arr, delimiter=",", header = header_lst)
     
  
+def get_cmu_model_config_acc_spf(data_pickle_dir, data_pose_keypoint_dir):
+        intervalFlag = 'sec'
+        acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir, intervalFlag)
+                
+        #old_acc_frm_arr = acc_frame_arr
+        #print ("getOnePersonFeatureInputOutput01 acc_frame_arr: ", acc_frame_arr.shape)
     
+        # save to file to have a look
+        #outDir = data_pose_keypoint_dir + "classifier_result/"
+        #np.savetxt(outDir + "accuracy_above_threshold" + str(minAccuracy) + ".tsv", acc_frame_arr[:, :5000], delimiter="\t")
+        
+        
+        #config_ind_pareto = getParetoBoundary(acc_frame_arr[:, 0], spf_frame_arr[:, 0])
+        #resolution_set = ["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
+        resolution_set = ["1120x832", "960x720", "640x480",  "480x352", "320x240"]  #["640x480"]  #["1120x832"]  #, "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
+        frame_set = [25, 15, 10, 5, 2, 1]     #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
+        model_set = ['cmu']   #, 'mobilenet_v2_small']
+    
+        lst_id_subconfig, id_config_dict = extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_set, frame_set, model_set)
+    
+        print ("getOnePersonFeatureInputOutput01 lst_id_subconfig: ", lst_id_subconfig)
+        acc_frame_arr = acc_frame_arr[lst_id_subconfig, :]
+        spf_frame_arr =  spf_frame_arr[lst_id_subconfig, :]
+    
+        id_config_dict = OrderedDict(sorted(id_config_dict.items(), key=lambda t: t[0]))
+
+        return acc_frame_arr, spf_frame_arr, id_config_dict
+
 def getParetoBoundary(acc_arr, spf_arr):
     #acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
     
@@ -299,7 +327,7 @@ def read_all_config_name_from_file(data_pose_keypoint_dir, write_flag):
     #model_resoFrm_dict = dict(zip(config_lst, resoFrmRate))
     #sort by resolution*frame_rate  e.g. 720px25
     config_lst.sort(key = lambda ele: int(ele.split('-')[0].split('x')[1])* int(ele.split('-')[1]), reverse=True)
-    config_id_dict = dict(zip(config_lst,range(0, len(config_lst))))
+    config_id_dict = OrderedDict(zip(config_lst,range(0, len(config_lst))))
         
     id_config_dict = {v:k for k, v in config_id_dict.items()} #    error dict(zip(range(0, len(config_lst)), config_lst))
 
@@ -337,7 +365,16 @@ def extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_se
             lst_id_subconfig.append(idx)
         
     #print ("lst_id_subconfig: ", lst_id_subconfig, config_id_dict)
-
+    
+    
+    # get new id map based on pareto boundary/'s result
+    new_id_config_dict = defaultdict()
+    for i, ind in enumerate(lst_id_subconfig):
+        new_id_config_dict[i] = id_config_dict[ind]
+    id_config_dict = new_id_config_dict
+    
+    #print ("config_id_dict: ", len(id_config_dict), id_config_dict)
+    
     return lst_id_subconfig, id_config_dict
 
 
@@ -349,7 +386,7 @@ def read_poseEst_conf_frm(data_pickle_dir):
     
     '''
     
-    confg_est_frm_arr = np.load(data_pickle_dir + 'config_estimation_frm.pkl')
+    confg_est_frm_arr = np.load(data_pickle_dir + 'config_estimation_frm.pkl', allow_pickle=True)
     #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
     #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
     
@@ -365,16 +402,16 @@ def readProfilingResultNumpy(data_pickle_dir, intervalFlag):
     
     '''
     if intervalFlag == 'frame':
-        acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl')          # frame by frame but it also calculate the 1sec interval with each frame starting
+        acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl', allow_pickle=True)          # frame by frame but it also calculate the 1sec interval with each frame starting
     elif intervalFlag == 'sec':
         #acc_frame_arr = np.load(data_pickle_dir + 'config_acc_interval_1sec.pkl')
-        acc_frame_arr = np.load(data_pickle_dir + 'config_oks_interval_1sec.pkl')
-
-    spf_frame_arr = np.load(data_pickle_dir + 'config_spf_frm.pkl')
+        acc_frame_arr = np.load(data_pickle_dir + 'config_oks_interval_1sec.pkl', allow_pickle=True)
+#        
+    spf_frame_arr = np.load(data_pickle_dir + 'config_spf_frm.pkl', allow_pickle=True)
     #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
     #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
     
-    print ("acc_frame_arr ", type(acc_frame_arr), acc_frame_arr.shape)
+    #print ("acc_frame_arr ", type(acc_frame_arr), acc_frame_arr.shape)
     
     return acc_frame_arr, spf_frame_arr
 
@@ -437,8 +474,6 @@ def read_config_name_resolution_frmRate(data_pose_keypoint_dir, write_flag):
             writer.writerow(["Config_name", "Id_in_order"])
             for key, value in config_tuple_id_dict.items():
                 writer.writerow([key, value])
-
-
 
 
 

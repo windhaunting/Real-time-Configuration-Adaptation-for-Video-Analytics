@@ -142,13 +142,13 @@ def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
 
 
 
-def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir):
+def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir, start_frm_index):
     '''
     frame-by-frame consideration
     get config's estimation result based on each config and frame
     and the spf result 
+    start_frm_index is the new start frame index that for getting the pickle matrix
     '''
-    
     
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
     
@@ -157,7 +157,7 @@ def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir):
     
     config_num = len(config_id_dict)  # len(config_id_dict)
     df_det = pd.read_csv(filePathLst[0], delimiter='\t', index_col=False)         # det-> detection
-    frame_num = len(df_det)     #  maybe some frame_id is missing, only consider all frames that could be parsed from a video
+    frame_num = len(df_det)-start_frm_index     #  maybe some frame_id is missing, only consider all frames that could be parsed from a video
     #create a numpy array
     confg_frm_est_arr = np.zeros((config_num, frame_num), dtype=object) # array of estimation result with config vs frame_Id
     
@@ -166,13 +166,12 @@ def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir):
     print ("config_id_dict: ", config_id_dict,  len(config_id_dict), frame_num)
     
     for fileCnt, filePath in enumerate(filePathLst):
-        df_det = pd.read_csv(filePath, delimiter='\t', index_col=False)         # det-> detection
+        df_det = pd.read_csv(filePath, delimiter='\t', index_col=False)             # det-> detection
         
-
         print ("numy shape: ", confg_frm_est_arr.shape, filePath)
-        
-        for index, row in df_det.iterrows():  
-            #print ("index, row: ", index, row)
+        start_index = 0
+        for index, row in df_det.iloc[start_frm_index:].iterrows():  
+            
             reso = row['Resolution']
             #frm_rate = row['Frame_rate']
             model = row['Model'].split('_')[0]
@@ -184,26 +183,47 @@ def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir):
             config_lst = getNewconfig(reso, model)     # add more configs
             for config in config_lst:
                 id_conf = config_id_dict[config]  
-                confg_frm_est_arr[id_conf, index] = est_res    
+                confg_frm_est_arr[id_conf, start_index] = est_res    
                 
             
             #print ("confg_frm_est_arr: ", str(confg_frm_est_arr[id_conf,index]))
-            confg_frm_spf_arr = getconfigSPFEachFrm(reso, model, time_spf, config_id_dict, index, confg_frm_spf_arr)
+            confg_frm_spf_arr = getconfigSPFEachFrm(reso, model, time_spf, config_id_dict, start_index, confg_frm_spf_arr)
             
+            
+            start_index += 1
             #break    # test only
         
         #break    # test only
 
     print ("confg_frm_est_arr: ", confg_frm_est_arr.shape, confg_frm_est_arr[5][0], confg_frm_spf_arr[0][0])            
 
-    with open(data_pickle_dir + 'config_estimation_frm.pkl','wb') as fs:
-        pickle.dump(confg_frm_est_arr, fs)
-      
-    #out_frm_spf_pickle_file = pickle_dir + "spf_frame.pkl"      # spf for config vs each frame
-    with open(data_pickle_dir + 'config_spf_frm.pkl','wb') as fs:
-        pickle.dump(confg_frm_spf_arr, fs)
-
-    return
+    if start_frm_index == 0:
+        with open(data_pickle_dir + 'config_estimation_frm.pkl','wb') as fs:
+            pickle.dump(confg_frm_est_arr, fs)
+          
+        #out_frm_spf_pickle_file = pickle_dir + "spf_frame.pkl"      # spf for config vs each frame
+        with open(data_pickle_dir + 'config_spf_frm.pkl','wb') as fs:
+            pickle.dump(confg_frm_spf_arr, fs)
+            
+        return data_pickle_dir
+    else:
+        data_pickle_out_parent_dir = "/".join(data_pose_keypoint_dir.split("/")[:-2]) + "/" + data_pose_keypoint_dir.split("/")[-2] + "-start-"+ str(start_frm_index)
+        
+        if not os.path.exists(data_pickle_out_parent_dir):
+            os.mkdir(data_pickle_out_parent_dir)
+            
+        data_pickle_out_dir = data_pickle_out_parent_dir + "/frames_pickle_result/"
+        if not os.path.exists(data_pickle_out_dir):
+            os.mkdir(data_pickle_out_dir)    
+        
+        with open(data_pickle_out_dir + 'config_estimation_frm.pkl','wb') as fs:
+            pickle.dump(confg_frm_est_arr, fs)
+          
+        #out_frm_spf_pickle_file = pickle_dir + "spf_frame.pkl"      # spf for config vs each frame
+        with open(data_pickle_out_dir + 'config_spf_frm.pkl','wb') as fs:
+            pickle.dump(confg_frm_spf_arr, fs)
+            
+    return data_pickle_out_dir
 
 
 
@@ -300,7 +320,7 @@ def write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_e
 
     frm_extracted_index_dict = defaultdict()
     
-    for frmRt in frameRates:
+    for frmRt in frameRates: 
         frmInter = math.ceil(PLAYOUT_RATE/frmRt)          # frame rate sampling frames in interval, +1 every other
         lst_indx = range(0, PLAYOUT_RATE, frmInter)
         
@@ -334,7 +354,7 @@ def write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_e
 
     print('config, ddd: ', config, col_ind, confg_frm_acc_arr.shape)
     
-    out_frm_acc_pickle_file = data_pickle_out_dir + "config_" + metric + "_interval_1sec.pkl"      # acc for config vs each frame
+    out_frm_acc_pickle_file = data_pickle_out_dir + "config_" + metric + "_interval_" + str(interval) +"sec.pkl"      # acc for config vs each frame
         
     with open(out_frm_acc_pickle_file,'wb') as fs:
         pickle.dump(confg_frm_acc_arr, fs)   
@@ -415,8 +435,34 @@ def readConfigFrmSPfFile(data_pickle_dir):
 
 
 
-
-
+def extendMoreDataSamplingWriteIntoPickle():
+        video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                    'output_003_dance/', 'output_004_dance/',  \
+                    'output_005_dance/', 'output_006_yoga/', \
+                    'output_007_yoga/', 'output_008_cardio/', \
+                    'output_009_cardio/', 'output_010_cardio/', \
+                    'output_011_dance/', 'output_012_dance/']
+        
+        for vd_dir in video_dir_lst[1:2]:        # [3:4]:   # [0:1]:
+        
+            data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
+            if not os.path.exists(data_pickle_dir):
+                os.mkdir(data_pickle_dir)
+            
+            data_pose_keypoint_dir = dataDir3 +  vd_dir
+            
+            start_frm_index = 280        # 10 frames
+            while(start_frm_index < 1000):
+                data_pickle_out_dir = write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir, start_frm_index)        
+    
+                confg_frm_est_arr = readConfigFrmEstFile(data_pickle_out_dir)
+        
+                interval = 1       # 1 sec
+                metric = 'oks'
+                write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_out_dir, interval, metric)
+               
+                start_frm_index += 10
+                
 def executeWriteIntoPickleOnePeron():
     
     
@@ -424,33 +470,35 @@ def executeWriteIntoPickleOnePeron():
                     'output_003_dance/', 'output_004_dance/',  \
                     'output_005_dance/', 'output_006_yoga/', \
                     'output_007_yoga/', 'output_008_cardio/', \
-                    'output_009_cardio/', 'output_010_cardio/'
-                    'output_011_dance/']
+                    'output_009_cardio/', 'output_010_cardio/', \
+                    'output_011_dance/', 'output_012_dance/']
     
     
-    for vd_dir in video_dir_lst[0:10]:        # [3:4]:   # [0:1]:
+    for vd_dir in video_dir_lst[0:1]:        # [3:4]:   # [0:1]:
         
         data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
         if not os.path.exists(data_pickle_dir):
             os.mkdir(data_pickle_dir)
             
         st_time = time.time()
-        #write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir)
+        start_frm_index = 0        # 10 frames
+        #data_pickle_dir = write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir, start_frm_index)
         
-        data_pose_keypoint_dir = dataDir3 +  vd_dir
         confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
-        
-        interval = 1        # 1 sec
+
+        data_pose_keypoint_dir = dataDir3 +  vd_dir
+
+        interval = 1       # 1 sec
         metric = 'oks'
         write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, interval, metric)
         
-        metric = 'acc'
-        write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, interval, metric)
+        #metric = 'acc'
+        #write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, interval, metric)
         
-        end_time = time.time() - st_time
-        print ("elapsed_time for each file: ", end_time - st_time)
+        elapsed_time = time.time() - st_time
+        print ("elapsed_time for each file: ", elapsed_time)
 
 if __name__== "__main__":
     
-    #executeWriteIntoPickle()
-    executeWriteIntoPickleOnePeron()
+    #executeWriteIntoPickleOnePeron()
+    extendMoreDataSamplingWriteIntoPickle()
