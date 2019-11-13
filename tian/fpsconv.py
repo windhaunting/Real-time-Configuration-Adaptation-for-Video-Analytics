@@ -86,7 +86,8 @@ class FrameSampler:
 
 # -------- part 2: convert fps --------
 
-def convertFR(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0, method='keep'):
+def convertFPS(kpm, ptm, tgtFps, srcFps=25, offset=0,
+               method='keep', refConf=0, alpha=0.8):
     '''
     Convert OKS and SPF to another frame-rate by sampling frames
     input:
@@ -95,9 +96,10 @@ def convertFR(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0, method='keep'):
         <tgtFps> target frame rate (frame/second)
         <srcFps> the frame rate (frame/second) of input data
         <offset> start from the <offset>-th frame
-        <refConf> the configuration used as OKS reference and extrapolation
         <method> method for estimating pose of the unprocessed frames.
             including: keep-old-pose, linear, exponential average
+        <refConf> (for keep method) the configuration used as OKS reference
+        <alpha> (for eam method) the factor for keeping lastest value
     output:
         <roks> 2d (conf-frame) OKS matrix for the target frame rate (average oks)
         <rptm> 2d (conf-frame) PT matrix for the target frame rate (sampled frame)
@@ -118,11 +120,10 @@ def convertFR(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0, method='keep'):
     rptm = np.zeros((n, mt))
     if method != 'keep':
         kpmFill = utilPose.fillUnseen(kpm, 'linear')
-        diff = np.diff(kpmFill[:,:,:,[0,1]], axis=1, append=0)
-        diff[:,-1,:,:] = diff[:,-2,:,:]
+        last = kpmFill[:,0,:,0:2]
     if method == 'eam':
-        speedOld = diff[0,0,:,:]
-        alpha = 0.8
+        speedOld = np.zeros_like(last)
+        assert 0 <= alpha <= 1
     fused = offset
     for i in range(mt):
         span = sfi[i % tgtFps]
@@ -130,14 +131,16 @@ def convertFR(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0, method='keep'):
         pose=kpm[:,ftouse,:,:]
         if method == 'keep':
             oksm = utilPose.computeOKS_mat(kpm[refConf,fused], pose)
-        else:
-            if method == 'linear':
-                speed = diff[:,ftouse,:,:].mean(1)
-            else: # eam
-                speed = diff[:,ftouse,:,:].mean(1)*alpha + speedOld*(1-alpha)
+        else: # linear and eam
+            #speed = diff[:,ftouse,:,:].mean(1)
+            speed = (kpm[:,fused,:,0:2] - last) / sfi[(i-1) % tgtFps]
+            last = kpm[:,fused,:,0:2]
+            if method == 'eam':
+                speed = speed*alpha + speedOld*(1-alpha)
                 speedOld = speed
-            delta = np.stack([speed*i for i in range(1,span)], axis=1)
-            pose[:,1:,:,[0,1]] += delta
+            if span > 1:
+                delta = np.stack([speed*i for i in range(1,span)], axis=1)
+                pose[:,1:,:,[0,1]] += delta
             oksm = utilPose.computeOKS_pairMat(kpm[:,ftouse], pose)
         roks[:,i] = oksm.mean(1)
         rptm[:,i] = ptm[:,i]
