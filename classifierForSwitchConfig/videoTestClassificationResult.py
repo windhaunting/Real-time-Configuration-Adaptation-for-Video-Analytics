@@ -19,6 +19,7 @@ from collections import defaultdict
 
 from common_classifier import readProfilingResultNumpy
 from common_classifier import get_cmu_model_config_acc_spf
+from common_classifier import getAccSpfArrAllVideo
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -135,31 +136,6 @@ def testVideoClassificationResultDelay(dict_spf_frm_arr, x_video_frm_id_arr, y_p
     print ("total_delay_gt pred  delay,  ", aver_total_delay_gt, aver_total_delay_pred)
     #print ("delay_pred_arr  delay,  ", delay_pred_arr)
 
-def getAccSpfArrAllVideo():
-    
-    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
-                'output_003_dance/', 'output_004_dance/',  \
-                'output_005_dance/', 'output_006_yoga/', \
-                'output_007_yoga/', 'output_008_cardio/', \
-                'output_009_cardio/', 'output_010_cardio/', \
-                'output_011_dance/', 'output_012_dance/']
-        
-    dict_acc_frm_arr = defaultdict()
-    dict_spf_frm_arr = defaultdict()
-    for video_dir in video_dir_lst[0:12]:
-        data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
-    
-        intervalFlag = 'sec'
-        acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir, intervalFlag)
-        video_id = int(video_dir.split("_")[1])
-        
-        data_pose_keypoint_dir = dataDir3 + video_dir
-        acc_frame_arr, spf_frame_arr, id_config_dict = get_cmu_model_config_acc_spf(data_pickle_dir, data_pose_keypoint_dir)
-        
-        dict_acc_frm_arr[video_id] = acc_frame_arr
-        dict_spf_frm_arr[video_id] = spf_frame_arr
-        
-    return dict_acc_frm_arr, dict_spf_frm_arr
     
 
 def executeTest():

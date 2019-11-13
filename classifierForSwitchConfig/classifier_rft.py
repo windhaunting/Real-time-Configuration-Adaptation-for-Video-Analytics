@@ -181,7 +181,7 @@ def rftTrainTest(data_classification_dir, X, y):
     #tuneParamterMinSamplesSplits(X_train, y_train, X_test, y_test)
 
     # Fitting the classifier into the Training set
-    max_features= 20 # 'sqrt'   # 10 # 'auto' 'sqrt' int(math.sqrt(X_train.shape[1]))
+    max_features = 20 # 'sqrt'   # 10 # 'auto' 'sqrt' int(math.sqrt(X_train.shape[1]))
     rf_model = RandomForestClassifier(n_estimators = 100, criterion = 'entropy', max_features=max_features, max_depth=12, min_samples_split= 10, n_jobs=-1)
     rf_model.fit(X_train,y_train)
     
@@ -201,7 +201,7 @@ def rftTrainTest(data_classification_dir, X, y):
     print ("rftTrainTest testing acc cm, f1-score: ", test_acc_score, cm, F1_test_score)
 
     
-    data_classification_dir = dataDir3 + 'output_005_dance/classifier_result/'
+    #data_classification_dir = dataDir3 + 'output_005_dance/classifier_result/'
     with open(data_classification_dir + "x_train.pkl", 'wb') as fs:
         pickle.dump(X_train, fs)
     
@@ -300,6 +300,79 @@ def execute_get_feature_config_boundedDelay(data_pose_keypoint_dir, data_pickle_
  
     return x_input_arr, y_out_arr, id_config_dict
 
+
+
+def combineAugmentedVideoDatasetTrainTest():
+    
+    '''
+    combine augmented data set together to train and test
+    '''
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/']
+        
+
+    input_video_frms_dir = ['001_dance_frames/', '002_dance_frames/']
+   
+    
+    # judge file exist or not
+  
+    X_lst = blist()
+    y_lst = blist()
+        
+    for i, old_video_dir in enumerate(video_dir_lst[0:]):  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+            
+        #if i != 4:                    # check the 005_video only
+        #    continue
+        if i == 0:
+            j = 10          # to 990
+        else:
+            j = 280
+        while (j < 1000):
+            if j == 0:
+                video_dir = old_video_dir
+            else:
+                video_dir = '/'.join(old_video_dir.split('/')[:-1]) + "-start-" + str(j) + '/'
+            
+            print (" video_dir: ", video_dir)
+            data_pose_keypoint_dir =  dataDir3 + video_dir_lst[0]
+            data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
+
+            data_frame_path_dir = dataDir3 + input_video_frms_dir[i]
+            
+            out_frm_examles_pickle_dir =  dataDir3 + video_dir + 'data_examples_files/'
+            
+            if not os.path.exists(out_frm_examles_pickle_dir):
+                os.mkdir(out_frm_examles_pickle_dir)
+                
+            history_frame_num = 1           #1          # 
+            max_frame_example_used =  16000 # 20000 #8025   # 10000
+            x_input_arr, y_out_arr, id_config_dict = execute_get_feature_config_boundedAcc(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, 'most_expensive_config')
+            
+            X_lst.append(x_input_arr)
+            y_lst.append(y_out_arr.reshape(-1, 1))
+            
+            j += 10
+            
+    total_X = np.vstack(X_lst)
+    total_y = np.vstack(y_lst)
+    
+    print("total_X: ", total_X.shape, total_y.shape)
+        
+    data_pose_keypoint_dir =  dataDir3 + old_video_dir[0]
+    
+    data_classification_dir = dataDir3 + 'augmented_data_test_classification_result/'
+    if not os.path.exists(data_classification_dir):
+        os.mkdir(data_classification_dir)
+        
+    with open(data_classification_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(total_X, fs)
+                
+    with open(data_classification_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(total_y, fs)    
+    
+    
+    rf_model, train_acc_score, test_acc_score, train_video_frm_id_arr, test_video_frm_id_arr, y_pred, y_test = rftTrainTest(data_classification_dir, total_X, total_y)
+            
+    
 def combineMultipleVideoDataTrainTest():
     '''
     combine mutlipel data example together to train and test
@@ -309,7 +382,10 @@ def combineMultipleVideoDataTrainTest():
                     'output_005_dance/', 'output_006_yoga/', \
                     'output_007_yoga/', 'output_008_cardio/', \
                     'output_009_cardio/', 'output_010_cardio/', \
-                    'output_011_dance/', 'output_012_dance/']
+                    'output_011_dance/', 'output_012_dance/', \
+                    'output_013_dance/', 'output_014_dance/', \
+                    'output_015_dance/', 'output_016_dance/', \
+                    'output_017_dance/']
         
 
     input_video_frms_dir = ['001_dance_frames/', '002_dance_frames/', \
@@ -324,11 +400,12 @@ def combineMultipleVideoDataTrainTest():
                         '019_dance_frames/', '020_dance_frames/',
                         '021_dance_frames/']
    
+    
     # judge file exist or not
     data_classification_dir = dataDir3  +'test_classification_result/'
 
     history_frame_num = 1  #1          # 
-    max_frame_example_used =  12000 # 20000 #8025   # 10000
+    max_frame_example_used =  17000 # 20000 #8025   # 10000
         
     xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
     yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
@@ -349,23 +426,24 @@ def combineMultipleVideoDataTrainTest():
         
         for i, video_dir in enumerate(video_dir_lst):  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
             
-            if i != 4:                    # check the 005_video only
-                continue
+            #if i != 4:                    # check the 005_video only
+            #    continue
             
             data_pose_keypoint_dir =  dataDir3 + video_dir
             data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
             data_frame_path_dir = dataDir3 + input_video_frms_dir[i]
             
             out_frm_examles_pickle_dir =  dataDir3 + video_dir + 'data_examples_files/'
-            
+            if not os.path.exists(out_frm_examles_pickle_dir):
+                os.mkdir(out_frm_examles_pickle_dir)
+                
             history_frame_num = 1           #1          # 
-            max_frame_example_used =  16000 # 20000 #8025   # 10000
+            max_frame_example_used =  17000 # 20000 #8025   # 10000
             x_input_arr, y_out_arr, id_config_dict = execute_get_feature_config_boundedAcc(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, 'most_expensive_config')
             
             #x_input_arr, y_out_arr, id_config_dict = execute_get_feature_config_boundedDelay(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, 'most_expensive_config')
     
-            if not os.path.exists(out_frm_examles_pickle_dir):
-                os.mkdir(out_frm_examles_pickle_dir)
+    
                         
             with open(out_frm_examles_pickle_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
                 pickle.dump(x_input_arr, fs)
@@ -417,4 +495,6 @@ if __name__== "__main__":
     data_examples_dir =  dataDir3 + 'output_001_dance/' + 'data_examples_files/'
 
     #executeTest_feature_classification()
-    combineMultipleVideoDataTrainTest()
+    #combineMultipleVideoDataTrainTest()
+    
+    combineAugmentedVideoDatasetTrainTest()

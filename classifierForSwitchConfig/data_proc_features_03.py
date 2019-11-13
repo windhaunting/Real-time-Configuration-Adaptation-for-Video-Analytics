@@ -1354,7 +1354,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             
             
             frmRt = int(current_cofig.split('-')[1])
-
+#
             history_frmRt_arr[select_frm_cnt] = frmRt
                 
             curr_frmRt_aver= getFrmRateFeature(history_frmRt_arr, prev_frmRt_aver)

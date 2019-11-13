@@ -127,7 +127,7 @@ def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
         
     id_config_dict = dict(zip(range(0, len(config_lst)), config_lst))
 
-    #print ("model_resoFrm_dict: ", id_config_dict, len(id_config_dict), config_id_dict)
+    print ("model_resoFrm_dict: ", id_config_dict, len(id_config_dict), config_id_dict)
     
     if write_flag:
         pickle_dir = data_pose_keypoint_dir 
@@ -152,7 +152,6 @@ def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir, sta
     
     config_id_dict, id_config_dict = read_config_name_from_file(data_pose_keypoint_dir, False)
     
-
     filePathLst = sorted(glob(data_pose_keypoint_dir + "*estimation_result*.tsv"))  # must read ground truth file(the most expensive config) first
     
     config_num = len(config_id_dict)  # len(config_id_dict)
@@ -471,10 +470,15 @@ def executeWriteIntoPickleOnePeron():
                     'output_005_dance/', 'output_006_yoga/', \
                     'output_007_yoga/', 'output_008_cardio/', \
                     'output_009_cardio/', 'output_010_cardio/', \
-                    'output_011_dance/', 'output_012_dance/']
+                    'output_011_dance/', 'output_012_dance/', \
+                    'output_013_dance/', 'output_014_dance/', \
+                    'output_015_dance/', 'output_016_dance/', \
+                    'output_017_dance/', 'output_018_dance/', \
+                    'output_019_dance/', 'output_020_dance/', \
+                    'output_021_dance/']
     
     
-    for vd_dir in video_dir_lst[0:1]:        # [3:4]:   # [0:1]:
+    for vd_dir in video_dir_lst[11:17]:        # [3:4]:   # [0:1]:
         
         data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
         if not os.path.exists(data_pickle_dir):
@@ -482,7 +486,7 @@ def executeWriteIntoPickleOnePeron():
             
         st_time = time.time()
         start_frm_index = 0        # 10 frames
-        #data_pickle_dir = write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir, start_frm_index)
+        data_pickle_dir = write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir, start_frm_index)
         
         confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
 
@@ -497,8 +501,8 @@ def executeWriteIntoPickleOnePeron():
         
         elapsed_time = time.time() - st_time
         print ("elapsed_time for each file: ", elapsed_time)
-
+        
 if __name__== "__main__":
     
-    #executeWriteIntoPickleOnePeron()
-    extendMoreDataSamplingWriteIntoPickle()
+    executeWriteIntoPickleOnePeron()
+    #extendMoreDataSamplingWriteIntoPickle()

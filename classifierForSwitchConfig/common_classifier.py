@@ -142,8 +142,8 @@ def load_data_all_features(data_examples_dir, xfile, yfile):
     without feature selection
     '''
     
-    x_input_arr = np.load(data_examples_dir + xfile)
-    y_out_arr = np.load(data_examples_dir + yfile).astype(int)
+    x_input_arr = np.load(data_examples_dir + xfile, allow_pickle=True)
+    y_out_arr = np.load(data_examples_dir + yfile, allow_pickle=True).astype(int)
     
     print ("y_out_arr:",x_input_arr.shape, y_out_arr.shape)
 
@@ -250,7 +250,7 @@ def get_cmu_model_config_acc_spf(data_pickle_dir, data_pose_keypoint_dir):
     
         lst_id_subconfig, id_config_dict = extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_set, frame_set, model_set)
     
-        print ("getOnePersonFeatureInputOutput01 lst_id_subconfig: ", lst_id_subconfig)
+        #print ("getOnePersonFeatureInputOutput01 lst_id_subconfig: ", lst_id_subconfig)
         acc_frame_arr = acc_frame_arr[lst_id_subconfig, :]
         spf_frame_arr =  spf_frame_arr[lst_id_subconfig, :]
     
@@ -582,6 +582,38 @@ def paddingZeroToInter(ind):
         ind_str = str(ind)
         
     return ind_str
+
+
+def getAccSpfArrAllVideo():
+    
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                'output_003_dance/', 'output_004_dance/',  \
+                'output_005_dance/', 'output_006_yoga/', \
+                'output_007_yoga/', 'output_008_cardio/', \
+                'output_009_cardio/', 'output_010_cardio/', \
+                'output_011_dance/', 'output_012_dance/', \
+                'output_013_dance/', 'output_014_dance/', \
+                'output_015_dance/', 'output_016_dance/', \
+                'output_017_dance/']
+
+
+    dict_acc_frm_arr = defaultdict()
+    dict_spf_frm_arr = defaultdict()
+    for video_dir in video_dir_lst[0:18]:
+        data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
+    
+        intervalFlag = 'sec'
+        acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir, intervalFlag)
+        video_id = int(video_dir.split("_")[1])
+        
+        data_pose_keypoint_dir = dataDir3 + video_dir
+        acc_frame_arr, spf_frame_arr, id_config_dict = get_cmu_model_config_acc_spf(data_pickle_dir, data_pose_keypoint_dir)
+        
+        dict_acc_frm_arr[video_id] = acc_frame_arr
+        dict_spf_frm_arr[video_id] = spf_frame_arr
+        
+    return dict_acc_frm_arr, dict_spf_frm_arr
+
 
 if __name__== "__main__": 
 

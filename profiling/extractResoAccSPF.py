@@ -107,7 +107,7 @@ def write_reso_frm_poseEst_result_kp_speed(data_pose_keypoint_dir, data_pickle_d
     df_det = pd.read_csv(filePathLst[0], delimiter='\t', index_col=False)         # det-> detection
     frame_num = len(df_det)     #  maybe some frame_id is missing, only consider all frames that could be parsed from a video
     #create a numpy array
-    reso_frm_est_arr = np.zeros((reso_num, frame_num, NUM_KEYPOINT, 3), dtype=object) # array of estimation result with config vs frame_Id
+    reso_frm_est_arr = np.zeros((reso_num, frame_num, NUM_KEYPOINT, 3)) # array of estimation result with config vs frame_Id
     reso_frm_conf_score_arr = np.zeros((reso_num, frame_num)) # array of time_spf with config vs frame_Id
     reso_frm_spf_arr = np.zeros((reso_num, frame_num)) # array of time_spf with config vs frame_Id
     
