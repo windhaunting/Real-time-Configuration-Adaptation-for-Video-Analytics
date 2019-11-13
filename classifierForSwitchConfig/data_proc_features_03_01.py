@@ -1064,57 +1064,7 @@ def getOnePersonFeatureInputOutput05(data_pose_keypoint_dir, data_pickle_dir,  h
 
 
 
-def select_config(acc_frame_arr, spf_frame_arr, history_frame_num, index_id, switching_frm_num,  minAccuracy, current_delay, minDelayTreshold):
-    '''
-    index start from 0
-    
-    '''    
-    #print ("[:, frm_id-1]:", acc_frame_arr.shape, acc_frame_arr[:, frm_id-1], spf_frame_arr[:, frm_id-1])
-    
-    indx_config_above_minAcc = np.where(acc_frame_arr[:, index_id] >= minAccuracy)      # the index of the config above the threshold minAccuracy
-    #print("indx_config_above_minAcc: ", indx_config_above_minAcc, len(indx_config_above_minAcc[0]))
-    
-    
-    cpy_minAccuracy = minAccuracy
-    # in case no profiling config found satisfying the minAcc
-    while len(indx_config_above_minAcc[0]) == 0:
-        cpy_minAccuracy = cpy_minAccuracy - 0.05 
-        indx_config_above_minAcc = np.where(acc_frame_arr[:, index_id] >= cpy_minAccuracy)      # the index of the config above the threshold minAccuracy
-            
-    indx_acc_selected_arr = np.argsort(acc_frame_arr[indx_config_above_minAcc, index_id], axis=1) 
-    
-    
-    #print ("spf_selected_arr: ", indx_config_above_minAcc, indx_acc_selected_arr, np.sort(acc_frame_arr[indx_config_above_minAcc, index_id], axis=1)  )
-    
-    current_delay_cpy = current_delay
-    #print ("gggg: ", current_delay_cpy)
-    for r in indx_acc_selected_arr[0][::-1] :    # descending
-        
-        current_delay_cpy += spf_frame_arr[indx_config_above_minAcc[0][r]][index_id]    # consumed time
-        current_delay_cpy -= (switching_frm_num+1)*(1/PLAYOUT_RATE)       # streamed time only 1 frame by 1 frame
-        #print ("mmmmmm: ", current_delay_cpy, spf_frame_arr[indx_config_above_minAcc[0][r]][index_id], (switching_frm_num+1)*(1/PLAYOUT_RATE))
-        if current_delay_cpy <= 0:
-            current_delay_cpy = 0.0
-           
-        if current_delay_cpy < minDelayTreshold:
-            #print ("rrrrrrrr: ", index_id, switching_frm_num, indx_config_above_minAcc[0][r], current_delay_cpy, tmp,  spf_frame_arr[indx_config_above_minAcc[0][r]][index_id])
-            selected_config_indx = indx_config_above_minAcc[0][r]
-            return selected_config_indx, current_delay_cpy
-        
-        current_delay_cpy = current_delay
-        #print ("ttttttttttttt: ", current_delay, current_delay_cpy)
-    #if we can not find a config that satisfying the bounded accu and delay
-    #print ("indx_config_above_minAcc:", indx_config_above_minAcc)
-    tmp_config_indx = np.argmin(spf_frame_arr[indx_config_above_minAcc, index_id])   # selected the minimum spf, i.e. the fastest processing speed
-    #print ("tmp_config_indx tmp_config_indx:", tmp_config_indx )
-    selected_config_indx = indx_config_above_minAcc[0][tmp_config_indx]      # final selected indx from all config_indx
-    #print ("final selected_config_indx:",selected_config_indx, spf_frame_arr[selected_config_indx, frm_id-1] )
-    
-    current_delay_cpy += spf_frame_arr[selected_config_indx][index_id]    # consumed time
-    current_delay_cpy  -=  (1/PLAYOUT_RATE)        # streamed time
-    
-    #print ("current_delay selected_config_indx: ", current_delay_cpy, selected_config_indx)
-    return selected_config_indx, current_delay_cpy
+
 
 
     

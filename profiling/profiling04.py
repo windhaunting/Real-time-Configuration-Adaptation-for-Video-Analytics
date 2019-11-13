@@ -325,17 +325,17 @@ def execute_profiling_one_person():
     lst_input_video_frms_dir = ['001_dance_frames/', '002_dance_frames/', \
                         '003_dance_frames/', '004_dance_frames/',  \
                         '005_dance_frames/', '006_yoga_frames/', \
-                        '007_yoga_frames/', '008_cardio_frames/',
-                        '009_cardio_frames/', '010_cardio_frames/',
-                        '011_dance_frames/', '012_dance_frames',
-                        '013_dance_frames', '014_dance_frames',
-                        '015_dance_frames', '016_dance_frames',
-                        '017_dance_frames', '018_dance_frames',
-                        '019_dance_frames', '020_dance_frames',
-                        '021_dance_frames']
+                        '007_yoga_frames/', '008_cardio_frames/', \
+                        '009_cardio_frames/', '010_cardio_frames/', \
+                        '011_dance_frames/', '012_dance_frames/', \
+                        '013_dance_frames/', '014_dance_frames/', \
+                        '015_dance_frames/', '016_dance_frames/', \
+                        '017_dance_frames/', '018_dance_frames/', \
+                        '019_dance_frames/', '020_dance_frames/', \
+                        '021_dance_frames/']
     
 
-    for input_frm_dir in lst_input_video_frms_dir[10:11]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
+    for input_frm_dir in lst_input_video_frms_dir[12:13]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
         input_dir = dataDir3 + input_frm_dir
         
         out_dir = dataDir3 + 'output_' + '_'.join(input_frm_dir.split('_')[:-1]) +'/'      # 004-output_Marathon-20mins_01/' 

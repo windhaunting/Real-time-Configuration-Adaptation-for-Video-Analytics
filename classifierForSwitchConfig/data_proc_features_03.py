@@ -1117,7 +1117,7 @@ def getBlurrinessFeature(imagePath, current_iterative_frm_id):
     
     return blurrinessScore_arr
 
-def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy):
+def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, history_frame_num, max_frame_example_used, minAccuracy):
     '''
     get one person's all history keypoint,  plus over a period of resolution feature
     One person’s moving speed of all keypoints V i,k based on the euclidean d distance of current frame with the previous frame {f j−m , m = 1, 2, ..., 24}
@@ -1354,7 +1354,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             
             
             frmRt = int(current_cofig.split('-')[1])
-
+#
             history_frmRt_arr[select_frm_cnt] = frmRt
                 
             curr_frmRt_aver= getFrmRateFeature(history_frmRt_arr, prev_frmRt_aver)

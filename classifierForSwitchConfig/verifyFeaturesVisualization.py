@@ -131,7 +131,8 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
     buffer_frmRate = []
     buffer_acc = []
     buffer_spf = []
-    
+    buffer_delay = []
+
     max_len_buffer = 10
     
     #correpsonding feature_index 
@@ -147,9 +148,12 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
     lst_relative_distance_index4 = [90+0*2, 90+1*2, 90+2*2, 90+3*2] 
     
     
+    lst_delay_index =  x_input_arr.shape[1]-1
+    
     config_id_dict = {v:k for k, v in id_config_dict.items()}
     print("config_id_dict: ", config_id_dict) 
 
+    
     for i in range(0, rows):
         #print("x_input_arr : ", i, )
         # current frame start_path
@@ -203,11 +207,11 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
                 buffer_spf.pop(0)      
             
             
+            
         curr_start_frm_index = int(arr_feature_frameIndex[i].split('/')[-1].split('.')[0])
-        
-              
-        
+                
         k = 0
+
 
         while (k < (curr_start_frm_index - last_start_frm_index)):
             
@@ -237,7 +241,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
                 cv2.putText(im, strVal, (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
                 startY += 40
               
-                
+            '''
             startX += 120
             startY = 40
             cv2.putText(im, 'RelvSpd 1', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
@@ -280,7 +284,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
                 cv2.putText(im, strVal, (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
                 startY += 40 
                 
-            '''
+    
                
             startX += 120
             startY = 40
@@ -333,6 +337,15 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
                 
             '''
                 
+            startX += 160
+            startY = 40
+            cv2.putText(im, 'Delay', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
+            startY += 80
+            
+            strVal = str(round(float(x_input_arr[i-1][lst_delay_index]), 3))          
+            cv2.putText(im, strVal, (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
+            
+            
             '''                                      
             startX = 200
             startY = 40
@@ -376,6 +389,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
 
             plotLineInImage(im, buffer_acc, startX, startY, scaleFactor)
             
+            '''
             startX = 20
             startY = 500
             cv2.putText(im, 'SPF', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
@@ -386,6 +400,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
             #print("XXXX  buffer_acc: ", buffer_acc)
 
             plotLineInImage(im, buffer_spf, startX, startY, scaleFactor)
+            '''
             
             video.write(im)
             
@@ -415,7 +430,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
         #print("image curr_start_frm_index", curr_start_frm_index)
         
         
-        if i == 7*60: # 7*60:
+        if i == 60: # 7*60:
             break   # debug only
     
     print("readFeatureValues finished ")
@@ -470,13 +485,14 @@ def exectuteVisualization():
         max_frame_example_used = 12000  # 20000 #8025   # 10000
         
         data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
-        minAccuracy = 0.95
-    
+        minAccuracy = "" # 0.95
+        minDelayTreshold = 0
+        
         if feature_calculation_flag == 'most_expensive_config':
             from data_proc_feature_analysize_01 import getOnePersonFeatureInputOutputAll001
 
-        x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, minAccuracy)
-     
+        #x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, minAccuracy)
+        x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, minAccuracy, minDelayTreshold)
         
         print("x_input_arr y_out_arr shape: ", x_input_arr.shape, y_out_arr.shape)
     

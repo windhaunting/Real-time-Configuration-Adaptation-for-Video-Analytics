@@ -18,12 +18,15 @@ import numpy as np
 from collections import defaultdict
 
 from common_classifier import readProfilingResultNumpy
+from common_classifier import get_cmu_model_config_acc_spf
+from common_classifier import getAccSpfArrAllVideo
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
 
 
 from profiling.common_prof import dataDir3
+from profiling.common_prof import PLAYOUT_RATE
 
 
 def parseFrmIdHelper(row):
@@ -86,8 +89,9 @@ def getDelayFromEachConfigHelper(row, dict_spf_frm_arr):
     
     spf_frm_arr = dict_spf_frm_arr[video_id]
 
-    spf = spf_frm_arr[row_config][frm_id]   # interval 1second actually
+    spf = spf_frm_arr[row_config][frm_id]   # interval 1 second actually
     
+    #print ("row_config", row_config)
     return spf
 
     
@@ -105,13 +109,13 @@ def testVideoClassificationResultDelay(dict_spf_frm_arr, x_video_frm_id_arr, y_p
     
     combined_gt_arr = np.hstack((video_video_frm_arr, y_gt_out))
     spf_gt_arr = np.apply_along_axis(getDelayFromEachConfigHelper, 1, combined_gt_arr, dict_spf_frm_arr)
-    delay_gt_arr = spf_gt_arr*25 - 1
-    #print ("delay_gt_arr gt test video clip length: %s; delay: %s ", delay_gt_arr.shape[0], np.sum(delay_gt_arr))
+    delay_gt_arr = spf_gt_arr*PLAYOUT_RATE - 1
+    #print ("delay_gt_arr gt test video clip length: %s; delay: %s ", delay_gt_arr.shape[0], np.sum(delay_gt_arr), spf_gt_arr)
     
     
     combined_pred_arr = np.hstack((video_video_frm_arr, y_pred))
     spf_pred_arr = np.apply_along_axis(getDelayFromEachConfigHelper, 1, combined_pred_arr, dict_spf_frm_arr)
-    delay_pred_arr = spf_pred_arr*25 - 1
+    delay_pred_arr = spf_pred_arr*PLAYOUT_RATE - 1
     #print ("delay_pred_arr, pred test video clip length;  delay,  ", delay_pred_arr.shape[0], np.sum(delay_pred_arr))
     
     
@@ -132,27 +136,6 @@ def testVideoClassificationResultDelay(dict_spf_frm_arr, x_video_frm_id_arr, y_p
     print ("total_delay_gt pred  delay,  ", aver_total_delay_gt, aver_total_delay_pred)
     #print ("delay_pred_arr  delay,  ", delay_pred_arr)
 
-def getAccSpfArrAllVideo():
-    
-    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
-                'output_003_dance/', 'output_004_dance/',  \
-                'output_005_dance/', 'output_006_yoga/', \
-                'output_007_yoga/', 'output_008_cardio/', \
-                'output_009_cardio/', 'output_010_cardio/']
-        
-    dict_acc_frm_arr = defaultdict()
-    dict_spf_frm_arr = defaultdict()
-    for video_dir in video_dir_lst[0:10]:
-        data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
-    
-        intervalFlag = 'sec'
-        acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir, intervalFlag)
-        video_id = int(video_dir.split("_")[1])
-        
-        dict_acc_frm_arr[video_id] = acc_frame_arr
-        dict_spf_frm_arr[video_id] = spf_frame_arr
-        
-    return dict_acc_frm_arr, dict_spf_frm_arr
     
 
 def executeTest():
@@ -161,7 +144,8 @@ def executeTest():
     #from classifier_svm import combineMultipleVideoDataTrainTest
     from classifier_rft import combineMultipleVideoDataTrainTest
     #from classifier_xgboost import combineMultipleVideoDataTrainTest
-
+    #from classifier_logisticReg import combineMultipleVideoDataTrainTest
+    
     x_video_frm_id_arr, y_pred, y_gt_out = combineMultipleVideoDataTrainTest()
 
     testVideoClassificationResultAcc(dict_acc_frm_arr, x_video_frm_id_arr, y_pred, y_gt_out)
