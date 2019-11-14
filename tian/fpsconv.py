@@ -244,5 +244,13 @@ def generateConfsFPS(kpm, ptm, fpsList, srcFps=25, segSec=1, method='eam:0.8',
     return roks, rptm
     
 
-__FPS_LIST__ = [1, 2, 5, 10, 15, 20, 25]
 
+def __test__():
+    #__FPS_LIST__ = [1, 2, 5, 10, 15, 20, 25]
+    fpsList=[25, 15, 10, 5, 2, 1]
+    base = '~/Data/video-pose/005/'
+    kpm = np.load(base+'kpm.npy')
+    ptm = np.load(base+'ptm.npy')
+    resolutionList = preprocess.listResolution('cmu', False)
+    roks, rptm = generateConfsFPS(kpm, ptm, fpsList, segSec=1)
+    np.savez(base+'/conf-1s-cmu', roks, rptm, fpsList, resolutionList)
