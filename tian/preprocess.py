@@ -150,15 +150,18 @@ RESOLUTION_LIST_CMU = ['320x240','480x352','640x480','960x720','1120x832']
 RESOLUTION_LIST_MOBILENET_V2 = ['320x240','480x352','640x480','960x720','1120x832']
 
 
-def listResolution(model = None):
+def listResolution(model = None, orderInc = True):
     if model is None:
-        return RESOLUTION_LIST_DEFAULT
+        l = RESOLUTION_LIST_DEFAULT
     elif model.lower() == 'cmu':
-        return RESOLUTION_LIST_CMU
+        l = RESOLUTION_LIST_CMU
     elif model.lower() == 'mobilenet_v2':
-        return RESOLUTION_LIST_MOBILENET_V2
+        l = RESOLUTION_LIST_MOBILENET_V2
     else:
-        return []
+        l = []
+    if not orderInc:
+        l.reverse()
+    return l
 
 
 def makeERFilename(resolution, fps, model):
@@ -168,8 +171,7 @@ def makeERFilename(resolution, fps, model):
 # -------- test and example part --------  
 
 def __test__():
-    rl = listResolution()
-    rl.reverse()
+    rl = listResolution('cmu', False)
     fl = [makeERFilename(r,25,'cmu') for r in rl]
     print(fl)
     kpm, ptm, csm = records2mat('../pose_estimation/', fl)
