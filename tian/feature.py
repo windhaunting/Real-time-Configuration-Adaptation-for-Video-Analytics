@@ -43,7 +43,7 @@ def featureAbsSpeed(kpm, fps, unit, method='mean', alpha=0.8, weight=None):
     '''
     assert kpm.ndim == 4
     assert kpm.shape[-2:] == (17,3)
-    assert method in ['max', 'min', 'mean', 'eam', 'weight']
+    assert method in ['max', 'min', 'mean', 'ema', 'weight']
     nconf, nfrm, nkp = kpm.shape[:3]
     if nfrm % unit == 0:
         nfrm-=1
@@ -76,7 +76,7 @@ def featureRelSpeed(kpm, fps, pairs, unit, method='mean', alpha=0.8, weight=None
     assert kpm.ndim == 4
     assert kpm.shape[-2:] == (17,3)
     assert pairs.ndim ==2 and pairs.shape[1] == 2
-    assert method in ['max', 'min', 'mean', 'eam', 'weight']
+    assert method in ['max', 'min', 'mean', 'ema', 'weight']
     nconf, nfrm, nkp = kpm.shape[:3]
     npair = pairs.shape[0]
     if nfrm % unit == 0:

@@ -18,7 +18,7 @@ def processRecord2mat(dpath, fl):
     np.save(dpath+'csm',csm)
 
 
-def processMat2conf(dpath, name, fpsList, resolutionList, segSec=1, method='eam:0.8',
+def processMat2conf(dpath, name, fpsList, resolutionList, segSec=1, method='ema:0.8',
                     kpm=None, ptm=None):
     if not dpath.endswith('/'):
         dpath += '/'

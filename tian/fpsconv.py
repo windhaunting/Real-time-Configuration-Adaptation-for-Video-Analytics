@@ -101,8 +101,8 @@ def convertFPS(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0,
         <offset> start from the <offset>-th frame
         <refConf> (for keep method) the configuration used as OKS reference
         <method> method for estimating pose of the unprocessed frames.
-            including: keep-old-pose, linear, exponential average
-        <alpha> (for eam method) the factor for keeping lastest value
+            including: keep old, linear, exponential moving average
+        <alpha> (for ema method) the factor for keeping lastest value
     output:
         <roks> 2d (conf-frame) OKS matrix for the target frame rate (average oks)
         <rptm> 2d (conf-frame) PT matrix for the target frame rate (sampled frame)
@@ -114,7 +114,7 @@ def convertFPS(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0,
         ptm = ptm[np.newaxis, :]
     assert kpm.ndim == 4 and ptm.ndim == 2
     assert kpm.shape[:2] == ptm.shape
-    assert method in ['keep', 'linear', 'eam']
+    assert method in ['keep', 'linear', 'ema']
     sampler = FrameSampler(tgtFps, srcFps)
     sfi = sampler.getSampleFrameInterval()
     n, ms = ptm.shape
@@ -125,7 +125,7 @@ def convertFPS(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0,
         #kpmFill = utilPose.fillUnseen(kpm, 'linear')
         #last = kpmFill[:,0,:,0:2]
         last = kpm[:,0,:,0:2]
-    if method == 'eam':
+    if method == 'ema':
         speedOld = np.zeros_like(last)
         assert 0 <= alpha <= 1
     fused = offset
@@ -133,11 +133,11 @@ def convertFPS(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0,
         span = sfi[i % tgtFps]
         ftouse = range(fused, fused+span)
         pose=kpm[:,ftouse,:,:]
-        if method != 'keep': # linear and eam
+        if method != 'keep': # linear and ema
             #speed = diff[:,ftouse,:,:].mean(1)
             speed = (kpm[:,fused,:,0:2] - last) / sfi[(i-1) % tgtFps]
             last = kpm[:,fused,:,0:2]
-            if method == 'eam':
+            if method == 'ema':
                 speed = speed*alpha + speedOld*(1-alpha)
                 speedOld = speed
             if span > 1:
@@ -188,7 +188,7 @@ def segmentData(oksm, ptm, unit):
 # -------- part 4: generate multiple-fps configurations --------
 
 
-def generateConfsFPS(kpm, ptm, fpsList, srcFps=25, segSec=1, method='eam:0.8',
+def generateConfsFPS(kpm, ptm, fpsList, srcFps=25, segSec=1, method='ema:0.8',
                      refConf=0):
     '''
     Generate configurations under different FPS and unify them to segments
@@ -210,14 +210,14 @@ def generateConfsFPS(kpm, ptm, fpsList, srcFps=25, segSec=1, method='eam:0.8',
     assert kpm.shape[:-2] == ptm.shape
     assert len(fpsList) > 0
     assert isinstance(segSec,int) and 1 <= segSec
-    assert method in ['keep', 'linear', 'eam'] or method[:4] == 'eam:'
+    assert method in ['keep', 'linear', 'ema'] or method[:4] == 'ema:'
     if kpm.ndim == 3:
         kpm.resize(1,-1,17,3)
         ptm.resize(1,-1)
-    # eam
-    if method[:4] == 'eam:' and len(method) > 4:
+    # ema
+    if method[:4] == 'ema:' and len(method) > 4:
         alpha = float(method[4:])
-        method = 'eam'
+        method = 'ema'
     else:
         alpha = 0.8
     # result
