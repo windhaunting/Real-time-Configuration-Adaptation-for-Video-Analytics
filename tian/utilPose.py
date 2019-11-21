@@ -64,6 +64,21 @@ def name2kp(data):
         return [name2kp(v) for v in data]
 
 
+def kp2name(data):
+    if isinstance(data, int):
+        return __KPT_NAME__[data]
+    elif isinstance(data, tuple):
+        return tuple(kp2name(v) for v in data)
+    elif isinstance(data, list):
+        return [kp2name(v) for v in data]
+    elif isinstance(data, np.ndarray):
+        s=data.shape
+        res=np.apply_along_axis(lambda n:__KPT_NAME__[n], 0, data.ravel())
+        return res.reshape(s)
+    else:
+        assert hasattr(data, '__iter__')
+        return [kp2name(v) for v in data]
+
 # -------- part 2: pose matrix operation --------
 
 def fillUnseen(kpm, method='same'):
@@ -118,7 +133,6 @@ def computeOKS_pair(gts, dts, sigmas = None):
     assert isinstance(dts, np.ndarray) and dts.shape == (17,3)
     sigmas = np.array(__KPT_OKS_SIGMAS__ if sigmas is None else sigmas)
     assert sigmas.shape == (17,)
-    k=len(sigmas)
     vars = (sigmas * 2)**2
 
     xg = gts[:,0]
@@ -144,7 +158,7 @@ def computeOKS_pair(gts, dts, sigmas = None):
         #bb = gt['bbox']
         x0 = xmin - xdif; x1 = xmax + xdif;
         y0 = ymin - ydif; y1 = ymax + ydif;
-        z = np.zeros((k))
+        z = np.zeros((17))
         dx = np.max((z, x0-xd),axis=0)+np.max((z, xd-x1),axis=0)
         dy = np.max((z, y0-yd),axis=0)+np.max((z, yd-y1),axis=0)
     e = (dx**2 + dy**2) / vars / (area+np.spacing(1)) / 2
@@ -175,7 +189,6 @@ def computeOKS_list(gts, dtsList, sigmas = None):
     assert isinstance(dtsList[0], np.ndarray) and dtsList[0].shape == (17,3)
     sigmas = np.array(__KPT_OKS_SIGMAS__ if sigmas is None else sigmas)
     assert sigmas.shape == (17,)
-    k=len(sigmas)
     vars = (sigmas * 2)**2
 
     xg = gts[:,0]
@@ -203,7 +216,7 @@ def computeOKS_list(gts, dtsList, sigmas = None):
     else:
         x0 = xmin - xdif; x1 = xmax + xdif;
         y0 = ymin - ydif; y1 = ymax + ydif;
-        z = np.zeros((k))
+        z = np.zeros((17))
         for i in range(n):
             dts = dtsList[i]
             xd = dts[:,0]
@@ -211,7 +224,7 @@ def computeOKS_list(gts, dtsList, sigmas = None):
             dx = np.max((z, x0-xd),axis=0)+np.max((z, xd-x1),axis=0)
             dy = np.max((z, y0-yd),axis=0)+np.max((z, yd-y1),axis=0)
             e = (dx**2 + dy**2) / vars / (area+np.spacing(1)) / 2
-            res[i] = np.sum(np.exp(-e)) / k
+            res[i] = np.sum(np.exp(-e)) / 17
     return res
 
 
@@ -225,3 +238,44 @@ def computeOKS_mat(gts, dtsMat, sigmas = None):
     matShape = dtsMat.shape[:-2]
     oksl = computeOKS_list(gts, dtsMat.reshape(-1,17,3))
     return oksl.reshape(matShape)
+
+
+# -------- part 4: analysis of OKS --------
+
+
+def computeDiff_1to1(gts, dts):
+    assert isinstance(gts, np.ndarray) and gts.shape == (17,3)
+    assert isinstance(dts, np.ndarray) and dts.shape == (17,3)
+    
+    res = np.zeros([17, 2])
+    res[:,0] = np.sqrt(((gts[:,0:2] - dts[:,0:2])**2).sum(1))
+    res[:,1] = gts[:,2] + dts[:,2]
+    
+    return res
+
+
+def computeDiff_1toN(gts, dtsMat):
+    assert isinstance(gts, np.ndarray) and gts.shape == (17,3)
+    assert isinstance(dtsMat, np.ndarray) and dtsMat.ndim > 2 and dtsMat.shape[-2:] == (17,3)
+    s = dtsMat.shape[:-2]
+    dtsList = dtsMat.reshape(-1,17,3)
+    n = dtsList.shape[0]
+    res = np.zeros([n, 17, 2])
+    for i in range(n):
+        res[i] = computeDiff_1to1(gts, dtsList[i])
+    res = res.reshape([*s, 17, 2])
+    return res
+
+
+def computeDiff_NtoN(gtsMat, dtsMat):
+    assert isinstance(gtsMat, np.ndarray) and gtsMat.shape[-2:] == (17,3)
+    assert isinstance(dtsMat, np.ndarray) and gtsMat.shape == dtsMat.shape
+    s = gtsMat.shape[:-2]
+    n = s[0] if len(s) == 1 else np.multiply(*s)
+    g = gtsMat.reshape(-1, 17, 3)
+    d = dtsMat.reshape(-1, 17, 3)
+    res = np.zeros(n, 17, 2)
+    for i in range(n):
+        res[i] = computeDiff_1to1(g[i], d[i])
+    res = res.reshape([*s, 17, 2])
+    return res

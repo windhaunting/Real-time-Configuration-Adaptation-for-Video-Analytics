@@ -88,9 +88,47 @@ class FrameSampler:
 
 # -------- part 2: convert fps --------
 
+    
+def convertFPS_KPM(kpm, tgtFps, srcFps, offset=0, method='ema', alpha=0.8):
+    assert 0 < tgtFps < srcFps
+    assert kpm.shape[-2:] == (17,3)
+    if kpm.ndim == 3:
+        kpm = kpm[np.newaxis, :]
+    assert kpm.ndim == 4
+    assert method in ['keep', 'linear', 'ema']
+    sampler = FrameSampler(tgtFps, srcFps)
+    sfi = sampler.getSampleFrameInterval()
+    n, ms = kpm.shape[:2]
+    mt = sampler.calcConvertedNumFrame(ms - offset)
+    rkpm = np.zeros_like(kpm)
+    if method != 'keep':
+        last = kpm[:,0,:,0:2]
+    if method == 'ema':
+        speedOld = np.zeros_like(last)
+        assert 0 <= alpha <= 1
+    fused = offset
+    for i in range(mt):
+        span = sfi[i % tgtFps]
+        ftouse = range(fused, fused+span)
+        pose=kpm[:,ftouse,:,:]
+        if method != 'keep': # linear and ema
+            #speed = diff[:,ftouse,:,:].mean(1)
+            speed = (kpm[:,fused,:,0:2] - last) / sfi[(i-1) % tgtFps]
+            last = kpm[:,fused,:,0:2]
+            if method == 'ema':
+                speed = speed*alpha + speedOld*(1-alpha)
+                speedOld = speed
+            if span > 1:
+                delta = np.stack([speed*i for i in range(1,span)], axis=1)
+                pose[:,1:,:,[0,1]] += delta
+        rkpm[:,ftouse,:,:] = pose
+        fused += span
+    return rkpm
+
+
 
 def convertFPS(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0,
-               method='keep', alpha=0.8):
+               method='ema', alpha=0.8):
     '''
     Convert OKS and SPF to another frame-rate by sampling frames
     input:
@@ -188,6 +226,39 @@ def segmentData(oksm, ptm, unit):
 # -------- part 4: generate multiple-fps configurations --------
 
 
+def generateConfsFPS_KPM(kpm, fpsList, srcFps=25, segSec=1, method='ema:0.8'):
+    assert kpm.ndim == 4 or kpm.ndim == 3
+    assert kpm.shape[-2:] == (17,3)
+    assert len(fpsList) > 0
+    assert isinstance(segSec,int) and 1 <= segSec
+    assert method in ['keep', 'linear', 'ema'] or method[:4] == 'ema:'
+    if kpm.ndim == 3:
+        kpm.resize(1,-1,17,3)
+    # ema
+    if method[:4] == 'ema:' and len(method) > 4:
+        alpha = float(method[4:])
+        method = 'ema'
+    else:
+        alpha = 0.8
+    # result
+    rkpm = [None for i in range(len(fpsList))]
+    for i in range(len(fpsList)):
+        tgtFps = fpsList[i]
+        if tgtFps != srcFps:
+            k = convertFPS_KPM(kpm, fpsList[i], srcFps, 0, method, alpha)
+        else:
+            k = kpm.copy()
+        rkpm[i] = k
+    # align
+    m = min(k.shape[1] for k in rkpm)
+    for i in range(len(fpsList)):
+        if rkpm[i].shape[1] != m:
+            rkpm[i] = rkpm[i][:,:m]
+    # stack on the first dimension
+    rkpm = np.vstack(rkpm)
+    return rkpm
+
+
 def generateConfsFPS(kpm, ptm, fpsList, srcFps=25, segSec=1, method='ema:0.8',
                      refConf=0):
     '''
@@ -226,8 +297,7 @@ def generateConfsFPS(kpm, ptm, fpsList, srcFps=25, segSec=1, method='ema:0.8',
     for i in range(len(fpsList)):
         tgtFps = fpsList[i]
         if tgtFps != srcFps:
-            o, p = convertFPS(kpm, ptm, fpsList[i], srcFps, refConf=refConf,
-                              method=method, alpha=alpha)
+            o, p = convertFPS(kpm, ptm, fpsList[i], srcFps, 0, refConf, method, alpha)
         else:
             o = preprocess.pose2oks(kpm, refID=refConf)
             p = ptm

@@ -31,6 +31,14 @@ def pol2cart(data):
     # y
     res[:,1] = t[:,0] * np.sin(t[:,1])
     return res.reshape(s)
+
+def cart2speed(data):
+    s = data.shape
+    assert s[-1] == 2
+    t = data.reshape(-1,2)
+    res = np.sqrt(t[:,0]**2 + t[:,1]**2)
+    r = s[:-1]
+    return res.reshape(r)
     
 
 def featureAbsSpeed(kpm, fps, unit, method='mean', alpha=0.8, weight=None):
@@ -58,10 +66,10 @@ def featureAbsSpeed(kpm, fps, unit, method='mean', alpha=0.8, weight=None):
     elif method == 'max':
         m = diff.max(2)
     elif method == 'ema':
-        f = np.ones(unit)
+        weight = np.ones(unit)
         for i in range(unit-1):
-            f[:unit-i-1] *= alpha
-        m = np.average(diff, axis=2, weights=f)
+            weight[:unit-i-1] *= alpha
+        m = np.average(diff, axis=2, weights=weight)
     elif method == 'weight':
         assert isinstance(weight, np.ndarray) and np.shape == (unit,)
         m = np.average(diff, axis=2, weights=weight)

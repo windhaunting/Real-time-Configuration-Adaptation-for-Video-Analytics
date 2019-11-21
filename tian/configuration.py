@@ -63,3 +63,39 @@ def boundPT(oks, ptm, pt_max, approx=False):
 def boundDelay(oks, spf, delay_min):
     pass
 
+
+# --------- interpret/encode configuration --------
+
+
+class ConfSet:
+    def __init__(self, rslList, fpsList):
+        self.rslList = rslList
+        self.fpsList = fpsList
+        self.nr = len(rslList)
+        self.nf = len(fpsList)
+        
+    def cid2pairId(self, cid):
+        if isinstance(cid, int):
+            return (cid//self.nf, cid%self.nf)
+        else:
+            if isinstance(cid, list) and len(cid) > 0 and isinstance(cid[0], int):
+                cid = np.array(cid)
+            assert isinstance(cid, np.ndarray) and cid.ndim == 1
+            res = np.zeros((cid.size, 2))
+            res[:,0] = cid//self.nf
+            res[:,1] = cid%self.nf
+            return res
+    
+    def cid2pairName(self, cid):
+        rid, fid = self.cid2pairId(cid)
+        return self.rslList[rid], self.fpsList[fid]
+    
+    def rid2name(self, rid):
+        return self.rslList[rid]
+        
+    def fid2name(self, fid):
+        return self.fpsList[fid]
+
+
+
+
