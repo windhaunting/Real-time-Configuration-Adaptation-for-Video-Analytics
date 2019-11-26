@@ -191,36 +191,43 @@ def convertFPS(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0,
 # -------- part 3: segment to some time unit(second) --------
 
 
-def segmentData(oksm, ptm, unit):
+def segmentData(unit, method, mat, *argv):
     '''
     Unify to second or some other unit. If the last second is not complete, it is cut off.
     Input:
-        <oksm> object keypoint similarity matrix (2d or 1d: (conf)-frame)
-        <ptm> processing time matrix (2d or 1d: (conf)-frame)
         <unit> the unit of the input <oksm> and <ptm>
+        <method>
+        <mat> matrix to be segmented (2d or 1d: (conf)-frame)
+        <argv> other matrices, should be the same shape as <mat>
     '''
-    assert oksm.shape == ptm.shape
-    ndim = oksm.ndim
-    assert ndim == 1 or ndim == 2
     assert 0 < unit
-    n = oksm.shape[-1]
-    if n % unit !=0:
+    assert mat.ndim == 1 or mat.ndim == 2
+    assert method in ['sum', 'mean', 'min', 'max']
+    ndim = mat.ndim
+    data = [mat] + [m for m in argv]
+    assert len(set(m.shape for m in data)) == 1
+    n = mat.shape[-1]
+    if n % unit != 0:
         m = n // unit
         n2 = m*unit
         if ndim == 1:
-            oksm=oksm[:n2]
-            ptm=ptm[:n2]
+            data = [m[:n2] for m in data]
         else:
-            oksm=oksm[:,:n2]
-            ptm=ptm[:,:n2]
-    if ndim == 1:
-        resOks = np.mean(oksm.reshape(-1, unit), 1)
-        resPtm = np.sum(ptm.reshape(-1, unit), 1)
+            data = [m[:,:n2] for m in data]
+    if method == 'sum':
+        f = np.sum
+    elif method == 'mean':
+        f = np.mean
+    elif method == 'min':
+        f = np.min
     else:
-        k = ptm.shape[0]
-        resOks = np.mean(oksm.reshape(k, -1, unit), 2)
-        resPtm = np.sum(ptm.reshape(k, -1, unit), 2)
-    return resOks, resPtm
+        f = np.max
+    if ndim == 1:
+        res = [f(m.reshape(-1,unit), 1) for m in data]
+    else:
+        k = mat.shape[0]
+        res = [f(m.reshape(k, -1,unit), 2) for m in data]
+    return res if len(res) > 1 else res[0]
 
 
 # -------- part 4: generate multiple-fps configurations --------
@@ -301,7 +308,8 @@ def generateConfsFPS(kpm, ptm, fpsList, srcFps=25, segSec=1, method='ema:0.8',
         else:
             o = preprocess.pose2oks(kpm, refID=refConf)
             p = ptm
-        roks[i], rptm[i] = segmentData(o, p, tgtFps*segSec)
+        roks[i] = segmentData(tgtFps*segSec, 'mean', o)
+        rptm[i] = segmentData(tgtFps*segSec, 'sum', p)
     # align
     m = min(o.shape[1] for o in roks)
     for i in range(len(fpsList)):
