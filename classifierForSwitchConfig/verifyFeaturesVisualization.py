@@ -63,6 +63,8 @@ from profiling.common_prof import PLAYOUT_RATE
 '''
 
 
+
+
 def verifyDetectedKeyPointTruePosition(data_pickle_dir, data_video_frm_dir, out_data_video_frm):
     arr_est_frm = read_poseEst_conf_frm(data_pickle_dir)
     
@@ -85,6 +87,11 @@ def verifyDetectedKeyPointTruePosition(data_pickle_dir, data_video_frm_dir, out_
         print("problem")    
     
 
+
+def plot_y_out_on_frame(data_video_frm_dir, ):
+    #plot the ground truth selected value on the video
+    x= 1
+    
 def plotLineInImage(im, point_lst, startX, startY, scaleFactor):
     '''
     startX
@@ -108,10 +115,63 @@ def plotLineInImage(im, point_lst, startX, startY, scaleFactor):
         startY += 70    
     
     
+def put_text_info_confg(startX, startY, font, fontScale, im, buffer_reso, buffer_frmRate, buffer_acc, buffer_spf):
+    '''
+    put text of confing info into the frame
+    '''
+    #startX += 160
+    #startY = 40
+    #cv2.putText(im, 'Delay', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
+    #startY += 80
     
+    #strVal = str(round(float(x_input_arr[i-1][lst_delay_index]), 3))          
+    #cv2.putText(im, strVal, (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
+    
+    
+    startX = 20
+    startY = 200
+    cv2.putText(im, 'Reso', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
+    
+    startX = 100
+    startY = 200
+    scaleFactor = 0.13
+    plotLineInImage(im, buffer_reso, startX, startY, scaleFactor)
+    
+    startX = 20
+    startY = 300
+    cv2.putText(im, 'Frm_Rt', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
+   
+    startX = 100
+    startY = 300
+    scaleFactor = 3
+    plotLineInImage(im, buffer_frmRate, startX, startY, scaleFactor)
+    
+    
+    startX = 20
+    startY = 400
+    cv2.putText(im, 'OKS', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
+   
+    startX = 100
+    startY = 400
+    scaleFactor = 1000
+    #print("XXXX  buffer_acc: ", buffer_acc)
+    plotLineInImage(im, buffer_acc, startX, startY, scaleFactor)
+            
+    startX = 20
+    startY = 500
+    cv2.putText(im, 'SPF', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
+   
+    startX = 100
+    startY = 500
+    scaleFactor = 1000
+    #print("XXXX  buffer_acc: ", buffer_acc)
+
+    plotLineInImage(im, buffer_spf, startX, startY, scaleFactor)
+    
+            
 def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr, arr_feature_frameIndex, out_data_video_frm):
     '''
-    look at the feature value
+    look at the feature value and plot
     x_input_arr: feature arr
     arr_feature_frameIndex,   e.g '../input_output/one_person_diy_video_dataset/005_dance_frames/000026.jpg', which is the actual frame path
     '''
@@ -136,16 +196,18 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
     max_len_buffer = 10
     
     #correpsonding feature_index 
-    lst_absolute_speed_features_index = [18, 20, 26, 28]        #(speed, angle)
-    lst_relative_speed_features_index1 = [34+0*2, 34+1*2, 34+2*2, 34+3*2]        #[9, 10, 15, 16, 11] to left hip
-    lst_relative_speed_features_index2 = [42+0*2, 42+1*2, 42+2*2, 42+3*2]        #  the right hip.
-    lst_relative_speed_features_index3 = [50+0*2, 50+1*2, 50+2*2, 50+3*2]   #  to the left shoulder.
-    lst_relative_speed_features_index4 = [58+0*2, 58+1*2, 58+2*2, 58+3*2]   #  to the left shoulder.
+    lst_absolute_speed_features_index =[9, 10, 13, 14]   # speed only   [18, 20, 26, 28]        #(speed, angle)
+    lst_relative_speed_features_index1 = [17+0*2, 17+1*2, 17+2*2, 17+3*2]  #  [34+0*2, 34+1*2, 34+2*2, 34+3*2]        #[9, 10, 15, 16, 11] to left hip
+    lst_relative_speed_features_index2 = [21+0*2, 21+1*2, 21+2*2, 21+3*2]  # [42+0*2, 42+1*2, 42+2*2, 42+3*2]        #  the right hip.
+    lst_relative_speed_features_index3 = [25+0*2, 25+1*2, 25+2*2, 25+3*2]  # [50+0*2, 50+1*2, 50+2*2, 50+3*2]   #  to the left shoulder.
+    lst_relative_speed_features_index4 = [29+0*2, 29+1*2, 29+2*2, 29+3*2]   # [58+0*2, 58+1*2, 58+2*2, 58+3*2]   #  to the left shoulder.
     
+    '''
     lst_relative_distance_index1 = [66+0*2, 66+1*2, 66+2*2, 66+3*2] 
     lst_relative_distance_index2 = [74+0*2, 74+1*2, 74+2*2, 74+3*2] 
     lst_relative_distance_index3 = [82+0*2, 82+1*2, 82+2*2, 82+3*2] 
     lst_relative_distance_index4 = [90+0*2, 90+1*2, 90+2*2, 90+3*2] 
+    '''
     
     
     lst_delay_index =  x_input_arr.shape[1]-1
@@ -241,7 +303,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
                 cv2.putText(im, strVal, (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
                 startY += 40
               
-            '''
+            
             startX += 120
             startY = 40
             cv2.putText(im, 'RelvSpd 1', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
@@ -284,7 +346,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
                 cv2.putText(im, strVal, (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
                 startY += 40 
                 
-    
+            '''
                
             startX += 120
             startY = 40
@@ -337,74 +399,14 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
                 
             '''
                 
-            startX += 160
-            startY = 40
-            cv2.putText(im, 'Delay', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
-            startY += 80
-            
-            strVal = str(round(float(x_input_arr[i-1][lst_delay_index]), 3))          
-            cv2.putText(im, strVal, (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
-            
-            
-            '''                                      
-            startX = 200
-            startY = 40
-            for res in buffer_reso:
-                cv2.putText(im, res + ',' , (startX, startY), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
-                startX += 70
-            
-            startX = 200
-            startY += 60
-            for frmRt in buffer_frmRate:
-                cv2.putText(im, frmRt+ ',' , (startX, startY), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
-                startX += 70
-            '''
-            startX = 20
-            startY = 200
-            cv2.putText(im, 'Reso', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
-            
-            startX = 100
-            startY = 200
-            scaleFactor = 0.13
-            plotLineInImage(im, buffer_reso, startX, startY, scaleFactor)
-            
-            startX = 20
-            startY = 300
-            cv2.putText(im, 'Frm_Rt', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
-       
-            startX = 100
-            startY = 300
-            scaleFactor = 3
-            plotLineInImage(im, buffer_frmRate, startX, startY, scaleFactor)
-            
-            
-            startX = 20
-            startY = 400
-            cv2.putText(im, 'OKS', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
-       
-            startX = 100
-            startY = 400
-            scaleFactor = 1000
-            #print("XXXX  buffer_acc: ", buffer_acc)
-
-            plotLineInImage(im, buffer_acc, startX, startY, scaleFactor)
-            
-            '''
-            startX = 20
-            startY = 500
-            cv2.putText(im, 'SPF', (startX, startY), font, fontScale, (0, 0, 255), 1, cv2.LINE_AA)
-       
-            startX = 100
-            startY = 500
-            scaleFactor = 1000
-            #print("XXXX  buffer_acc: ", buffer_acc)
-
-            plotLineInImage(im, buffer_spf, startX, startY, scaleFactor)
-            '''
+            startX += 150
+            startY = 70
+            put_text_info_confg(startX, startY, font, fontScale, im, buffer_reso, buffer_frmRate, buffer_acc, buffer_spf)            
+           
             
             video.write(im)
             
-            
+            y_out_arr
             # write the extra frame curr_start_frm_index + k
             
             '''
@@ -430,7 +432,7 @@ def readFeatureValues(data_video_frm_dir, x_input_arr, y_out_arr, id_config_dict
         #print("image curr_start_frm_index", curr_start_frm_index)
         
         
-        if i == 60: # 7*60:
+        if i == 10*60: # 7*60:
             break   # debug only
     
     print("readFeatureValues finished ")
@@ -482,10 +484,10 @@ def exectuteVisualization():
         data_frame_path_dir = dataDir3 + input_video_frms_dir[i]
         
         history_frame_num = 1       #1
-        max_frame_example_used = 12000  # 20000 #8025   # 10000
+        max_frame_example_used = 15000  # 20000 #8025   # 10000
         
         data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
-        minAccuracy = "" # 0.95
+        minAccuracy = 0.95 # 0.95   -1
         minDelayTreshold = 0
         
         if feature_calculation_flag == 'most_expensive_config':

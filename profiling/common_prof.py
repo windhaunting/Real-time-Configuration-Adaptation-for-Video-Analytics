@@ -22,7 +22,7 @@ frameRates = [25, 15, 10, 5, 2, 1]    # test only [25, 10, 5, 2, 1]   # [5]   # 
 resoStrLst_OpenPose = ["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
 resoStrLst_cpn = ["384x288", "256x192"]   # for cpn models, only two resolutions pretrained available
 
-modelMethods_openPose = ['cmu', 'mobilenet_v2_small']
+modelMethods_openPose = ['cmu']  #, 'mobilenet_v2_small']
 # a_cpn,   "a" is just to make it alphabetically order first, to make it as ground truth conviniently for programming
 modelMethods_cpn = ['a_cpn']  #  'cmu']   # , 'mobilenet_v2_small'] # ['a_cpn']   #     ['a_cpn', 'cmu', 'mobilenet_v2_small']  #  ['mobilenet_v2_small']      # ['mobilenet_thin']  # ['cmu']  #  ["openPose"]
 
@@ -521,8 +521,8 @@ def executeVideoToFrames():
     '''
     
     
-    #inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/diy_video_dataset/"
-    inputDir = dataDir3
+    inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/one_person_diy_video_dataset/"
+    #inputDir = dataDir3
     filePathLst = sorted(glob(inputDir + "*.mp4"))         # [5:6]
     
     print ("filePathLst:", filePathLst)
@@ -533,8 +533,8 @@ def executeVideoToFrames():
         outDir =  outParentDir + filePath.split("/")[-1].split(".")[0] + "_frames/"      # "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/2-soccer-20mins-frames/"
         if not os.path.exists(outDir):
             os.mkdir(outDir)
-        #print ("filePath: ", filePath, outDir)
-        extractVideoFrames(filePath, outDir)
+            #print ("filePath: ", filePath, outDir)
+            extractVideoFrames(filePath, outDir)
     
     
 if __name__== "__main__":

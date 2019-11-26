@@ -5,6 +5,11 @@ Created on Thu Nov 14 10:29:24 2019
 @author: yanxi
 """
 
+import sys
+import os
+current_file_cur = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_file_cur)
+
 import numpy as np
 import preprocess
 import fpsconv

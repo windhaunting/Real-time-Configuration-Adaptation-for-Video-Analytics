@@ -332,17 +332,24 @@ def execute_profiling_one_person():
                         '015_dance_frames/', '016_dance_frames/', \
                         '017_dance_frames/', '018_dance_frames/', \
                         '019_dance_frames/', '020_dance_frames/', \
-                        '021_dance_frames/']
+                        '021_dance_frames/', '022_dance_frames/', \
+                        '023_dance_frames/', '024_dance_frames/', \
+                        '025_dance_frames/','026_dance_frames/', \
+                        '027_dance_frames/','028_dance_frames/', \
+                        '029_dance_frames/','030_dance_frames/', \
+                        '031_dance_frames/','032_dance_frames/', \
+                        '033_dance_frames/','034_dance_frames/', \
+                        '035_dance_frames/','036_dance_frames/']
     
 
-    for input_frm_dir in lst_input_video_frms_dir[12:13]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
+    for input_frm_dir in lst_input_video_frms_dir[21:22]:   # [1:2]:      # [4:5][0:1]:         #  # [5:6]:       # run 006 first
         input_dir = dataDir3 + input_frm_dir
         
         out_dir = dataDir3 + 'output_' + '_'.join(input_frm_dir.split('_')[:-1]) +'/'      # 004-output_Marathon-20mins_01/' 
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
         profiling_Video_MaxFrameRate_OpenPose(input_dir, out_dir)
-        profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
+        #profilingOneVideoMaxFrameRateFrameByFrame_CPN(input_dir, out_dir)
         
 
     
