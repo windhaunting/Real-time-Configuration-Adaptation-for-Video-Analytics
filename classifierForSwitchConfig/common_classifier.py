@@ -116,7 +116,7 @@ def getPersonEstimation(est_res):
         
         
     output:
-        a specific person's detection result arr (17x2)
+        a specific person's detection result arr (17x2) or 17*3
     '''
     
     #print ("est_res: ", est_res)
@@ -145,20 +145,8 @@ def load_data_all_features(data_examples_dir, xfile, yfile):
     x_input_arr = np.load(data_examples_dir + xfile, allow_pickle=True)
     y_out_arr = np.load(data_examples_dir + yfile, allow_pickle=True).astype(int)
     
-    print ("y_out_arr:",x_input_arr.shape, y_out_arr.shape)
+    #print ("y_out_arr:",x_input_arr.shape, y_out_arr.shape)
 
-    #y_out_arr = y_out_arr.reshape(-1, 1)
-    #print ("y_out_arr before:", np.unique(y_out_arr),  y_out_arr.shape, y_out_arr[:2])
-
-    # reshape to 2-dimen for input
-    x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
-    
-    #output config to one hot encoder for classification
-    #onehot_encoder = OneHotEncoder(sparse=False)
-    #y_out_arr = onehot_encoder.fit_transform(y_out_arr)
-    
-    print ("y_out_arr after:", y_out_arr.shape)
-    #return 
     return x_input_arr, y_out_arr          # debug only 1000 first
 
 
@@ -378,6 +366,17 @@ def extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_se
     return lst_id_subconfig, id_config_dict
 
 
+def fillEstimation(j, prev_frm_est_arr, cur_frm_est_arr):
+    # fill the estimated keypoint using the previous frame
+    num_kp = prev_frm_est_arr.shape[0]
+    
+    for i in range(0, num_kp):
+        if cur_frm_est_arr[i][2] == 0:     # visibility is 0, not detected
+            #print ("prev_frm_est_arr: ", j, i, prev_frm_est_arr[i], cur_frm_est_arr[i][2])
+            cur_frm_est_arr[i] = prev_frm_est_arr[i]
+            
+    return cur_frm_est_arr
+
 
 def read_poseEst_conf_frm(data_pickle_dir):
     '''
@@ -407,7 +406,7 @@ def readProfilingResultNumpy(data_pickle_dir, intervalFlag):
         #acc_frame_arr = np.load(data_pickle_dir + 'config_acc_interval_1sec.pkl')
         acc_frame_arr = np.load(data_pickle_dir + 'config_oks_interval_1sec.pkl', allow_pickle=True)
 #        
-    spf_frame_arr = np.load(data_pickle_dir + 'config_spf_frm.pkl', allow_pickle=True)
+    spf_frame_arr = np.load(data_pickle_dir + 'config_spf_interval_1sec.pkl', allow_pickle=True)
     #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
     #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
     
@@ -543,7 +542,7 @@ def calculateDifferenceSumFrmRate(y_test, y_pred, id_config_dict):
     lst2 = [int(id_config_dict[int(x)].split("-")[1]) for x in y_pred]
     
     overall_diff = [abs(lst1[i]-lst2[i]) for i in range(0, len(lst1))]
-    print ("calculateDifferenceSumFrmRate: overall_diff ", len(overall_diff))
+    #print ("calculateDifferenceSumFrmRate: overall_diff ", len(overall_diff))
     
     overall_diffSum = sum(overall_diff)/len(overall_diff)
     
@@ -594,20 +593,22 @@ def getAccSpfArrAllVideo():
                 'output_011_dance/', 'output_012_dance/', \
                 'output_013_dance/', 'output_014_dance/', \
                 'output_015_dance/', 'output_016_dance/', \
-                'output_017_dance/']
+                'output_017_dance/', 'output_018_dance/', \
+                'output_019_dance/', 'output_020_dance/', \
+                'output_021_dance/']
 
 
     dict_acc_frm_arr = defaultdict()
     dict_spf_frm_arr = defaultdict()
-    for video_dir in video_dir_lst[0:18]:
+    for video_dir in video_dir_lst:
         data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
     
         intervalFlag = 'sec'
         acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir, intervalFlag)
         video_id = int(video_dir.split("_")[1])
         
-        data_pose_keypoint_dir = dataDir3 + video_dir
-        acc_frame_arr, spf_frame_arr, id_config_dict = get_cmu_model_config_acc_spf(data_pickle_dir, data_pose_keypoint_dir)
+        #data_pose_keypoint_dir = dataDir3 + video_dir
+        #acc_frame_arr, spf_frame_arr, id_config_dict = get_cmu_model_config_acc_spf(data_pickle_dir, data_pose_keypoint_dir)
         
         dict_acc_frm_arr[video_id] = acc_frame_arr
         dict_spf_frm_arr[video_id] = spf_frame_arr

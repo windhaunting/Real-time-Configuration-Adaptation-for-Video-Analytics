@@ -26,11 +26,13 @@ import sys
 import os
 import math
 import cv2
+import pickle
 
 import numpy as np
 
 from glob import glob
 from blist import blist
+from collections import defaultdict
 from common_classifier import read_all_config_name_from_file
 from common_classifier import read_poseEst_conf_frm
 from common_classifier import readProfilingResultNumpy
@@ -38,6 +40,10 @@ from common_classifier import get_cmu_model_config_acc_spf
 from common_classifier import paddingZeroToInter
 from common_classifier import COCO_KP_NUM
 from common_classifier import getPersonEstimation
+from common_classifier import fillEstimation
+from common_classifier import load_data_all_features
+from common_classifier import calculateDifferenceSumFrmRate
+from common_classifier import extract_specific_config_name_from_file
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -98,7 +104,7 @@ from profiling.common_prof import PLAYOUT_RATE
 # =  Price(current)  x Multiplier)   + (1-Multiplier) * EMA(prev) 
 
 
-ALPHA_EMA = 0.8   # EMA
+ALPHA_EMA = 1.0   # EMA
   
     
 
@@ -114,7 +120,7 @@ def getEuclideanDist(val, time_frm_interval):
     x2 = val[2]
     y2 = val[3]
     
-    dist = math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+    dist = abs(math.sqrt((x1 - x2)**2 + (y1 - y2)**2))
                
     speed = dist/time_frm_interval
     
@@ -123,34 +129,24 @@ def getEuclideanDist(val, time_frm_interval):
     else:
         cos_angle = (x1*x2 + y1*y2) / (math.sqrt(x1**2 + y1**2) *math.sqrt(x2**2 + y2**2))
     
-    speed_angle = [speed, cos_angle]       # 2 is visibility not used
+    speed_angle = speed # [speed]            # , cos_angle]       # 2 is visibility not used
     #print ("speed: ", val, speed)
 
     
     return speed_angle
     
 
-def fillEstimation(j, prev_frm_est_arr, cur_frm_est_arr):
-    
-    num_kp = prev_frm_est_arr.shape[0]
-    
-    for i in range(0, num_kp):
-        if cur_frm_est_arr[i][2] == 0:     # visibility is 0, not detected
-            #print ("prev_frm_est_arr: ", j, i, prev_frm_est_arr[i], cur_frm_est_arr[i][2])
-            cur_frm_est_arr[i] = prev_frm_est_arr[i]
-            
-    return cur_frm_est_arr
-
 
     
 def getCurrentAverageSpeed(history_pose_est_arr, used_current_frm):
     
-    
-    used_prev_frm = used_current_frm - (PLAYOUT_RATE)   # 1sec
+    difference = PLAYOUT_RATE               #5 # PLAYOUT_RATE   # previous 1 sec
+    used_prev_frm = used_current_frm - difference #  (PLAYOUT_RATE)   # 1sec
     
     j = used_current_frm
     
-    current_speed_angle_arr = np.zeros(history_pose_est_arr.shape[1:])
+    dim_num = history_pose_est_arr.shape[1]
+    current_speed_angle_arr = np.zeros(dim_num)
     while (j > used_prev_frm):
         cur_frm_est_arr = history_pose_est_arr[j]    
         prev_frm_est_arr = history_pose_est_arr[j-1]
@@ -159,7 +155,7 @@ def getCurrentAverageSpeed(history_pose_est_arr, used_current_frm):
         hstack_arr = np.hstack((cur_frm_est_arr, prev_frm_est_arr))
         
         #print ("current_speed_angle_arr: ", current_speed_angle_arr.shape, hstack_arr.shape)
-        time_frm_interval = 1.0       # 1 sec  #(1.0/PLAYOUT_RATE)/2            # interval 1 sec
+        time_frm_interval = (1.0/PLAYOUT_RATE)*difference       # 1 sec  #(1.0/PLAYOUT_RATE)/2            # interval 1 sec
         
         current_speed_angle_arr += np.apply_along_axis(getEuclideanDist, 1, hstack_arr, time_frm_interval)    
         j -= 1
@@ -171,17 +167,17 @@ def getCurrentAverageSpeed(history_pose_est_arr, used_current_frm):
 
 def getCurrentAverageRelativeSpeed(history_pose_est_arr, used_current_frm):
     
-    
-    used_prev_frm = used_current_frm-PLAYOUT_RATE   # previous 1 sec
+    difference = PLAYOUT_RATE               #5 # PLAYOUT_RATE   # previous 1 sec
+    used_prev_frm = used_current_frm-difference       
     
     j = used_current_frm
-    
-    current_speed_angle_arr = np.zeros(history_pose_est_arr.shape[1:])
+    dim_num = 4
+    current_speed_angle_arr = np.zeros(dim_num)
     while (j > used_prev_frm):
         cur_frm_est_arr = history_pose_est_arr[j]    
         prev_frm_est_arr = history_pose_est_arr[j-1]
-        time_frm_interval =  1.0 # (1.0/PLAYOUT_RATE)          # interval 1 frame
-        current_speed_angle_arr = relativeSpeed(cur_frm_est_arr, prev_frm_est_arr, time_frm_interval)
+        time_frm_interval =  (1.0/PLAYOUT_RATE)*difference  # (1.0/PLAYOUT_RATE)          # interval difference frame time
+        current_speed_angle_arr += relativeSpeed(cur_frm_est_arr, prev_frm_est_arr, time_frm_interval)
         j -= 1
     
     current_speed_angle_arr = current_speed_angle_arr/(used_current_frm - used_prev_frm)
@@ -458,26 +454,26 @@ def getFeatureRelativeDistanceClosenessKeyPoint(history_pose_est_arr, current_fr
     cur_frm_est_arr = history_pose_est_arr[current_frm_id]
     #[9, 10, 15, 16, 11];  [9, 10, 15, 16, 12];   [9, 10, 15, 16, 5] [9, 10, 15, 16, 6] 
     
-    closenessPoint_feature1 = np.zeros((4, 2))
+    closenessPoint_feature1 = np.zeros(4)
     #print ("cur_frm_est_arr: ", cur_frm_est_arr.shape)
     lst_kp_indx1 = [9, 10, 15, 16, 11]
     for ind  in range(0, len(lst_kp_indx1[0:-1])):
         closenessPoint_feature1[ind] = [abs(cur_frm_est_arr[lst_kp_indx1[ind]][0]- cur_frm_est_arr[lst_kp_indx1[-1]][0]), abs(cur_frm_est_arr[lst_kp_indx1[ind]][1]- cur_frm_est_arr[lst_kp_indx1[-1]][1])]
  
     
-    closenessPoint_feature2 = np.zeros((4, 2))
+    closenessPoint_feature2 = np.zeros(4)
     lst_kp_indx2 = [9, 10, 15, 16, 12]
 
     for ind  in range(0, len(lst_kp_indx1[0:-1])):
         closenessPoint_feature2[ind] = [abs(cur_frm_est_arr[lst_kp_indx2[ind]][0]- cur_frm_est_arr[lst_kp_indx2[-1]][0]), abs(cur_frm_est_arr[lst_kp_indx2[ind]][1]- cur_frm_est_arr[lst_kp_indx2[-1]][1])]
     
     
-    closenessPoint_feature3 = np.zeros((4, 2))
+    closenessPoint_feature3 = np.zeros(4)
     lst_kp_indx3 = [9, 10, 15, 16, 5]
     for ind  in range(0, len(lst_kp_indx1[0:-1])):
         closenessPoint_feature3[ind] = [abs(cur_frm_est_arr[lst_kp_indx3[ind]][0]- cur_frm_est_arr[lst_kp_indx3[-1]][0]), abs(cur_frm_est_arr[lst_kp_indx3[ind]][1]- cur_frm_est_arr[lst_kp_indx3[-1]][1])]
         
-    closenessPoint_feature4 = np.zeros((4, 2))
+    closenessPoint_feature4 = np.zeros(4)
     lst_kp_indx4 = [9, 10, 15, 16, 6]
     for ind  in range(0, len(lst_kp_indx1[0:-1])):
         closenessPoint_feature4[ind] = [abs(cur_frm_est_arr[lst_kp_indx4[ind]][0]- cur_frm_est_arr[lst_kp_indx4[-1]][0]), abs(cur_frm_est_arr[lst_kp_indx4[ind]][1]- cur_frm_est_arr[lst_kp_indx4[-1]][1])]
@@ -554,6 +550,9 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     
     confg_est_frm_arr = read_poseEst_conf_frm(data_pickle_dir)
     
+    config_id_dict, id_config_dict = read_all_config_name_from_file(data_pose_keypoint_dir, False)
+    
+    
     #old_acc_frm_arr = acc_frame_arr
     #print ("getOnePersonFeatureInputOutput01 acc_frame_arr: ", acc_frame_arr.shape)
 
@@ -561,15 +560,31 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     #outDir = data_pose_keypoint_dir + "classifier_result/"
     #np.savetxt(outDir + "accuracy_above_threshold" + str(minAccuracy) + ".tsv", acc_frame_arr[:, :5000], delimiter="\t")
     
+
     
-    #config_ind_pareto = getParetoBoundary(acc_frame_arr[:, 0], spf_frame_arr[:, 0])
-    #resolution_set = ["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
+    '''
+    resolution_set = ["960x720"]        #, "960x720", "640x480", "480x352", "320x240"]   # ["640x480"]  #["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
+    frame_set = [25, 15, 10, 5, 2, 1]     #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
+    model_set = ['cmu']   #, 'mobilenet_v2_small']
+    lst_id_subconfig, _ = extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_set, frame_set, model_set)
+
+    print ("getOnePersonFeatureInputOutput01 lst_id_subconfig: ", lst_id_subconfig)
+    acc_frame_arr = acc_frame_arr[lst_id_subconfig, :]
+    spf_frame_arr =  spf_frame_arr[lst_id_subconfig, :]
     
-    acc_frame_arr, spf_frame_arr, id_config_dict = get_cmu_model_config_acc_spf(data_pickle_dir, data_pose_keypoint_dir)
+    print ("getOnePersonFeatureInputOutput01 acc_frame_arr: ", acc_frame_arr[:, 0], acc_frame_arr.shape)
+
+    _, id_config_dict = read_all_config_name_from_file(data_pose_keypoint_dir, False)
+
     
-  
+    # get new id map based on pareto boundary/'s result
+    new_id_config_dict = defaultdict(str)
+    for i, ind in enumerate(lst_id_subconfig):
+        new_id_config_dict[i] = id_config_dict[ind]
+    id_config_dict = new_id_config_dict
+    
     print ("config_id_dict: ", len(id_config_dict), acc_frame_arr.shape, spf_frame_arr.shape)
-    
+    '''
     
     # only read the most expensive config
     #filePathLst = sorted(glob(data_pose_keypoint_dir + "*1120x832_25_cmu_estimation_result*.tsv"))  # must read ground truth file(the most expensive config) first
@@ -582,18 +597,26 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
     previous_frm_indx = 0
     
     
-    input_x_arr = np.zeros((max_frame_example_used, 33, 2))    # np.zeros((max_frame_example_used, 66, 2))       # 17 + 4*4 + 4*4 + 17
+    input_x_arr = np.zeros((max_frame_example_used, 33))   # , 2))    # np.zeros((max_frame_example_used, 66, 2))       # 17 + 4*4 + 4*4 + 17
     y_out_arr = np.zeros((max_frame_example_used+1), dtype=int)
     
     #current_instance_start_video_path_arr = np.zeros(max_frame_example_used, dtype=int)
     current_instance_start_frm_path_arr = np.zeros(max_frame_example_used, dtype=object)
     
+    '''
     prev_EMA_speed_arr = np.zeros((COCO_KP_NUM, 2))
     
     prev_EMA_relative_speed_arr1 = np.zeros((4, 2))        # only get 4 keypoints
     prev_EMA_relative_speed_arr2 = np.zeros((4, 2))        # only get 4 keypoints
     prev_EMA_relative_speed_arr3 = np.zeros((4, 2))        # only get 4 keypoints
     prev_EMA_relative_speed_arr4 = np.zeros((4, 2))        # only get 4 keypoints
+    '''
+    
+    prev_EMA_speed_arr = np.zeros(COCO_KP_NUM)
+    prev_EMA_relative_speed_arr1 = np.zeros(4)        # only get 4 keypoints
+    prev_EMA_relative_speed_arr2 = np.zeros(4)        # only get 4 keypoints
+    prev_EMA_relative_speed_arr3 = np.zeros(4)        # only get 4 keypoints
+    prev_EMA_relative_speed_arr4 = np.zeros(4)        # only get 4 keypoints
     
     
     reso_feature_arr = np.zeros(max_frame_example_used, dtype=int)
@@ -716,12 +739,12 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             prev_EMA_relative_speed_arr4 = feature4_relative_speed_arr
             
             
-            total_features_arr = np.vstack((feature1_speed_arr, feature1_relative_speed_arr))            
-            total_features_arr = np.vstack((total_features_arr, feature2_relative_speed_arr))            
-            total_features_arr = np.vstack((total_features_arr, feature3_relative_speed_arr))            
-            total_features_arr = np.vstack((total_features_arr, feature4_relative_speed_arr))
+            total_features_arr = np.hstack((feature1_speed_arr, feature1_relative_speed_arr))            
+            total_features_arr = np.hstack((total_features_arr, feature2_relative_speed_arr))            
+            total_features_arr = np.hstack((total_features_arr, feature3_relative_speed_arr))            
+            total_features_arr = np.hstack((total_features_arr, feature4_relative_speed_arr))
             
-            
+            #print ("feature1_speed_arr shape: ", total_features_arr.shape, feature1_speed_arr.shape, feature1_relative_speed_arr.shape)
             input_x_arr[select_frm_cnt]=  total_features_arr  # feature1_speed_arr  # total_features_arr  #  input_x_arr[frm_id-1] = total_features_arr
             
             
@@ -769,8 +792,8 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             curr_frmRt_aver= getFrmRateFeature(history_frmRt_arr, select_frm_cnt, prev_frmRt_aver)
             prev_frmRt_aver = frmRt  # curr_frmRt_aver
             
+            frmRt_feature_arr[select_frm_cnt] = curr_frmRt_aver
             
-            #frmRt_feature_arr[select_frm_cnt] = curr_frmRt_aver
             
             #current_iterative_frm_id = previous_frm_indx + skipped_frm_cnt + switching_config_skipped_frm
             #lowest_config_id = [19, 10, 6, 2] 
@@ -781,7 +804,7 @@ def getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir
             #blurriness_feature_arr[select_frm_cnt] = blurrinessScore_arr
             
             
-            img_file_name = paddingZeroToInter(index_frm+1) + '.jpg'
+            img_file_name = paddingZeroToInter(index_frm+1) + '.jpg'    # no start from index 0, 000001.jpg start. from the 2nd sec to have output
             # '../input_output/one_person_diy_video_dataset/005_dance_frames/000026.jpg'
             current_instance_start_frm_path_arr[select_frm_cnt] = data_frame_path_dir + img_file_name
 
@@ -833,6 +856,7 @@ def select_config_boundedAccuracy(acc_frame_arr, spf_frame_arr, index_id, minAcc
     
     #print ("[:, frm_id-1]:", acc_frame_arr.shape, index_id)
     
+
     indx_config_above_minAcc = np.where(acc_frame_arr[:, index_id] >= minAccuracy)      # the index of the config above the threshold minAccuracy
     #print("indx_config_above_minAcc: ", indx_config_above_minAcc, len(indx_config_above_minAcc[0]))
             # in case no profiling config found satisfying the minAcc
@@ -847,6 +871,10 @@ def select_config_boundedAccuracy(acc_frame_arr, spf_frame_arr, index_id, minAcc
     selected_config_indx = indx_config_above_minAcc[0][tmp_config_indx]      # final selected indx from all config_indx
     #print ("final selected_config_indx:",selected_config_indx, spf_frame_arr[selected_config_indx, frm_id-1] )
 
+    #if index_id==650:
+    #    print ("acc_frame_arracc_frame_arracc_frame_arr", index_id, acc_frame_arr[:, index_id], selected_config_indx)
+        
+    #    xxx
     return selected_config_indx
 
 
@@ -924,6 +952,324 @@ def getGroundTruthY(data_pickle_dir, max_frame_example_used, history_frame_num):
     print ("y_out_arr original:", y_out_arr.shape)
     return y_out_arr
 '''
+
+
+def execute_get_feature_config_boundedAcc(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, feature_calculation_flag, minAccuracy):
+    '''
+    most expensive config's pose result to get feature
+    '''
+        
+    if feature_calculation_flag == 'most_expensive_config':
+        #from data_proc_features_03 import getOnePersonFeatureInputOutputAll001
+        from data_proc_feature_analysize_01 import getOnePersonFeatureInputOutputAll001
+
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr, _ = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, minAccuracy, -1)
+ 
+    x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
+            
+    # add current config as a feature
+    #print ("combined before:",x_input_arr.shape, y_out_arr.shape)
+    #current_config_arr = y_out_arr[history_frame_num:-1].reshape((y_out_arr[history_frame_num:-1].shape[0], -1))
+    #x_input_arr = np.hstack((x_input_arr, current_config_arr))
+            
+    #y_out_arr = y_out_arr[history_frame_num+1:]
+    
+    print ("y_out_arr shape after:", x_input_arr.shape, y_out_arr.shape)
+            
+    #data_examples_arr = np.hstack((x_input_arr, y_out_arr))
+            
+ 
+    return x_input_arr, y_out_arr, id_config_dict
+
+
+def execute_get_feature_config_boundedDelay(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, feature_calculation_flag):
+    '''
+    most expensive config's pose result to get feature
+    '''
+        
+    minDelayTreshold = 0
+    
+    if feature_calculation_flag == 'most_expensive_config':
+        #from data_proc_features_03 import getOnePersonFeatureInputOutputAll001
+        from data_proc_feature_analysize_01 import getOnePersonFeatureInputOutputAll001
+
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput01(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput02(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput03(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr = getOnePersonFeatureInputOutput04(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    #x_input_arr, y_out_arr, _ = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir,  history_frame_num, max_frame_example_used, minAccuracy)
+    x_input_arr, y_out_arr, id_config_dict, acc_frame_arr, spf_frame_arr, confg_est_frm_arr = getOnePersonFeatureInputOutputAll001(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, -1, minDelayTreshold)
+ 
+    x_input_arr = x_input_arr.reshape((x_input_arr.shape[0], -1))
+            
+    # add current config as a feature
+    #print ("combined before:",x_input_arr.shape, y_out_arr.shape)
+    #current_config_arr = y_out_arr[history_frame_num:-1].reshape((y_out_arr[history_frame_num:-1].shape[0], -1))
+    #x_input_arr = np.hstack((x_input_arr, current_config_arr))
+            
+    #y_out_arr = y_out_arr[history_frame_num+1:]
+    
+    print ("y_out_arr shape after:", x_input_arr.shape, y_out_arr.shape)
+            
+    #data_examples_arr = np.hstack((x_input_arr, y_out_arr))
+            
+ 
+    return x_input_arr, y_out_arr, id_config_dict
+
+
+def generate_y_out_put(data_classification_dir, instance_start_frm_path_arr, X, y):
+    #generte the y output 
+      
+    print ("instance_start_frm_path_arr shape: ", instance_start_frm_path_arr.shape, X.shape)
+    #combine_X = np.hstack((instance_start_frm_path_arr, X))
+
+    with open(data_classification_dir + "all_video_x_feature.pkl", 'wb') as fs:
+        pickle.dump(X, fs)
+    
+    
+    with open(data_classification_dir + "all_video_y_gt.pkl", 'wb') as fs:
+        pickle.dump(y, fs)
+    
+    
+    with open(data_classification_dir + "all_video_frm_id_arr.pkl", 'wb') as fs:
+        pickle.dump(instance_start_frm_path_arr, fs)
+        
+
+def combineAugmentedVideoDatasetTrainTest():
+    
+    '''
+    combine augmented data set together to train and test
+    '''
+    
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                    'output_003_dance/', 'output_004_dance/',  \
+                    'output_005_dance/', 'output_006_yoga/', \
+                    'output_007_yoga/', 'output_008_cardio/', \
+                    'output_009_cardio/', 'output_010_cardio/', \
+                    'output_011_dance/', 'output_012_dance/', \
+                    'output_013_dance/', 'output_014_dance/', \
+                    'output_015_dance/', 'output_016_dance/', \
+                    'output_017_dance/', 'output_018_dance/', \
+                    'output_019_dance/', 'output_020_dance/', \
+                    'output_021_dance/']
+        
+
+    input_video_frms_dir = ['001_dance_frames/', '002_dance_frames/', \
+                        '003_dance_frames/', '004_dance_frames/',  \
+                        '005_dance_frames/', '006_yoga_frames/', \
+                        '007_yoga_frames/', '008_cardio_frames/',
+                        '009_cardio_frames/', '010_cardio_frames/',
+                        '011_dance_frames/', '012_dance_frames/',
+                        '013_dance_frames/', '014_dance_frames/',
+                        '015_dance_frames/', '016_dance_frames/',
+                        '017_dance_frames/', '018_dance_frames/',
+                        '019_dance_frames/', '020_dance_frames/',
+                        '021_dance_frames/']
+   
+    
+    # judge file exist or not
+    history_frame_num = 1
+    max_frame_example_used =  17000 # 20000 #8025   # 10000
+        
+    minAccuracy = 0.95
+    seg_frm = 25      # frame_num
+    data_classification_dir = dataDir3  +'augmented_data_test_classification_result/' + 'min_accuracy-' + str(minAccuracy) + '/'
+
+    xfile = "X_data_features_config" + "-sampleNum" + str(max_frame_example_used) + "-seg_frm" + str(seg_frm) + "-minAcc" + str(minAccuracy) + ".pkl"
+    yfile = "Y_data_features_config" + "-sampleNum" + str(max_frame_example_used) + "-seg_frm" + str(seg_frm) + "-minAcc" + str(minAccuracy) + ".pkl"
+    
+    if os.path.exists(data_classification_dir+xfile) and os.path.exists(data_classification_dir+yfile):
+        
+        total_X,total_y= load_data_all_features(data_classification_dir, xfile, yfile)
+        
+    else:
+  
+        X_lst = blist()
+        y_lst = blist()
+            
+        for i, old_video_dir in enumerate(video_dir_lst[0:]):  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+                
+            #if i != 4:                    # check the 005_video only
+            #    continue
+            j = 10          # to 990
+            
+            while (j < 50):
+                if j == 0:
+                    video_dir = old_video_dir
+                else:
+                    video_dir = '/'.join(old_video_dir.split('/')[:-1]) + "-start-" + str(j) + '/'
+                
+                print (" video_dir: ", video_dir)
+                data_pose_keypoint_dir =  dataDir3 + video_dir_lst[0]
+                data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
+    
+                data_frame_path_dir = dataDir3 + input_video_frms_dir[i]
+                
+                out_frm_examles_pickle_dir =  dataDir3 + video_dir + 'data_examples_files/'
+                
+                if not os.path.exists(out_frm_examles_pickle_dir):
+                    os.mkdir(out_frm_examles_pickle_dir)
+                    
+                x_input_arr, y_out_arr, id_config_dict = execute_get_feature_config_boundedAcc(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, 'most_expensive_config', minAccuracy)
+                
+                X_lst.append(x_input_arr)
+                y_lst.append(y_out_arr.reshape(-1, 1))
+                
+                j += 10
+            
+    total_X = np.vstack(X_lst)
+    total_y = np.vstack(y_lst)
+    
+    print("total_X: ", total_X.shape, total_y.shape)
+        
+    data_pose_keypoint_dir =  dataDir3 + old_video_dir[0]
+    
+    data_classification_dir = dataDir3 + 'augmented_data_test_classification_result/'
+    if not os.path.exists(data_classification_dir):
+        os.mkdir(data_classification_dir)
+        
+    with open(data_classification_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(total_X, fs)
+                
+    with open(data_classification_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl", 'wb') as fs:
+        pickle.dump(total_y, fs)    
+    
+    
+    rf_model, train_acc_score, test_acc_score, train_video_frm_id_arr, test_video_frm_id_arr, y_pred, y_test = rftTrainTest(data_classification_dir, total_X, total_y)
+            
+    
+def combineMultipleVideoDataTrainTest():
+    '''
+    combine mutlipel data example together to train and test
+    '''
+    video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
+                    'output_003_dance/', 'output_004_dance/',  \
+                    'output_005_dance/', 'output_006_yoga/', \
+                    'output_007_yoga/', 'output_008_cardio/', \
+                    'output_009_cardio/', 'output_010_cardio/', \
+                    'output_011_dance/', 'output_012_dance/', \
+                    'output_013_dance/', 'output_014_dance/', \
+                    'output_015_dance/', 'output_016_dance/', \
+                    'output_017_dance/', 'output_018_dance/', \
+                    'output_019_dance/', 'output_020_dance/', \
+                    'output_021_dance/']
+        
+
+    input_video_frms_dir = ['001_dance_frames/', '002_dance_frames/', \
+                        '003_dance_frames/', '004_dance_frames/',  \
+                        '005_dance_frames/', '006_yoga_frames/', \
+                        '007_yoga_frames/', '008_cardio_frames/',
+                        '009_cardio_frames/', '010_cardio_frames/',
+                        '011_dance_frames/', '012_dance_frames/',
+                        '013_dance_frames/', '014_dance_frames/',
+                        '015_dance_frames/', '016_dance_frames/',
+                        '017_dance_frames/', '018_dance_frames/',
+                        '019_dance_frames/', '020_dance_frames/',
+                        '021_dance_frames/']
+   
+    
+    # judge file exist or not
+
+    history_frame_num = 1  #1          # 
+    max_frame_example_used =  19000 # 20000 #8025   # 10000
+        
+    minAccuracy = 0.95
+    seg_frm  = 25
+    data_classification_dir = dataDir3  +'test_classification_result/' + 'min_accuracy-' + str(minAccuracy) + '/'
+    xfile = "X_data_features_config" + "-sampleNum" + str(max_frame_example_used) + "-seg_frm" + str(seg_frm) + "-minAcc" + str(minAccuracy) + ".pkl"
+    yfile = "Y_data_features_config" + "-sampleNum" + str(max_frame_example_used) + "-seg_frm" + str(seg_frm) + "-minAcc" + str(minAccuracy) + ".pkl"
+  
+    if os.path.exists(data_classification_dir+xfile) and os.path.exists(data_classification_dir+yfile):
+        
+        total_X, total_y= load_data_all_features(data_classification_dir, xfile, yfile)
+        
+        resolution_set = ["1120x832", "960x720", "640x480", "480x352", "320x240"]   # ["640x480"]  #["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
+        frame_set = [25, 15, 10, 5, 2, 1]     #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
+        model_set = ['cmu']   #, 'mobilenet_v2_small']
+        data_pose_keypoint_dir = dataDir3 + video_dir_lst[4]
+        lst_id_subconfig, id_config_dict = extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_set, frame_set, model_set)
+
+    else:
+        X_lst = blist()
+        y_lst = blist()
+        
+        for i, video_dir in enumerate(video_dir_lst):  # [2:3]:     # [2:3]:   #[1:2]:      #[0:1]:     #[ #[1:2]:  #[1:2]:         #[0:1]:
+            
+            #if i != 4:                    # check the 005_video only
+                continue
+            
+            data_pose_keypoint_dir =  dataDir3 + video_dir
+            data_pickle_dir = dataDir3 + video_dir + 'frames_pickle_result/'
+            data_frame_path_dir = dataDir3 + input_video_frms_dir[i]
+            
+            out_frm_examles_pickle_dir =  dataDir3 + video_dir + 'data_examples_files/'
+            if not os.path.exists(out_frm_examles_pickle_dir):
+                os.mkdir(out_frm_examles_pickle_dir)
+                
+            x_input_arr, y_out_arr, id_config_dict = execute_get_feature_config_boundedAcc(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, 'most_expensive_config', minAccuracy)
+            
+            #x_input_arr, y_out_arr, id_config_dict = execute_get_feature_config_boundedDelay(data_pose_keypoint_dir, data_pickle_dir, data_frame_path_dir, history_frame_num, max_frame_example_used, 'most_expensive_config')
+    
+    
+                        
+            #with open(out_frm_examles_pickle_dir + "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + "-minAcc" + str(minAccuracy) + ".pkl", 'wb') as fs:
+            #    pickle.dump(x_input_arr, fs)
+                    
+            #with open(out_frm_examles_pickle_dir + "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + "-minAcc" + str(minAccuracy) + ".pkl", 'wb') as fs:
+            #    pickle.dump(y_out_arr, fs)
+            
+            #xfile = "X_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl"
+            #yfile = "Y_data_features_config-history-frms" + str(history_frame_num) + "-sampleNum" + str(max_frame_example_used) + ".pkl" #'Y_data_features_config-history-frms1-sampleNum20000.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+            
+            #xfile = 'X_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    # 'X_data_features_config-history-frms1-sampleNum8025.pkl'
+            #yfile = 'Y_data_features_config-weighted_interval-history-frms1-5-10-sampleNum8025.pkl'    #'Y_data_features_config-history-frms1-sampleNum8025.pkl'
+            #x_input_arr,y_out_arr= load_data_all_features(data_examples_dir, xfile, yfile)
+            
+            #print("X y shape: ", y_out_arr.shape, y_out_arr.shape)
+            
+            
+            X_lst.append(x_input_arr)
+            y_lst.append(y_out_arr.reshape(-1, 1))
+        
+        
+        total_X = np.vstack(X_lst)
+        total_y = np.vstack(y_lst)
+        
+        print("total_X: ", total_X.shape, total_y.shape)
+        
+        data_pose_keypoint_dir =  dataDir3 + video_dir
+        
+        data_classification_dir = dataDir3 + 'test_classification_result/'
+        if not os.path.exists(data_classification_dir):
+            os.mkdir(data_classification_dir)
+
+        data_classification_dir = data_classification_dir + 'min_accuracy-' + str(minAccuracy)+ '/'
+        if not os.path.exists(data_classification_dir):
+            os.mkdir(data_classification_dir)
+            
+        with open(data_classification_dir + "X_data_features_config" + "-sampleNum" + str(max_frame_example_used) + "-seg_frm" + str(seg_frm) + "-minAcc" + str(minAccuracy) + ".pkl", 'wb') as fs:
+            pickle.dump(total_X, fs)
+                
+        with open(data_classification_dir + "Y_data_features_config" + "-sampleNum" + str(max_frame_example_used) + "-seg_frm" + str(seg_frm) + "-minAcc" + str(minAccuracy) + ".pkl", 'wb') as fs:
+            pickle.dump(total_y, fs) 
+    
+    
+    generate_y_out_put(data_classification_dir, total_X, total_y)
+    
+    '''
+    rf_model, train_acc_score, test_acc_score, train_video_frm_id_arr, test_video_frm_id_arr, y_pred, y_test = rftTrainTest(data_classification_dir, total_X, total_y)
+        
+    overall_diffSum, sub_diffSum = calculateDifferenceSumFrmRate(y_test, y_pred, id_config_dict)
+    print ("combineMultipleVideoDataTrainTest diffSum: ", overall_diffSum, sub_diffSum)
+    '''
+    
+    return total_X, total_y
+    
 
 
 if __name__== "__main__": 
