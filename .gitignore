@@ -1,7 +1,13 @@
 */__pycache__
+build/
+.vscode/
 .idea
 
 *.pyc
+*.pyd
 *.gz
 *.out
 *.log
+
+# model file of tensor flow
+*.pb
