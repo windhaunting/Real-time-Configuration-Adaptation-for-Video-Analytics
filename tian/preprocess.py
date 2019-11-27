@@ -8,7 +8,8 @@ Created on Fri Oct 25 09:49:38 2019
 import pandas as pd
 import re
 import numpy as np
-import utilPose
+
+from . import utilPose
 
 # -------- part 1: convert estimation record files to data matrix --------
 

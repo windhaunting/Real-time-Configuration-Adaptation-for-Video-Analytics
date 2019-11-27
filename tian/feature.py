@@ -8,6 +8,8 @@ Created on Fri Oct 25 12:29:15 2019
 import numpy as np
 
 
+# -------- part 1 conversion --------
+
 def cart2pol(data):
     s = data.shape
     assert s[-1] == 2
@@ -39,7 +41,10 @@ def cart2speed(data):
     res = np.sqrt(t[:,0]**2 + t[:,1]**2)
     r = s[:-1]
     return res.reshape(r)
-    
+
+
+# -------- part 2 feature extraction --------
+
 
 def featureAbsSpeed(kpm, fps, unit, method='mean', alpha=0.8, weight=None):
     '''
@@ -112,6 +117,27 @@ def featureRelSpeed(kpm, fps, pairs, unit, method='mean', alpha=0.8, weight=None
         m = np.average(ref, axis=2, weights=weight)
     return m
 
+
+def featureAbsSpeedRange(kpm, fps, unit, method='mean', alpha=0.8, weight=None):
+    '''
+    Input:
+        <kpm> key point matrix (4d: conf-frame-kp-xyv)
+        <fps> the FPS of the kpm data
+        <unit> generate one feature using <unit> frames
+        <method> how to merge the features of different frames
+    '''
+    assert kpm.ndim == 4
+    assert kpm.shape[-2:] == (17,3)
+    assert method in ['max', 'min', 'mean', 'ema', 'weight']
+    nconf, nfrm, nkp = kpm.shape[:3]
+    if nfrm % unit == 0:
+        nfrm-=1
+    nfrm = nfrm - (nfrm % unit) + 1
+    diff = np.diff(kpm[:,:nfrm,:,[0,1]],n=1,axis=1)
+    #utime = 1.0/fps
+    diff = diff.reshape([nconf, -1, unit, nkp, 2])
+    
+    
 
 def kp2feature(kpm):
     pass

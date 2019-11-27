@@ -6,8 +6,8 @@ Created on Tue Oct 29 10:09:56 2019
 """
 
 import numpy as np
-import utilPose
-import preprocess
+from . import utilPose
+from . import preprocess
 
 
 # -------- part 1: methods for sampling frames when converting FPS --------

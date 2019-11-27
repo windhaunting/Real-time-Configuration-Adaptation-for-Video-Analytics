@@ -2,12 +2,13 @@
 """
 Created on Tue Nov 19 23:12:33 2019
 
-@author: yanxi
+@author: tian
 """
 
 import numpy as np
-import utilPose
-import fpsconv
+
+from . import utilPose
+from . import fpsconv
 
 
 def getDiff(kpm3, rkpm):
