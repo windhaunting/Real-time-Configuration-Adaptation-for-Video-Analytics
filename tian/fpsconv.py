@@ -6,9 +6,13 @@ Created on Tue Oct 29 10:09:56 2019
 """
 
 import numpy as np
-from . import utilPose
-from . import preprocess
 
+try:
+    from . import utilPose
+    from . import preprocess
+except:
+    import utilPose
+    import preprocess
 
 # -------- part 1: methods for sampling frames when converting FPS --------
 
@@ -110,6 +114,7 @@ def convertFPS_KPM(kpm, tgtFps, srcFps, offset=0, method='ema', alpha=0.8):
     for i in range(mt):
         span = sfi[i % tgtFps]
         ftouse = range(fused, fused+span)
+        # BUG: this is not keep, it uses the processed data
         pose=kpm[:,ftouse,:,:]
         if method != 'keep': # linear and ema
             #speed = diff[:,ftouse,:,:].mean(1)

@@ -9,7 +9,11 @@ import pandas as pd
 import re
 import numpy as np
 
-from . import utilPose
+try:
+    from . import utilPose
+except:
+    import utilPose
+
 
 # -------- part 1: convert estimation record files to data matrix --------
 
