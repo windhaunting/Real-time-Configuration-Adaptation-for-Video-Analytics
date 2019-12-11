@@ -111,7 +111,7 @@ def pose2oks(kpm, ref=None, refID=None):
     nframe = kpm.shape[1]
     res = np.zeros((nconf, nframe))
     for i in range(nframe):
-        res[:,i] = utilPose.computeOKS_list(ref[i], kpm[:,i,:,:])
+        res[:,i] = utilPose.computeOKS_1toN(ref[i], kpm[:,i,:,:])
     return res
 
 # -------- part 3: IO of converted matrix --------

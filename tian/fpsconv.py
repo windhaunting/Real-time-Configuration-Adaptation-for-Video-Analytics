@@ -186,7 +186,7 @@ def convertFPS(kpm, ptm, tgtFps, srcFps=25, offset=0, refConf=0,
             if span > 1:
                 delta = np.stack([speed*i for i in range(1,span)], axis=1)
                 pose[:,1:,:,[0,1]] += delta
-        oksm = utilPose.computeOKS_mat(kpm[refConf,fused], pose)
+        oksm = utilPose.computeOKS_1toN(kpm[refConf,fused], pose)
         roks[:,i] = oksm.mean(1)
         rptm[:,i] = ptm[:,i]
         fused += span

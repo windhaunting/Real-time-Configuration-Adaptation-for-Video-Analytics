@@ -117,7 +117,7 @@ def fillUnseen(kpm, method='same'):
 __KPT_OKS_SIGMAS__ = np.array([.26, .25, .25, .35, .35, .79, .79, .72, .72, .62,.62, 1.07, 1.07, .87, .87, .89, .89])/10.0
 
 
-def computeOKS_pair(gts, dts, sigmas = None):
+def computeOKS_1to1(gts, dts, sigmas = None):
     '''
     Object Keypoint Similarity
     http://cocodataset.org/#keypoints-eval
@@ -167,7 +167,7 @@ def computeOKS_pair(gts, dts, sigmas = None):
     return np.sum(np.exp(-e)) / e.shape[0]
 
 
-def computeOKS_pairMat(gtsMat, dtsMat, sigmas = None):
+def computeOKS_NtoN(gtsMat, dtsMat, sigmas = None):
     assert gtsMat.shape == dtsMat.shape
     assert gtsMat.ndim >= 3
     assert gtsMat.shape[-2:] == (17, 3)
@@ -177,20 +177,24 @@ def computeOKS_pairMat(gtsMat, dtsMat, sigmas = None):
     g = gtsMat.reshape(-1, 17, 3)
     d = dtsMat.reshape(-1, 17, 3)
     for i in range(n):
-        res[i] = computeOKS_pair(g[i], d[i], sigmas)
+        res[i] = computeOKS_1to1(g[i], d[i], sigmas)
     return res.reshape(s)
 
 
-def computeOKS_list(gts, dtsList, sigmas = None):
+def computeOKS_1toN(gts, dtsMat, sigmas = None):
     '''
-    return a list of OKS for each dts in <dtsList> using gts as the reference
+    return a matrix of OKS for each dts in <dtsMat> using gts as the reference
     '''
     assert isinstance(gts, np.ndarray) and gts.shape == (17,3)
-    assert isinstance(dtsList[0], np.ndarray) and dtsList[0].shape == (17,3)
+    assert isinstance(dtsMat, np.ndarray) and dtsMat.shape[-2:] == (17,3)
+    assert dtsMat.ndim > 2
     sigmas = np.array(__KPT_OKS_SIGMAS__ if sigmas is None else sigmas)
     assert sigmas.shape == (17,)
     vars = (sigmas * 2)**2
-
+    
+    matShape = dtsMat.shape[:-2]
+    dtsList = dtsMat.reshape(-1,17,3)
+    
     xg = gts[:,0]
     yg = gts[:,1]
     vg = gts[:,2]
@@ -225,20 +229,32 @@ def computeOKS_list(gts, dtsList, sigmas = None):
             dy = np.max((z, y0-yd),axis=0)+np.max((z, yd-y1),axis=0)
             e = (dx**2 + dy**2) / vars / (area+np.spacing(1)) / 2
             res[i] = np.sum(np.exp(-e)) / 17
-    return res
+    return res.reshape(matShape)
 
 
-def computeOKS_mat(gts, dtsMat, sigmas = None):
+def computeOKS_NtoMN(gtsMat, dtsMat, sigmas = None):
     '''
-    return a matrix of OKS for each dts in <dtsMat> using gts as the reference
+    gts is 3d.
+    dts is 4d or higher.
     '''
-    assert isinstance(gts, np.ndarray) and gts.shape == (17,3)
-    assert isinstance(dtsMat, np.ndarray) and dtsMat.shape[-2:] == (17,3)
-    
+    assert gtsMat.ndim == 3 and gtsMat.shape[-2:] == (17,3)
+    assert dtsMat.ndim >= 4 and dtsMat.shape[-2:] == (17,3)
+    assert dtsMat.shape[-3] == gtsMat.shape[0]
+    sigmas = np.array(__KPT_OKS_SIGMAS__ if sigmas is None else sigmas)
+    assert sigmas.shape == (17,)
+    n = gtsMat.shape[0]
     matShape = dtsMat.shape[:-2]
-    oksl = computeOKS_list(gts, dtsMat.reshape(-1,17,3))
-    return oksl.reshape(matShape)
-
+    if len(matShape) > 2:
+        dtsMat = dtsMat.reshape((-1, n, 17, 3))
+    m = dtsMat.shape[0]
+    oks = np.zeros((m,n))
+    for i in range(n):
+        oks[:,i] = computeOKS_1toN(gtsMat[i], dtsMat[:,i], sigmas)
+    if len(matShape) > 2:
+        oks.resize(matShape)
+    return oks        
+    
+    
 
 # -------- part 4: analysis of OKS --------
 
