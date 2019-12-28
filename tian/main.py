@@ -12,10 +12,16 @@ Created on Thu Nov 14 10:29:24 2019
 
 import numpy as np
 
-from . import preprocess
-from . import fpsconv
-from . import feature
-from . import configuration
+try:
+    from . import preprocess
+    from . import fpsconv
+    from . import feature
+    from . import configuration
+except:
+    import preprocess
+    import fpsconv
+    import feature
+    import configuration
 
 
 __KPM_FILENAME__ = 'kpm.npy'

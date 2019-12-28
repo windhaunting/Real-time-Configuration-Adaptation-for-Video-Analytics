@@ -7,8 +7,12 @@ Created on Tue Nov 19 23:12:33 2019
 
 import numpy as np
 
-from . import utilPose
-from . import fpsconv
+try:
+    from . import utilPose
+    from . import fpsconv
+except:
+    import utilPose
+    import fpsconv
 
 
 def getDiff(kpm3, rkpm):
