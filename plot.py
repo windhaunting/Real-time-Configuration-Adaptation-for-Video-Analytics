@@ -7,11 +7,23 @@ Created on Fri May 31 13:26:31 2019
 """
 
 # plot common
+import numpy as np
 
 import matplotlib 
 matplotlib.use('Agg') 
 
 from matplotlib import pyplot as plt
+
+
+import matplotlib.pylab as pylab
+params = {'legend.fontsize': 14,
+         'figure.figsize': (8, 8),
+         'axes.labelsize': 14,
+         'axes.titlesize':14,
+         'xtick.labelsize':14,
+         'ytick.labelsize':14}   # 'large'}
+pylab.rcParams.update(params)
+
 
 
 
@@ -47,7 +59,6 @@ def plotFourSubplots(x_lst, y_lst_1, y_lst_2, y_lst_3, y_lst_4, x_label, y_label
     fig.tight_layout()
 
     return fig
-
 def plotThreeSubplots(x_lst, y_lst_1, y_lst_2, y_lst_3, x_label, y_label_1, y_label_2, y_label_3, title_name_1, title_name_2):
     '''
     plot two suplots 3X1 structure
@@ -141,6 +152,9 @@ def plotTwoSubplots(x_lst, y_lst_1, y_lst_2, x_label, y_label_1, y_label_2, titl
     #axes[0].legend([sc1], ["Admitted"])
     #axes[1].legend([sc2], ["Not-Admitted"])
     axes[0].set_title(title_name)
+    axes[0].grid(True)
+    axes[1].grid(True)
+
     #plt.show()
     #plt.savefig(outputPlotPdf)
     fig.tight_layout()
@@ -184,7 +198,7 @@ def plotTwoLineOneplot(x_lst1, y_lst11, y_lst12, xlabel, ylabel, title_name):
     
     axes.set(xlabel=xlabel, ylabel=ylabel)
     axes.set_title(title_name)
-    
+    axes.grid(True)
     #axes.legend(["Predicted_Acc"], ["Actual_Acc"])
     axes.legend(loc='lower right')
 
@@ -200,13 +214,16 @@ def plotTwoSubPlotOneFig(x_lst, y_lst1, y_lst2, xlabel, ylabel1, ylabel2, title_
     fig,axes=plt.subplots(nrows=2, ncols=1)
     axes[0].plot(x_lst, y_lst1, zorder=1) 
     sc1 = axes[0].scatter(x_lst, y_lst1, marker="o", color="r", zorder=2)
-    axes[1].plot(x_lst, y_lst2, zorder=1) 
-    sc2 = axes[1].scatter(x_lst,y_lst2, marker="x", color="k", zorder=2)
-    #axes[0].set(xlabel=xlabel, ylabel=ylabel1)
-    axes[1].set(xlabel=xlabel, ylabel=ylabel2)
-    
     axes[0].set_title(title_name)
+    axes[0].grid(True)
     
+    axes[1].plot(x_lst, y_lst2, zorder=1) 
+    axes[1].grid(True)
+    sc2 = axes[1].scatter(x_lst,y_lst2, marker="x", color="k", zorder=2)
+    axes[1].set(xlabel=xlabel, ylabel=ylabel2)
+
+    axes[0].grid(True)
+    axes[1].grid(True)
     #axes.legend(["Predicted_Acc"], ["Actual_Acc"])
     #axes.legend(loc='lower right')
     
@@ -214,8 +231,7 @@ def plotTwoSubPlotOneFig(x_lst, y_lst1, y_lst2, xlabel, ylabel1, ylabel2, title_
 
 def plotLineOneplotWithSticker(x_lst_stickers, y_lst1, xlabel, ylabel, title_name):
     '''
-    plot five suplots 3X1 structure
-    the first plot has two figures
+    plot with sticker
     '''
     x_lst1 = range(0, len(x_lst_stickers))
     fig,axes=plt.subplots(nrows=1, ncols=1)
@@ -231,13 +247,105 @@ def plotLineOneplotWithSticker(x_lst_stickers, y_lst1, xlabel, ylabel, title_nam
     axes.set(xlabel=xlabel, ylabel=ylabel)
     axes.set_title(title_name)
     axes.set_xticks(range(len(x_lst1)))
+    axes.grid(True)
 
     return fig
 
-#my_xticks = ['John','Arnold','Mavis','Matt']
-#plt.xticks(x, my_xticks)
-#plt.plot(x, y)
-#plt.show()
+def plotBarTwoDataWithSticker(x_lst_stickers, y_lst1, y_lst2, xlabel, ylabel, legend_labels, title_name, output_plot_pdf_path):
+
+    pdf = matplotlib.backends.backend_pdf.PdfPages(output_plot_pdf_path)
+    #fig = plotTwoLineOneplot(xlst, y_lst1, y_lst2, xlabel, ylabel, title_name)
+    x_lst1 = np.arange(0, len(x_lst_stickers))
+    fig,axes=plt.subplots(nrows=1, ncols=1)
+    print ("x_lst_stickers :", x_lst_stickers)
+    #axes.set_xlim(-1,70)
+    #plt.setp(axes.get_xticklabels(), fontsize=12, rotation='vertical')
+
+    width = 0.3
+    #axes.plot(x_lst1, y_lst1, zorder=0) 
+    sc11 = axes.bar(x_lst1-width, y_lst1, width, color='r', align='center', label = legend_labels[0])
+    sc12 = axes.bar(x_lst1, y_lst2,  width, color='b', align='center', label = legend_labels[1])
+    axes.legend(loc='best', shadow=True)  # , fontsize='small')  
+    
+    axes.set(xlabel=xlabel, ylabel=ylabel)
+    axes.set_title(title_name)
+    axes.set_xticks(range(len(x_lst1)))
+    axes.set_xticklabels(x_lst_stickers) # , rotation='vertical', fontdict={'fontsize': 8})
+    axes.grid(True)
+
+    pdf.savefig(fig)
+    
+    pdf.close()
+    
+
+def plotBarThreeDataWithSticker(x_lst_stickers, y_lst1, y_lst2, y_lst_3, xlabel, ylabel, legend_labels, title_name, output_plot_pdf_path):
+
+    pdf = matplotlib.backends.backend_pdf.PdfPages(output_plot_pdf_path)
+    x_lst1 = np.arange(0, len(x_lst_stickers))
+    fig,axes=plt.subplots(nrows=1, ncols=1)
+    print ("x_lst_stickers :", x_lst_stickers)
+    #axes.set_xlim(-1,70)
+    #plt.setp(axes.get_xticklabels(), fontsize=12, rotation='vertical')
+
+    width = 0.3
+    #axes.plot(x_lst1, y_lst1, zorder=0) 
+    sc11 = axes.bar(x_lst1-width, y_lst1, width, color='r', align='center', label = legend_labels[0])
+    sc12 = axes.bar(x_lst1, y_lst2,  width, color='b', align='center', label = legend_labels[1])
+    sc13 = axes.bar(x_lst1+width, y_lst3,  width, color='g', align='center', label = legend_labels[2])
+
+    axes.legend(loc='best', shadow=True)  # , fontsize='small')  
+    
+    axes.set(xlabel=xlabel, ylabel=ylabel)
+    axes.set_title(title_name)
+    axes.set_xticks(range(len(x_lst1)))
+    axes.set_xticklabels(x_lst_stickers) # , rotation='vertical', fontdict={'fontsize': 8})
+    axes.grid(True)
+
+    pdf.savefig(fig)
+    
+    pdf.close()
+    
+def plotStickerMultipleLines(lst_x_lst_stickers_seg_ratio, y_lsts, legend_labels, y_line_value, xlabel, ylabel, title_name):
+    '''
+    plot with sticker
+    '''
+    #x_lst1 = range(0, len(x_lst_stickers))
+    #print ("y_lsts :", y_lsts)
+    fig,axes=plt.subplots(nrows=1, ncols=1)
+    #axes.set_xlim(-1,70)
+
+    #plt.setp(axes.get_xticklabels(), fontsize=5, rotation='vertical')
+
+
+    for i, y_lst1 in enumerate(y_lsts[:-1]):
+        
+        x_lst1 = range(0, len(lst_x_lst_stickers_seg_ratio[i]))
+        print ("plotStickerMultipleLines: ", len(x_lst1), len(y_lst1), lst_x_lst_stickers_seg_ratio[i], x_lst1, y_lst1)
+        
+        axes.plot(x_lst1, y_lst1, label=legend_labels[i]) 
+        axes.scatter(x_lst1, y_lst1, marker="o", color="r", s=5)
+        axes.set_xticklabels(lst_x_lst_stickers_seg_ratio[i], rotation = 45, ha="right", fontdict={'fontsize': 13})
+        axes.set_xticks(range(len(lst_x_lst_stickers_seg_ratio[i])))
+
+      
+        
+        if ylabel == 'Accuracy':
+            axes.axhline(y=y_line_value, color='black', linestyle='-')
+            
+    leg = axes.legend(loc='upper right', shadow=True)       # 'best'
+    
+
+    #leg.get_frame().set_facecolor('#00FFCC')
+    #sc11 = axes.scatter(x_lst1, y_lst1, marker="o", color="r", zorder=0)
+    axes.set(xlabel=xlabel, ylabel=ylabel)
+    axes.set_title(title_name)
+    #axes.set_xticks(range(len(x_lst1)))
+
+    axes.grid(True)
+
+    return fig
+
+
 
 def plotLineOneplot(x_lst1, y_lst1, xlabel, ylabel, title_name):
     '''
@@ -250,6 +358,29 @@ def plotLineOneplot(x_lst1, y_lst1, xlabel, ylabel, title_name):
     sc11 = axes.scatter(x_lst1, y_lst1, marker="o", color="r", zorder=0)
     axes.set(xlabel=xlabel, ylabel=ylabel)
     axes.set_title(title_name)
+    axes.grid(True)
+
+    return fig
+
+
+def plotOnePlotMultiLine(y_lsts, legend_labels, xlabel, ylabel, title_name):
+    '''
+    plot multilple line on one plot
+    the first plot has two figures
+    '''
+    
+    fig,axes=plt.subplots(nrows=1, ncols=1)
+    for i, y_lst in enumerate(y_lsts):
+        x_lst1 = range(len(y_lst))
+        #print ("plotOnePlotMultiLine xlst: ", len(x_lst1), len(legend_labels), len(y_lst))
+        axes.plot(x_lst1, y_lst, zorder=0) 
+        sc11 = axes.scatter(x_lst1, y_lst, label = legend_labels[i], zorder=0)
+        
+    axes.legend(loc='best', shadow=True)  
+    axes.set(xlabel=xlabel, ylabel=ylabel, fontsize=13)
+    axes.set_title(title_name)
+    axes.grid(True)
+
     return fig
 
 
@@ -288,6 +419,7 @@ def plotTwoDimensionMultiLines(xList, yLists, xlabel, ylabel, changeLengendLst, 
     plt.ylabel(ylabel)
     #print ('changeLengendLst: ', len(changeLengendLst), len(yLists))
     averageYLst = []
+    
     for i, ylst in enumerate(yLists):
         plt.plot(xList, ylst, label=[changeLengendLst[i]])
         averageYLst.append(sum(ylst) / len(ylst) )
@@ -303,3 +435,31 @@ def plotTwoDimensionMultiLines(xList, yLists, xlabel, ylabel, changeLengendLst, 
 
     plt.grid(True)
     plt.savefig(outputPlotPdf)
+    
+    
+    
+def plot_fittingLine(x_lst1, y_lst1, xlabel, ylabel, title_name, xy_limScale=False):
+     
+    fig, axes= plt.subplots(nrows=1, ncols=1)
+    #axes.plot(x_lst1, y_lst1, zorder=0) 
+    sc11 = axes.scatter(x_lst1, y_lst1, marker="o", color="r", s=2)
+    
+    #axes = plt.gca()
+
+    #m, b = np.polyfit(x_lst1, y_lst1, 1)    
+    #X_plot = np.linspace(axes.get_xlim()[0],axes.get_xlim()[1],100)
+    #axes.plot(X_plot, m*X_plot + b, '-')
+
+    x1, x2 = 0,1
+    y1, y2 = 0, 1
+    axes.plot([x1,x2],[y1,y2],'k-', color="b")
+    
+    axes.set(xlabel=xlabel, ylabel=ylabel)
+    axes.set_title(title_name)
+    
+    if xy_limScale:
+        axes.set_xlim([0, 1.0])
+        axes.set_ylim([0, 1.0])
+    axes.grid(True)
+
+

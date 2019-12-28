@@ -42,8 +42,8 @@ current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
 
 print ("sys.path: ", sys.path)
-from tian.fpsconv import generateConfsFPS
-from tian.fpsconv import preprocess
+#from tian.fpsconv import generateConfsFPS
+#from tian.fpsconv import preprocess
 
 #from tian.main import processMat2conf
 
@@ -71,9 +71,8 @@ def getNewconfig(reso, model):
     return config_lst
 
 
-def getconfigSPFEachFrm(reso, model, time_spf, config_id_dict, index, lst_acc_seg_spf, frm_extracted_index_dict, confg_frm_spf_arr):
+def getconfigSPFEachSec(reso, model, time_spf, config_id_dict, index, lst_acc_seg_spf, frm_extracted_index_dict, confg_frm_spf_arr):
     '''
-    frame-by-frame consideration
     get new config's tiem_spf for the current frame ,  because the input is for PLAYOUT rate 25
     it's seg by seg 1 seg first to get the spf
     '''
@@ -98,6 +97,26 @@ def getconfigSPFEachFrm(reso, model, time_spf, config_id_dict, index, lst_acc_se
     #print ("confg_frm_acc_arr 2222: ",  confg_frm_acc_arr)
     return confg_frm_spf_arr
 
+
+def getconfigSPFEachFrm(reso, model, time_spf, config_id_dict, index, confg_frm_spf_arr):
+    '''
+    get new config's tiem_spf for the current frame ,  because the input is for PLAYOUT rate 25
+    it's seg by seg 1 seg first to get the spf
+    '''
+    for frmRt in frameRates:
+                
+        config = reso + '-' + str(frmRt) + '-' + model.split('_')[0]
+        #config = (int(reso.split('x')[1]), int(frmRt), modelToInt(model.split('_')[0]))   #
+        
+        #frmInter = math.ceil(PLAYOUT_RATE/frmRt) 
+        #new_spf = time_spf/frmInter
+        cfg_id = config_id_dict[config]
+        
+        confg_frm_spf_arr[cfg_id, index] = time_spf
+        #confg_frm_acc_arr[cfg_id, index] = acc
+        #print ("cfg_id new_spf: ", frmRt, cfg_id, new_spf)
+    #print ("confg_frm_acc_arr 2222: ",  confg_frm_acc_arr)
+    return confg_frm_spf_arr
 
 def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
     '''
@@ -224,7 +243,65 @@ def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir, sta
     return data_pickle_out_dir
 
 
-def write_confg_spf_result_interval(data_pose_keypoint_dir, data_pickle_dir, start_frm_index, interval):
+def getPredictedSPF(conf_arr_spf_origin, lst_indx):
+    
+    #use the predicted actual to replace the undetected frame
+    #the maximum is PLAYOUT_RATE
+    # input : estimation (25, )  config x 25 frames estimation
+    # output: 1x25 estimation      
+    conf_arr_new = np.zeros(conf_arr_spf_origin.shape, dtype=object)
+    #print ("conf_arr_origin dimen: ", conf_arr_origin)
+    
+    for ind in range(0, conf_arr_spf_origin.shape[0]):
+        if ind in lst_indx:
+            conf_arr_new[ind] = conf_arr_spf_origin[ind]
+        
+    #if len(lst_indx) == 13 or len(lst_indx) == 5:
+    #    print ("getPredictedSPF conf_arr_spf_origin : ", conf_arr_spf_origin.shape, conf_arr_spf_origin)
+    #    print ("getPredictedSPF lst_indx : ",  len(lst_indx), lst_indx, list(lst_indx), conf_arr_new, np.mean(conf_arr_new))
+    return np.mean(conf_arr_new)
+
+def get_spf_frm_result(confg_frm_spf_arr, id_config_dict):
+    # frame by frame consideration, but will consider 1 second interval for frame rate calculation
+    # input: confg_frm_spf_arr,  the frame rate's speed is just         frmInter = math.ceil(PLAYOUT_RATE/frmRt) 
+    #     new_spf = time_spf/frmInter
+    # not accurate
+    # need to update more accurate
+    
+    conf_num = confg_frm_spf_arr.shape[0]
+    frm_num = confg_frm_spf_arr.shape[1]
+    
+    frm_extracted_index_dict = defaultdict()
+    
+    for frmRt in frameRates:
+        frmInter = math.ceil(PLAYOUT_RATE/frmRt)          # frame rate sampling frames in interval, +1 every other
+        lst_indx = range(0, PLAYOUT_RATE, frmInter)
+        
+        print ("lst_indx: ", lst_indx, len(lst_indx))
+        frm_extracted_index_dict[frmRt] = lst_indx
+
+        
+    confg_frm_spf_new_arr = np.zeros((conf_num, frm_num-PLAYOUT_RATE))
+    for row_ind in range(0, conf_num):
+        config = id_config_dict[row_ind]
+        print('confg_frm_spf_arr config, row_ind: ', config, row_ind)
+        frmRt = int(config.split('-')[1])
+        lst_indx = frm_extracted_index_dict[frmRt]
+        for col_ind in range(0, frm_num-PLAYOUT_RATE):
+            
+            conf_arr_origin = confg_frm_spf_arr[row_ind][col_ind:col_ind+PLAYOUT_RATE]
+            spf = getPredictedSPF(conf_arr_origin, lst_indx)
+            
+            
+            #print ("acc_arr: ",config, acc_arr.shape, acc_arr)
+            confg_frm_spf_new_arr[row_ind][col_ind] = spf
+            
+
+    return confg_frm_spf_new_arr
+
+            
+
+def write_confg_spf_result_interval(data_pose_keypoint_dir, data_pickle_dir, start_frm_index, intervalFlag):
     
     # modify the spf result interval 1 sec first
 
@@ -247,7 +324,6 @@ def write_confg_spf_result_interval(data_pose_keypoint_dir, data_pickle_dir, sta
     df_det = pd.read_csv(filePathLst[0], delimiter='\t', index_col=False)         # det-> detection
     frame_num = len(df_det)-start_frm_index     #  maybe some frame_id is missing, only consider all frames that could be parsed from a video
     #create a numpy array
-    confg_frm_est_arr = np.zeros((config_num, frame_num), dtype=object) # array of estimation result with config vs frame_Id
     
     confg_frm_spf_arr = np.zeros((config_num, frame_num)) # array of time_spf with config vs frame_Id
     
@@ -256,9 +332,8 @@ def write_confg_spf_result_interval(data_pose_keypoint_dir, data_pickle_dir, sta
     for fileCnt, filePath in enumerate(filePathLst):
         df_det = pd.read_csv(filePath, delimiter='\t', index_col=False)             # det-> detection
         
-        print ("numy shape: ", confg_frm_est_arr.shape, filePath)
+        print ("numy shape: ", confg_frm_spf_arr.shape, filePath)
         start_index = 0
-        accu_step = 0
         lst_acc_seg_spf = []
         for index, row in df_det.iloc[start_frm_index:].iterrows():  
             
@@ -268,39 +343,64 @@ def write_confg_spf_result_interval(data_pose_keypoint_dir, data_pickle_dir, sta
             #frm_id = int(row['Image_path'].split('/')[-1].split('.')[0])
             #est_res = row['Estimation_result']
             time_spf = row['Time_SPF']
-            #print ("est_ressssss: ", est_res)
+            #print ("est_ressssss: ", start_index, frame_num)
             #get the config index
             lst_acc_seg_spf.append(time_spf)
-            accu_step += 1
             
             start_index += 1
-
-            if (len(lst_acc_seg_spf) >= PLAYOUT_RATE):
-                #print ("confg_frm_est_arr: ", str(confg_frm_est_arr[id_conf,index]))
-                confg_frm_spf_arr = getconfigSPFEachFrm(reso, model, time_spf, config_id_dict, start_index-PLAYOUT_RATE, lst_acc_seg_spf, frm_extracted_index_dict, confg_frm_spf_arr)
-                  
-                lst_acc_seg_spf.clear()
-                accu_step = 0
-
+            
+            if intervalFlag == 'frame':
+                confg_frm_spf_arr = getconfigSPFEachFrm(reso, model, time_spf, config_id_dict, start_index-1, confg_frm_spf_arr)
+                                      
+            elif intervalFlag == 'sec':
+                if (len(lst_acc_seg_spf) >= PLAYOUT_RATE):
+                    #print ("confg_frm_est_arr: ", str(confg_frm_est_arr[id_conf,index]))
+                    confg_frm_spf_arr = getconfigSPFEachSec(reso, model, time_spf, config_id_dict, start_index-PLAYOUT_RATE, lst_acc_seg_spf, frm_extracted_index_dict, confg_frm_spf_arr)
+                      
+                    lst_acc_seg_spf.clear()
+                    
             
             #print ("lst_acc_seg_spf: ", lst_acc_seg_spf)
-            
-    if start_frm_index == 0:
-
-        with open(data_pickle_dir + 'config_spf_interval_' + str(interval) +'sec.pkl','wb') as fs:
-            pickle.dump(confg_frm_spf_arr, fs)
-            
-        return data_pickle_dir
-    else:
+       
+    if intervalFlag == 'frame':
         
-        data_pickle_out_parent_dir = "/".join(data_pose_keypoint_dir.split("/")[:-2]) + "/" + data_pose_keypoint_dir.split("/")[-2] + "-start-"+ str(start_frm_index)
+        # update spf real frame_rate
+        confg_frm_spf_new_arr = get_spf_frm_result(confg_frm_spf_arr, id_config_dict)
         
-        data_pickle_out_dir = data_pickle_out_parent_dir + "/frames_pickle_result/"
-        if not os.path.exists(data_pickle_out_dir):
-            os.mkdir(data_pickle_out_dir)    
+        if start_frm_index == 0:
+    
+            with open(data_pickle_dir + 'config_spf_frm.pkl','wb') as fs:
+                pickle.dump(confg_frm_spf_new_arr, fs)
+                
+            return data_pickle_dir
+        else:
             
-        with open(data_pickle_out_dir + 'config_spf_interval_' + str(interval) +'sec.pkl' ,'wb') as fs:
-            pickle.dump(confg_frm_spf_arr, fs)
+            data_pickle_out_parent_dir = "/".join(data_pose_keypoint_dir.split("/")[:-2]) + "/" + data_pose_keypoint_dir.split("/")[-2] + "-start-"+ str(start_frm_index)
+            
+            data_pickle_out_dir = data_pickle_out_parent_dir + "/frames_pickle_result/"
+            if not os.path.exists(data_pickle_out_dir):
+                os.mkdir(data_pickle_out_dir)    
+                
+            with open(data_pickle_out_dir + 'config_spf_frm.pkl' ,'wb') as fs:
+                pickle.dump(confg_frm_spf_arr, fs)
+        
+    elif intervalFlag == 'sec':
+        if start_frm_index == 0:
+    
+            with open(data_pickle_dir + 'config_spf_interval_' + str(intervalFlag) +'sec.pkl','wb') as fs:
+                pickle.dump(confg_frm_spf_arr, fs)
+                
+            return data_pickle_dir
+        else:
+            
+            data_pickle_out_parent_dir = "/".join(data_pose_keypoint_dir.split("/")[:-2]) + "/" + data_pose_keypoint_dir.split("/")[-2] + "-start-"+ str(start_frm_index)
+            
+            data_pickle_out_dir = data_pickle_out_parent_dir + "/frames_pickle_result/"
+            if not os.path.exists(data_pickle_out_dir):
+                os.mkdir(data_pickle_out_dir)    
+                
+            with open(data_pickle_out_dir + 'config_spf_interval_' + str(intervalFlag) +'sec.pkl' ,'wb') as fs:
+                pickle.dump(confg_frm_spf_arr, fs)
             
     return data_pickle_dir
 
@@ -322,18 +422,18 @@ def readConfigFrmEstFile(data_pickle_dir):
 def getPredictedPoseEst(conf_arr_origin, lst_indx):
     #use the predicted actual to replace the undetected frame
     #the maximum is PLAYOUT_RATE
-    # input : estimation 1x25   config x 25 frames estimation
-    # output: 1x25 estimation      
+    # input : estimation (25,)  config x 25 frames estimation
+    # output: shape (25, ) estimation      
     conf_arr_new = np.zeros(conf_arr_origin.shape, dtype=object)
     #print ("conf_arr_origin dimen: ", conf_arr_origin)
     
     current_pose = conf_arr_origin[0]
-    for ind in range(0, conf_arr_origin.shape[0]):
+    for ind in range(0, conf_arr_origin.shape[0]):     
         
-        conf_arr_new[ind] = current_pose
+        conf_arr_new[ind] = current_pose           # replace the current pose 
         if (ind+1) in lst_indx:
             current_pose = conf_arr_origin[ind+1]
-            
+  
     return conf_arr_new
     
     
@@ -361,7 +461,7 @@ def write_config_frm_acc_result(data_pose_keypoint_dir, confg_frm_est_arr, data_
     confg_frm_acc_arr = np.zeros((confg_frm_est_arr.shape[0], confg_frm_est_arr.shape[1]-PLAYOUT_RATE))
     for row_ind in range(0, confg_frm_est_arr.shape[0]):
         config = id_config_dict[row_ind]
-        print('config, row_ind: ', config, row_ind)
+        print('confg_frm_acc_arr config, row_ind: ', config, row_ind)
         frmRt = int(config.split('-')[1])
         lst_indx = frm_extracted_index_dict[frmRt]
         for col_ind in range(0, confg_frm_est_arr.shape[1]-PLAYOUT_RATE):
@@ -389,7 +489,7 @@ def write_config_frm_acc_result(data_pose_keypoint_dir, confg_frm_est_arr, data_
 
     
 
-def write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_out_dir, interval, metric):
+def write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_out_dir, intervalFlag, metric):
     #1second interval consideration to calculate oks or acc
     #get each config acc for each frame, use actual pose estimation to replace the undetected frames 
     # when calculating low frame rate
@@ -417,26 +517,45 @@ def write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_e
         print('config, row_ind: ', config, row_ind)
         frmRt = int(config.split('-')[1])
         lst_indx = frm_extracted_index_dict[frmRt]
-        for col_ind in range(0, confg_frm_est_arr.shape[1]-PLAYOUT_RATE, PLAYOUT_RATE):
-            #print('config, col_ind: ', config, col_ind, confg_frm_est_arr[row_ind][col_ind])
-            # construct 25 frames result
-            conf_arr_origin = confg_frm_est_arr[row_ind][col_ind:col_ind+PLAYOUT_RATE]
-            conf_arr_new = getPredictedPoseEst(conf_arr_origin, lst_indx)
-            #print ("conf_arr_new dimen: ",lst_indx, conf_arr_new)
+        
+        if intervalFlag == 'frame':
+            for col_ind in range(0, confg_frm_est_arr.shape[1]-PLAYOUT_RATE):
+                conf_arr_origin = confg_frm_est_arr[row_ind][col_ind:col_ind+PLAYOUT_RATE]
+                conf_arr_new = getPredictedPoseEst(conf_arr_origin, lst_indx)
+                #print ("conf_arr_new dimen: ",lst_indx, conf_arr_new)
+                
+                gts_arr = confg_frm_est_arr[0][col_ind:col_ind+PLAYOUT_RATE] 
+                
+                #calculate the accuracy
+                acc = np.mean(calculate_config_frm_acc(conf_arr_new, gts_arr, metric))
+                #print ("acc_arr: ",config, acc_arr.shape, acc_arr)
+                confg_frm_acc_arr[row_ind][col_ind] = acc
             
-            gts_arr = confg_frm_est_arr[0][col_ind:col_ind+PLAYOUT_RATE] 
-            
-            #calculate the accuracy
-            acc = np.mean(calculate_config_frm_acc(conf_arr_new, gts_arr, metric))
-            #print ("acc_arr: ",config, acc_arr.shape, acc_arr)
-            if col_ind == 1575:
-                print ("acc_arrrrrr: ",config,row_ind, acc)
-            confg_frm_acc_arr[row_ind][col_ind] = acc
+        elif intervalFlag == 'sec':
+            for col_ind in range(0, confg_frm_est_arr.shape[1]-PLAYOUT_RATE, PLAYOUT_RATE):
+                #print('config, col_ind: ', config, col_ind, confg_frm_est_arr[row_ind][col_ind])
+                # construct 25 frames result
+                conf_arr_origin = confg_frm_est_arr[row_ind][col_ind:col_ind+PLAYOUT_RATE]
+                conf_arr_new = getPredictedPoseEst(conf_arr_origin, lst_indx)
+                #print ("conf_arr_new dimen: ",lst_indx, conf_arr_new)
+                
+                gts_arr = confg_frm_est_arr[0][col_ind:col_ind+PLAYOUT_RATE] 
+                
+                #calculate the accuracy
+                acc = np.mean(calculate_config_frm_acc(conf_arr_new, gts_arr, metric))
+                #print ("acc_arr: ",config, acc_arr.shape, acc_arr)
+                #if col_ind == 1575:
+                #    print ("acc_arrrrrr: ",config,row_ind, acc)
+                confg_frm_acc_arr[row_ind][col_ind] = acc
             
 
     print('config, ddd: ', config, col_ind, confg_frm_acc_arr.shape)
     
-    out_frm_acc_pickle_file = data_pickle_out_dir + "config_" + metric + "_interval_" + str(interval) +"sec.pkl"      # acc for config vs each frame
+    if intervalFlag == 'frame':
+        out_frm_acc_pickle_file = data_pickle_out_dir + "config_" + metric + "_frm.pkl"      # acc for config vs each frame
+
+    elif intervalFlag == 'sec':
+        out_frm_acc_pickle_file = data_pickle_out_dir + "config_" + metric + "_interval_" + str(intervalFlag) +"sec.pkl"      # acc for config vs each frame
         
     with open(out_frm_acc_pickle_file,'wb') as fs:
         pickle.dump(confg_frm_acc_arr, fs)   
@@ -445,7 +564,7 @@ def write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_e
 
 def getOnePersonEstimation(ests_arr):
     '''
-   use only one person select the confidence score higher
+    use only one person select the confidence score higher
     '''
     #print ("ests_arr ests_arr: ", ests_arr)
     
@@ -570,7 +689,7 @@ def executeWriteIntoPickleOnePeron():
                     'output_021_dance/']
     
     
-    for vd_dir in video_dir_lst[5:6]:        # [3:4]:   # [0:1]:
+    for vd_dir in video_dir_lst[2:3]:        # [3:4]:   # [0:1]:
         
         data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
         if not os.path.exists(data_pickle_dir):
@@ -582,30 +701,45 @@ def executeWriteIntoPickleOnePeron():
         #data_pickle_dir = write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir, start_frm_index)
         
         
-        interval = 1       # 1 sec
-
-        #write_confg_spf_result_interval(dataDir3 +  vd_dir, data_pickle_dir, start_frm_index, interval)
         
+        intervalFlag = 'frame'
         
-        confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
+        if intervalFlag == 'frame':
+            write_confg_spf_result_interval(dataDir3 + vd_dir, data_pickle_dir, start_frm_index, intervalFlag)
+            
+            
+            confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
+    
+            data_pose_keypoint_dir = dataDir3 +  vd_dir
+    
+            metric = 'oks'
+            write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, intervalFlag, metric)
+            
+            
+        elif intervalFlag == 'sec':
 
-        data_pose_keypoint_dir = dataDir3 +  vd_dir
-
-        metric = 'oks'
-        write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, interval, metric)
+            interval = 1       # 1 sec
+    
+            #write_confg_spf_result_interval(dataDir3 + vd_dir, data_pickle_dir, start_frm_index, intervalFlag)
+            
+            
+            confg_frm_est_arr = readConfigFrmEstFile(data_pickle_dir)
+    
+            data_pose_keypoint_dir = dataDir3 +  vd_dir
+    
+            metric = 'oks'
+            write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, intervalFlag, metric)
+            
+            #metric = 'acc'
+            #write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, interval, metric)
+            
+            elapsed_time = time.time() - st_time
+            print ("elapsed_time for each file: ", elapsed_time)
         
-        #metric = 'acc'
-        #write_config_frm_acc_oks_result_interval(data_pose_keypoint_dir, confg_frm_est_arr, data_pickle_dir, interval, metric)
-        
-        elapsed_time = time.time() - st_time
-        print ("elapsed_time for each file: ", elapsed_time)
-        
 
-
+'''
 def get_more_accurate_oks_by_extrapolation():
-    '''
-    call Tian's method for extrapolation
-    '''  
+    # call Tian's method for extrapolation
     fpsList = [25, 15, 10, 5, 2, 1]
     
     video_dir_lst = ['output_001_dance/', 'output_002_dance/', \
@@ -644,9 +778,10 @@ def get_more_accurate_oks_by_extrapolation():
         method='ema:0.8'
         roks, rptm = generateConfsFPS(kpm, ptm, fpsList, 25, segSec, method)
         np.savez(dpath+"", oks=roks, ptm=rptm, fpsList=fpsList, rslList=resoStrLst_OpenPose)
-        
+'''
+     
 if __name__== "__main__":
     
-    #executeWriteIntoPickleOnePeron()
+    executeWriteIntoPickleOnePeron()
     #extendMoreDataSamplingWriteIntoPickle()
-    get_more_accurate_oks_by_extrapolation()
+    #get_more_accurate_oks_by_extrapolation()

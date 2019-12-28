@@ -14,6 +14,11 @@ dataDir1 = "input_output/mpii_dataset/"
 
 dataDir2 = "input_output/diy_video_dataset/"
 
+
+dataDir3 = 'input_output/one_person_diy_video_dataset/'
+
+PLAYOUT_RATE = 25
+
 # define a class including each clip's profile result
 class cls_profile_video(object):
     # cameraNo is the camera no. for multiple camera streaming. 

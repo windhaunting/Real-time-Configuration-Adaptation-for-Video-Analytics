@@ -23,15 +23,15 @@ from matplotlib import pyplot as plot
 from matplotlib.backends.backend_pdf import PdfPages
 
 from sklearn.preprocessing import OneHotEncoder
-from common_plot import plotTwoLinesOneFigure
-from common_plot import plotTwoSubplots
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
 
+from classifierForSwitchConfig.common_plot import plotTwoSubplots
 
 from profiling.common_prof import dataDir3
 from profiling.common_prof import frameRates
+
 
 COCO_KP_NUM = 17      # total 17 keypoints
 
@@ -247,14 +247,13 @@ def get_cmu_model_config_acc_spf(data_pickle_dir, data_pose_keypoint_dir):
         return acc_frame_arr, spf_frame_arr, id_config_dict
 
 def getParetoBoundary(acc_arr, spf_arr):
-    #acc_frame_arr, spf_frame_arr = readProfilingResultNumpy(data_pickle_dir)
-    
-    
-    # given a config of accuracy and spf
+    #given a segment's profiling interval's accuracy and spf
+    # get the configuration on pareto boundary and above
+       
     num_confg = acc_arr.shape[0]
     
     config_ind_pareto = []
-    print ("acc_shape: ", num_confg)
+    #print ("acc_shape: ", num_confg)
     for i in range(0, num_confg):
         found_flag = True
         for j in range(0, num_confg):
@@ -269,6 +268,30 @@ def getParetoBoundary(acc_arr, spf_arr):
         
     return config_ind_pareto
     
+
+def getParetoBoundary_boundeAcc(acc_arr, spf_arr, minAcc):
+    #given a segment's profiling interval's accuracy and spf
+    # get the configuration on pareto boundary and above the bounded accuracy of first segment
+    
+    num_confg = acc_arr.shape[0]
+    
+    config_ind_pareto = []
+    #print ("acc_shape: ", num_confg)
+    for i in range(0, num_confg):
+        found_flag = True
+        for j in range(0, num_confg):
+            if i == j:
+                continue
+            if acc_arr[j] > acc_arr[i] and spf_arr[j] < spf_arr[i]:
+                found_flag = False
+                break
+            
+        if found_flag and acc_arr[i] >= minAcc:
+            config_ind_pareto.append(i)
+        
+    
+    return config_ind_pareto
+
 def getNewconfig(reso, model):
     '''
     get new config from all available frames
@@ -401,12 +424,13 @@ def readProfilingResultNumpy(data_pickle_dir, intervalFlag):
     
     '''
     if intervalFlag == 'frame':
-        acc_frame_arr = np.load(data_pickle_dir + 'config_acc_frm.pkl', allow_pickle=True)          # frame by frame but it also calculate the 1sec interval with each frame starting
+        acc_frame_arr = np.load(data_pickle_dir + 'config_oks_frm.pkl', allow_pickle=True)          # frame by frame but it also calculate the 1sec interval with each frame starting
+        spf_frame_arr = np.load(data_pickle_dir + 'config_spf_frm.pkl', allow_pickle=True)      # # every 1 sec to calculate spf
+
     elif intervalFlag == 'sec':
         #acc_frame_arr = np.load(data_pickle_dir + 'config_acc_interval_1sec.pkl')
-        acc_frame_arr = np.load(data_pickle_dir + 'config_oks_interval_1sec.pkl', allow_pickle=True)
-#        
-    spf_frame_arr = np.load(data_pickle_dir + 'config_spf_interval_1sec.pkl', allow_pickle=True)
+        acc_frame_arr = np.load(data_pickle_dir + 'config_oks_interval_1sec.pkl', allow_pickle=True)  # every 1 sec to calculate acc/spf
+        spf_frame_arr = np.load(data_pickle_dir + 'config_spf_interval_1sec.pkl', allow_pickle=True)      # # every 1 sec to calculate spf
     #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
     #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
     
