@@ -104,7 +104,8 @@ def drawHuman(npimg, est_arr):
         cv2.line(npimg, pt1, pt2, (0, 255, 255), 3)
 
     return npimg
-    
+
+"""   
 def getPersonEstimation(est_res):
     '''
     analyze the personNo's pose estimation result with highest confidence score
@@ -120,22 +121,26 @@ def getPersonEstimation(est_res):
     '''
     
     #print ("est_res: ", est_res)
-    strLst = re.findall(r'],\d.\d+', est_res)
-    person_score = [re.findall(r'\d.\d+', st) for st in strLst]
+    try:
+        strLst = re.findall(r'],\d.\d+', est_res)
+        person_score = [re.findall(r'\d.\d+', st) for st in strLst]
     
-    personNo = np.argmax(person_score)
+        personNo = np.argmax(person_score)
+        
+        est_res = est_res.split(';')[personNo]
+        
+        lst_points = [[float(t[0]), float(t[1]), float(t[2])] for t in re.findall(r'(0(?:\.\d*)?), (0(?:\.\d*)?), (\d\.[0]|[0123])', est_res)]
     
+        kp_arr = np.array(lst_points)
+    except:
+        print ("est_resest_resest_resest_res: ", est_res)
     
-    est_res = est_res.split(';')[personNo]
-    
-    lst_points = [[float(t[0]), float(t[1]), float(t[2])] for t in re.findall(r'(0(?:\.\d*)?), (0(?:\.\d*)?), (\d\.[0]|[0123])', est_res)]
-
-    kp_arr = np.array(lst_points)
-    
+        kp_arr = np.zeros((17,3))
     #print ("kp_arr: ", kp_arr.shape, kp_arr)
     return kp_arr
+"""
 
-    
+
 def load_data_all_features(data_examples_dir, xfile, yfile):
     '''
     data the data for traing and test with all the features, 
@@ -356,6 +361,8 @@ def read_all_config_name_from_file(data_pose_keypoint_dir, write_flag):
 
 
 
+
+
 def extract_specific_config_name_from_file(data_pose_keypoint_dir, resolution_set, frame_set, model_set):
     '''
     extract the specific config from a certain resolution, frame_rate, and/or model
@@ -412,7 +419,23 @@ def read_poseEst_conf_frm(data_pickle_dir):
     #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
     #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
     
-    print ("confg_est_frm_arr ", type(confg_est_frm_arr), confg_est_frm_arr.shape)
+    #print ("confg_est_frm_arr ", type(confg_est_frm_arr), confg_est_frm_arr.shape)
+    
+    return confg_est_frm_arr
+
+
+def read_poseEst_conf_frm_more_dim(data_pickle_dir):
+    '''
+    read profiling conf's pose of each frame from pickle 
+    the pickle file is created from the file "writeIntoPickleConfigFrameAccSPFPoseEst.py"
+    
+    '''
+    
+    confg_est_frm_arr = np.load(data_pickle_dir + 'config_estimation_frm_more_dim.pkl', allow_pickle=True)
+    #acc_seg_arr = np.load(data_pickle_dir + file_lst[2])
+    #spf_seg_arr = np.load(data_pickle_dir + file_lst[3])
+    
+    #print ("confg_est_frm_arr ", type(confg_est_frm_arr), confg_est_frm_arr.shape)
     
     return confg_est_frm_arr
 

@@ -35,7 +35,7 @@ dataDir3 = '../input_output/one_person_diy_video_dataset/'
 
 
 PLAYOUT_RATE = 25
-NUM_KEYPOINT = 17
+NUM_KEYPOINT = 17    # total 17 keypoints
 
 __KPT_OKS_SIGMAS__ = np.array([.26, .25, .25, .35, .35, .79, .79, .72, .72, .62,.62, 1.07, 1.07, .87, .87, .89, .89])/10.0
 
@@ -152,7 +152,38 @@ def extraction_kp_to_numpy(est_res, num_humans):
     return kp_arr, person_score[personNo][0]
     
     
-
+def getPersonEstimation(est_res):
+    '''
+    analyze the personNo's pose estimation result with highest confidence score
+    input: 
+        [500, 220, 2, 514, 214, 2, 498, 210, 2, 538, 232, 2, 0, 0, 0, 562, 308, 2, 470, 304, 2, 614, 362, 2, 420, 362, 2, 674, 398, 2, 372, 394, 2, 568, 468, 2, 506, 468, 2, 596, 594, 2, 438, 554, 2, 616, 696, 2, 472, 658, 2],1.4246317148208618;
+        [974, 168, 2, 988, 162, 2, 968, 158, 2, 1004, 180, 2, 0, 0, 0, 1026, 244, 2, 928, 250, 2, 1072, 310, 2, 882, 302, 2, 1112, 360, 2, 810, 346, 2, 1016, 398, 2, 948, 396, 2, 1064, 518, 2, 876, 482, 2, 1060, 630, 2, 900, 594, 2],1.4541109800338745;
+        [6, 172, 2, 16, 164, 2, 6, 162, 2, 48, 182, 2, 0, 0, 0, 68, 256, 2, 10, 254, 2, 112, 312, 2, 0, 0, 0, 168, 328, 2, 0, 0, 0, 70, 412, 2, 28, 420, 2, 108, 600, 2, 0, 0, 0, 144, 692, 2, 0, 0, 0],1.283275842666626;
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 74, 162, 2, 0, 0, 0, 92, 208, 2, 42, 206, 2, 134, 250, 2, 0, 0, 0, 176, 284, 2, 0, 0, 0, 118, 334, 2, 86, 334, 2, 126, 396, 2, 80, 396, 2, 148, 548, 2, 0, 0, 0],0.9429177641868591
+        
+        
+    output:
+        a specific person's detection result arr (17x2) or 17*3
+    '''
+    
+    #print ("est_res: ", est_res)
+    try:
+        strLst = re.findall(r'],\d.\d+', est_res)
+        person_score = [re.findall(r'\d.\d+', st) for st in strLst]
+    
+        personNo = np.argmax(person_score)
+        
+        est_res = est_res.split(';')[personNo]
+        
+        lst_points = [[float(t[0]), float(t[1]), float(t[2])] for t in re.findall(r'(0(?:\.\d*)?), (0(?:\.\d*)?), (\d\.[0]|[0123])', est_res)]
+    
+        kp_arr = np.array(lst_points)
+    except:
+        print ("est_resest_resest_resest_res: ", est_res)
+    
+        kp_arr = np.zeros((17,3))
+    #print ("kp_arr: ", kp_arr.shape, kp_arr)
+    return kp_arr
 
 
 '''
@@ -507,6 +538,56 @@ def computeOKSFromOrigin(est_result, gt_result, img_path):
     iousScore = float(ious[0, 0])
     
     return iousScore
+
+
+def computeOKS_1to1(gts, dts, sigmas = None):
+    '''
+    Object Keypoint Similarity
+    http://cocodataset.org/#keypoints-eval
+    OKS = Σi[exp(-di2/2s2κi2)δ(vi>0)] / Σi[δ(vi>0)]
+    https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/cocoeval.py
+    input:
+        <gts>: ground truth key points. Format: 2d array with shape (17,3) for the (x,y) coordinates of the 17 keypoints.
+        <dts>: destination key points. Format: the same as <gts>.
+    output:
+        a scalar of oks
+    '''
+    assert isinstance(gts, np.ndarray) and gts.shape == (17,3)
+    assert isinstance(dts, np.ndarray) and dts.shape == (17,3)
+    sigmas = np.array(__KPT_OKS_SIGMAS__ if sigmas is None else sigmas)
+    assert sigmas.shape == (17,)
+    vars = (sigmas * 2)**2
+
+    xg = gts[:,0]
+    yg = gts[:,1]
+    vg = gts[:,2]
+    k1 = np.count_nonzero(vg > 0)
+
+    xmin = xg.min(); xmax = xg.max(); xdif = xmax - xmin;
+    ymin = yg.min(); ymax = yg.max(); ydif = ymax - ymin;
+    area = (xmax - xmin)*(ymax - ymin)
+    
+    xd = dts[:,0]
+    yd = dts[:,1]
+    #vd = np.zeros_like(dg) + 2
+    #k2 = np.count_nonzero(vd > 0)
+
+    if k1>0:
+        # measure the per-keypoint distance if keypoints visible
+        dx = xd - xg
+        dy = yd - yg
+    else:
+        # measure minimum distance to keypoints in (x0,y0) & (x1,y1)
+        #bb = gt['bbox']
+        x0 = xmin - xdif; x1 = xmax + xdif;
+        y0 = ymin - ydif; y1 = ymax + ydif;
+        z = np.zeros((17))
+        dx = np.max((z, x0-xd),axis=0)+np.max((z, xd-x1),axis=0)
+        dy = np.max((z, y0-yd),axis=0)+np.max((z, yd-y1),axis=0)
+    e = (dx**2 + dy**2) / vars / (area+np.spacing(1)) / 2
+    if k1 > 0:
+        e=e[vg > 0]
+    return np.sum(np.exp(-e)) / e.shape[0]
 
 
 def executeVideoToFrames():

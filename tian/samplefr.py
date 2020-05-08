@@ -88,6 +88,10 @@ def getGroupSpeed(kpm, srate, method='ema', alpha=0.8):
         speed = sm.calcUpdateSpeed(speedOld, speedNew)
         ii += 1
         res[:,ii] = cart2speed(speed)
+        
+    print ("getGroupSpeed, kp:", res.shape)
+    
+    return
     return res
 
 

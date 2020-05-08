@@ -29,14 +29,16 @@ from blist import blist
 from collections import defaultdict
 from glob import glob
 
+current_file_cur = os.path.dirname(os.path.abspath(__file__))
 
-#sfrom common_prof import dataDir2
+sys.path.insert(1, current_file_cur)
 from common_prof import  dataDir3
 from common_prof import frameRates
 from common_prof import PLAYOUT_RATE
 from common_prof import resoStrLst_OpenPose
 from common_prof import computeOKSAP
 from common_prof import computeOKSFromOrigin
+from common_prof import getPersonEstimation
 
 current_file_cur = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_file_cur + '/..')
@@ -169,6 +171,24 @@ def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
 
 
 
+def get_config_est_more_dim(config_est_frm_arr):
+    #input:  (config_num, frame_number, )
+    #output to extend more  (config_num, frame_number, ), 17, 3)
+    origin_shape = config_est_frm_arr.shape
+    print ('origin_shape', origin_shape)
+    
+    estimat_frm_arr_more_dim = np.zeros((origin_shape[0], origin_shape[1], 17, 3))
+    for curr_config in range(0, origin_shape[0]): # origin_shape[0]):
+        for index in range(0, origin_shape[1]):  
+            est_res = config_est_frm_arr[curr_config][index]  # use selected config's pose estimation result
+            
+            kp_arr = getPersonEstimation(est_res)
+    
+            estimat_frm_arr_more_dim[curr_config][index] = kp_arr
+    
+    #print ('estimat_frm_arr_more_dim', estimat_frm_arr_more_dim.shape)
+    
+    return estimat_frm_arr_more_dim
 
 def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir, start_frm_index):
     '''
@@ -224,6 +244,11 @@ def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir, sta
         with open(data_pickle_dir + 'config_estimation_frm.pkl','wb') as fs:
             pickle.dump(confg_frm_est_arr, fs)
           
+        
+        estimat_frm_arr_more_dim = get_config_est_more_dim(confg_frm_est_arr)
+    
+        with open(data_pickle_dir + 'config_estimation_frm_more_dim.pkl','wb') as fs:
+            pickle.dump(estimat_frm_arr_more_dim, fs)
             
         return data_pickle_dir
     else:
@@ -239,8 +264,13 @@ def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir, sta
         with open(data_pickle_out_dir + 'config_estimation_frm.pkl','wb') as fs:
             pickle.dump(confg_frm_est_arr, fs)
 
+        estimat_frm_arr_more_dim = get_config_est_more_dim(confg_frm_est_arr)
+    
+        with open(data_pickle_out_dir + 'config_estimation_frm_more_dim.pkl','wb') as fs:
+            pickle.dump(estimat_frm_arr_more_dim, fs)
             
     return data_pickle_out_dir
+
 
 
 def getPredictedSPF(conf_arr_spf_origin, lst_indx):
@@ -689,7 +719,7 @@ def executeWriteIntoPickleOnePeron():
                     'output_021_dance/']
     
     
-    for vd_dir in video_dir_lst[2:3]:        # [3:4]:   # [0:1]:
+    for vd_dir in video_dir_lst[4:5]:        # [3:4]:   # [0:1]:
         
         data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
         if not os.path.exists(data_pickle_dir):
@@ -698,10 +728,10 @@ def executeWriteIntoPickleOnePeron():
         
         st_time = time.time()
         start_frm_index = 0        # 10 frames
-        #data_pickle_dir = write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir, start_frm_index)
+        data_pickle_dir = write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir, start_frm_index)
         
         
-        
+        """
         intervalFlag = 'frame'
         
         if intervalFlag == 'frame':
@@ -735,7 +765,8 @@ def executeWriteIntoPickleOnePeron():
             
             elapsed_time = time.time() - st_time
             print ("elapsed_time for each file: ", elapsed_time)
-        
+        """
+
 
 '''
 def get_more_accurate_oks_by_extrapolation():

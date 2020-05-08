@@ -278,7 +278,7 @@ def plotBarTwoDataWithSticker(x_lst_stickers, y_lst1, y_lst2, xlabel, ylabel, le
     pdf.close()
     
 
-def plotBarThreeDataWithSticker(x_lst_stickers, y_lst1, y_lst2, y_lst_3, xlabel, ylabel, legend_labels, title_name, output_plot_pdf_path):
+def plotBarThreeDataWithSticker(x_lst_stickers, y_lst1, y_lst2, y_lst3, xlabel, ylabel, legend_labels, title_name, output_plot_pdf_path):
 
     pdf = matplotlib.backends.backend_pdf.PdfPages(output_plot_pdf_path)
     x_lst1 = np.arange(0, len(x_lst_stickers))
@@ -290,9 +290,20 @@ def plotBarThreeDataWithSticker(x_lst_stickers, y_lst1, y_lst2, y_lst_3, xlabel,
     width = 0.3
     #axes.plot(x_lst1, y_lst1, zorder=0) 
     sc11 = axes.bar(x_lst1-width, y_lst1, width, color='r', align='center', label = legend_labels[0])
+    for index,data in enumerate(y_lst1):
+        data = int(data)
+        plt.text(x=index-2*width , y =data , s=f"{data}" , fontdict=dict(fontsize=15))
+    
     sc12 = axes.bar(x_lst1, y_lst2,  width, color='b', align='center', label = legend_labels[1])
+    for index,data in enumerate(y_lst2):
+        data = int(data)
+        plt.text(x=index-width , y =data , s=f"{data}" , fontdict=dict(fontsize=15))
     sc13 = axes.bar(x_lst1+width, y_lst3,  width, color='g', align='center', label = legend_labels[2])
 
+    for index, data in enumerate(y_lst3):
+        data = int(data)
+        plt.text(x=index+width , y =data , s=f"{data}" , fontdict=dict(fontsize=15))
+   
     axes.legend(loc='best', shadow=True)  # , fontsize='small')  
     
     axes.set(xlabel=xlabel, ylabel=ylabel)
@@ -377,7 +388,7 @@ def plotOnePlotMultiLine(y_lsts, legend_labels, xlabel, ylabel, title_name):
         sc11 = axes.scatter(x_lst1, y_lst, label = legend_labels[i], zorder=0)
         
     axes.legend(loc='best', shadow=True)  
-    axes.set(xlabel=xlabel, ylabel=ylabel, fontsize=13)
+    axes.set(xlabel=xlabel, ylabel=ylabel) # , fontsize=13)
     axes.set_title(title_name)
     axes.grid(True)
 
