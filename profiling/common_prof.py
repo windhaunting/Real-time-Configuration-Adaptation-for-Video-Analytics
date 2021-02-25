@@ -186,6 +186,7 @@ def getPersonEstimation(est_res):
     return kp_arr
 
 
+
 '''
 written by Tian
 Object Keypoint Similarity
@@ -242,7 +243,7 @@ def computeOKSACC(gts, dts, sigmas = None):
         
     #gt_avg_score = gt_scores / len(gt_lst) if len(gt_lst) > 0 else 0
     #print ("est_lst, gt_lst11: ", est_lst)
-    #print ("est_lst, gt_lst22: ", gt_lst)
+    #print ("est_lst, gt_lst22: ", gts.shape, dts.shape)
     
     # compute oks
     #print ("len(gts), dts:", len(gts), len(dts))
@@ -479,7 +480,6 @@ def computeOKSFromOrigin(est_result, gt_result, img_path):
     #the img_w, img_h may be not used
   
     
-    
     if est_result == [] or est_result is None or est_result == '' or est_result == '0':
         return 0
     
@@ -602,14 +602,17 @@ def executeVideoToFrames():
     '''
     
     
-    inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/one_person_diy_video_dataset/"
+    #inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/one_person_diy_video_dataset/"
+    inputDir = "/media/fubao/TOSHIBAEXT/research_bakup/data_video_analytics/input_output/vechicle_tracking/"
+    
     #inputDir = dataDir3
     filePathLst = sorted(glob(inputDir + "*.mp4"))         # [5:6]
     
     print ("filePathLst:", filePathLst)
     
+    
     outParentDir = inputDir  # "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/input_output/diy_video_dataset/"
-    for filePath in filePathLst :
+    for filePath in filePathLst[1:2] :
         
         outDir =  outParentDir + filePath.split("/")[-1].split(".")[0] + "_frames/"      # "/media/fubao/TOSHIBAEXT/research_bakup/data_poseEstimation/2-soccer-20mins-frames/"
         if not os.path.exists(outDir):

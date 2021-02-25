@@ -127,7 +127,6 @@ def simBoundedAcc(data_frame_dir, data_pickle_dir, segmentTime, profile_interval
 
         total_time_profiling = np.sum(sub_spf_arr[selected_config_indx]) #   not considering profiling time to test now np.sum(seg_spf_arr) only segment time  # np.sum(sub_spf_arr)   # np.sum(seg_spf_arr)
         
- 
         profiling_time_arr[seg] = total_time_profiling
         
         #print ("total_time_profiling: ", seg_spf_arr, seg_acc_arr, total_time_profiling)
@@ -475,6 +474,7 @@ def plotSimulateResult3(segmentNo, frameNo,  predicted_seg_acc_arr, actual_seg_a
 
 
     pdf.close()
+
     
 def executeDifferentBoundedAcc(data_frame_dir, data_pickle_dir):
     '''

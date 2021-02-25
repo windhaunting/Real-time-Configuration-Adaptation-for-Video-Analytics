@@ -157,7 +157,7 @@ def read_config_name_from_file(data_pose_keypoint_dir, write_flag):
         
     id_config_dict = dict(zip(range(0, len(config_lst)), config_lst))
 
-    print ("model_resoFrm_dict: ", id_config_dict, len(id_config_dict), config_id_dict)
+    #print ("model_resoFrm_dict: ", id_config_dict, len(id_config_dict), config_id_dict)
     
     if write_flag:
         pickle_dir = data_pose_keypoint_dir 
@@ -181,15 +181,36 @@ def get_config_est_more_dim(config_est_frm_arr):
     for curr_config in range(0, origin_shape[0]): # origin_shape[0]):
         for index in range(0, origin_shape[1]):  
             est_res = config_est_frm_arr[curr_config][index]  # use selected config's pose estimation result
-            
+                    
             kp_arr = getPersonEstimation(est_res)
-    
+            
+            if index >= 1:
+                
+                kp_arr = correct_kp_previous_pose(estimat_frm_arr_more_dim[curr_config][index-1], kp_arr)
+                
             estimat_frm_arr_more_dim[curr_config][index] = kp_arr
-    
+            
+            
     #print ('estimat_frm_arr_more_dim', estimat_frm_arr_more_dim.shape)
     
     return estimat_frm_arr_more_dim
 
+def correct_kp_previous_pose(last_kp_arr, current_kp_arr):
+    # if current keypoint pose has 0, it means it's not detected or visible, using previous frames kp as current kp until the first frames
+    # input: estimat_frm_arr_more_dim
+    # output: corrected estimat_frm_arr_more_dim
+    
+    
+    rows = np.where(~current_kp_arr.any(axis=1))[0]
+    #print(" correct_kp_previous_pose rows: ", rows)
+    if len(rows) == 0:
+        return current_kp_arr
+    
+    for r in rows:
+        current_kp_arr[r] = last_kp_arr[r]
+    
+    return current_kp_arr
+    
 def write_config_frm_poseEst_result(data_pose_keypoint_dir, data_pickle_dir, start_frm_index):
     '''
     frame-by-frame consideration
@@ -716,10 +737,17 @@ def executeWriteIntoPickleOnePeron():
                     'output_015_dance/', 'output_016_dance/', \
                     'output_017_dance/', 'output_018_dance/', \
                     'output_019_dance/', 'output_020_dance/', \
-                    'output_021_dance/']
+                    'output_021_dance/', 'output_022_dance/',
+                    'output_023_dance/', 'output_024_dance/',
+                    'output_025_dance/', 'output_026_dance/',
+                    'output_027_dance/', 'output_028_dance/',
+                    'output_029_dance/', 'output_030_dance/',
+                    'output_031_dance/', 'output_032_dance/',
+                    'output_033_dance/', 'output_034_dance/',
+                    'output_035_dance/']
     
     
-    for vd_dir in video_dir_lst[4:5]:        # [3:4]:   # [0:1]:
+    for vd_dir in video_dir_lst[21:]:  # [3:4]:        # [3:4]:   # [0:1]:
         
         data_pickle_dir = dataDir3 +  vd_dir + 'frames_pickle_result/'
         if not os.path.exists(data_pickle_dir):
@@ -731,7 +759,6 @@ def executeWriteIntoPickleOnePeron():
         data_pickle_dir = write_config_frm_poseEst_result(dataDir3 +  vd_dir, data_pickle_dir, start_frm_index)
         
         
-        """
         intervalFlag = 'frame'
         
         if intervalFlag == 'frame':
@@ -765,7 +792,6 @@ def executeWriteIntoPickleOnePeron():
             
             elapsed_time = time.time() - st_time
             print ("elapsed_time for each file: ", elapsed_time)
-        """
 
 
 '''

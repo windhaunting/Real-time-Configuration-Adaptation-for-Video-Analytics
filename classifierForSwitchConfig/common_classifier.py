@@ -446,6 +446,7 @@ def readProfilingResultNumpy(data_pickle_dir, intervalFlag):
     the pickle file is created from the file "writeIntoPickle.py"
     
     '''
+    print ("tttttt data_pickle_dir: ", data_pickle_dir )
     if intervalFlag == 'frame':
         acc_frame_arr = np.load(data_pickle_dir + 'config_oks_frm.pkl', allow_pickle=True)          # frame by frame but it also calculate the 1sec interval with each frame starting
         spf_frame_arr = np.load(data_pickle_dir + 'config_spf_frm.pkl', allow_pickle=True)      # # every 1 sec to calculate spf
