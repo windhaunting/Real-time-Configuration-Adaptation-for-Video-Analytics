@@ -48,7 +48,7 @@ video_dir_lst = ['sample_video_json_01/', 'sample_video_json_02/', \
                  'sample_video_json_33/', 'sample_video_json_34/',  \
                  'sample_video_json_35/','sample_video_json_36/',  \
                  'sample_video_json_37/', 'sample_video_json_38/']
-                    
+
 
 reso_list = ["1120x832", "960x720", "640x480",  "480x352", "320x240"] 
 
@@ -527,7 +527,6 @@ class DataGenerate(object):
             if not os.path.exists(out_pickle_dir):
                 os.mkdir(out_pickle_dir)
                 
-     
             out_data_pickle_file = out_pickle_dir + "data_instance_speed_jumpingNumber_resolution_objectSizeRatio_xy.pkl" 
             write_pickle_data(arr_estimated_velocity_2_jumpingNumber_reso, out_data_pickle_file)
             

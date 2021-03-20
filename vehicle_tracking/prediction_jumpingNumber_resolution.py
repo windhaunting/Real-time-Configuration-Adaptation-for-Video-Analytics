@@ -22,6 +22,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.model_selection import cross_val_score, GridSearchCV
+from skopt import BayesSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, f1_score, precision_recall_fscore_support
 from sklearn.decomposition import PCA
@@ -99,10 +100,36 @@ class ModelClassifier(object):
         
         return best_params
 
+    
+    def search_best_model(self, X, y):
+        X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8, random_state=0)
+        
+        opt = BayesSearchCV(
+        RandomForestClassifier(random_state=42),
+        {
+            'n_estimators': (5,300),
+            'max_features': ['auto','sqrt'],
+            'max_depth': (2,50),
+            'min_samples_split': (2,10),
+            'min_samples_leaf': (1,7),
+            'bootstrap': ["True","False"]
+        },
+        n_iter=32,
+        cv=3,
+        scoring='roc_auc'
+    )
+        opt.fit(X_train, y_train)
+        
+        print("val. score: %s" % opt.best_score_)
+        print("test score: %s" % opt.score(X_test, y_test))
 
+        return opt
+    
+    
     def get_rf_model_train(self, X, y):
         #get the random forest model
         # X, y are the trianing and validation data
+
         pca = PCA(n_components=5).fit(X)
         X = pca.transform(X)
             
@@ -177,9 +204,6 @@ class ModelClassifier(object):
     def test_on_data_y_known(self, model, X_test, y_test, pca):
         # test on a test data with model already trained, y label is known
         
-        #pca = PCA(n_components=pca_component)
-        #X_test = pca.fit_transform(X_test)
-        
         X_test = pca.transform(X_test)
         
         y_test_pred = model.predict(X_test)
@@ -224,7 +248,7 @@ class ModelClassifier(object):
         rfr = RandomForestClassifier(max_depth=20)
         #rfr = RandomForestRegressor(max_depth=20)
         rfr.fit(X_train, y_train)  # (X, y)   # (X_train, y_train) # (X, y)  # 
-        print(rfr.feature_importances_)
+        #print(rfr.feature_importances_)
         
         """
         best_params = self.train_rf_cross_validation(X_train, y_train)  # (X, y) # (X_train, y_train)
@@ -292,9 +316,9 @@ class ModelClassifier(object):
         for i, video_dir in enumerate(video_dir_lst[0:23]):    # combine all to generate more data
             
             
-            data_pickle_dir = data_dir + video_dir + "data_instance_xy/" 
-            subDir = data_pickle_dir + "minAcc_" + str(min_acc) + "/"
-            data_file = subDir + "data_instance_xy.pkl"
+            data_pickle_dir = data_dir + video_dir + "jumping_number_result/" 
+            subDir = data_pickle_dir + "jumpingNumber_resolution_selection/intervalFrm-5_speedType-ema_minAcc-" + str(min_acc) + "/"
+            data_file = subDir + "data_instance_speed_jumpingNumber_resolution_objectSizeRatio_xy.pkl"
             X, y = self.read_whole_data_instances(data_file)
             
             #print("X, y: ", X.shape, y.shape)
@@ -312,7 +336,14 @@ class ModelClassifier(object):
         print("trained finished test shape:" , x_input_arr.shape, y_arr.shape)
         rfr, y_test, y_test_pred = self.rf_classification_train_test(x_input_arr, y_arr)
     
-        write_subDir = data_dir  +  "all_data_instance_xy/"  + "minAcc_" + str(min_acc) + "/"
+        output_dir = data_dir + "dynamic_jumpingNumber_resolution_selection_output/"
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+            
+        write_subDir = output_dir + "intervalFrm-5_speedType-ema_minAcc-" + str(min_acc) +"/"
+        if not os.path.exists(write_subDir):
+            os.mkdir(write_subDir)
+        
         model_file = write_subDir + "model_regression.joblib" + "_all_videos"  + ".pkl"
         
         x_input_arr_file = write_subDir + "all_other_trained_x_instances.pkl"
@@ -322,7 +353,7 @@ class ModelClassifier(object):
         
         
     
-    def train_rest_test_one_video(self, predicted_video_dir, min_acc):
+    def train_rest_test_one_video(self, predicted_video_dir, min_acc_threshold):
         # pick one video ast test and the rest as the training
         # select one video to train and test
  
@@ -359,7 +390,10 @@ class ModelClassifier(object):
         
         rfr, pca = self.get_rf_model_train(x_input_arr, y_arr)   
         print("trained finished test shape:" , x_input_arr.shape, y_arr.shape, X_test.shape, y_test.shape)
-        write_subDir = data_dir + predicted_video_dir +  "data_instance_xy/"  + "minAcc_" + str(min_acc) + "/"
+        
+        #rfr = self.search_best_model(x_input_arr, y_arr)
+
+        write_subDir = data_dir + predicted_video_dir +  "data_instance_xy/"  + "minAcc_" + str(min_acc_threshold) + "/"
         
         if not os.path.exists(data_dir + predicted_video_dir +  "data_instance_xy/"):
             os.mkdir(data_dir + predicted_video_dir +  "data_instance_xy/")
@@ -387,17 +421,18 @@ if __name__== "__main__":
     #model_obj.train_model_one_video()
     
     
-    # mixed videos
+    #1. mixed videos ; Configuration  Prediction  Performance  on  Whole  VideoDataset
     #model_obj.test_on_multiple_mixed_video(min_acc_threshold)
 
     
-    # exclusive one video, other videos are used as training dataset
+    #2. exclusive one video, other videos are used as training dataset
     # this one video as testing and applied the adaptive configuration algorithm on it
-
+    
+    
     average_mean_macro_f1 = 0.0
     average_mean_micro_f1 = 0.0
 
-    video_dir_lst_tested = video_dir_lst[0:3]
+    video_dir_lst_tested = video_dir_lst[5:6]   # [5, 15]
     # prediction on one video
     for predicted_video_dir in video_dir_lst_tested:
                     
@@ -406,7 +441,6 @@ if __name__== "__main__":
         mean_macro_f1, mean_micro_f1 = model_obj.train_rest_test_one_video(predicted_video_dir, min_acc_threshold)
         
         # get applied result's acc and delay
-        #model_obj.get_prediction_acc_delay(predicted_video_dir, min_acc)
         #model_obj.get_prediction_acc_delay(predicted_video_dir, min_acc_threshold)
         average_mean_macro_f1 += mean_macro_f1
         average_mean_micro_f1 += mean_micro_f1
@@ -418,4 +452,5 @@ if __name__== "__main__":
     
     print ("final average f1 score ",  average_mean_macro_f1, average_mean_micro_f1)
     
+
     

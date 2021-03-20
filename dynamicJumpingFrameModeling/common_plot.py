@@ -24,7 +24,16 @@ import matplotlib.ticker as mticker
 
 from matplotlib import pyplot as plt
 
-LABEL_SIZE = 16
+import matplotlib.pylab as pylab
+params = {'legend.fontsize': 24,
+          'figure.figsize': (15.69, 12.27),
+         'axes.labelsize':24,
+         'axes.titlesize':26,
+         'xtick.labelsize':26,
+         'ytick.labelsize':26}
+pylab.rcParams.update(params)
+
+# LABEL_SIZE = 22
 
 def plotScatterLineOneFig(x_lst1, y_lst1, xlabel, ylabel, title_name):
     '''
@@ -49,8 +58,8 @@ def plotTwoLinesOneFigure(xList, yList1, yList2, xlabel, ylabel, title_name):
     plt.plot(xList, yList1)
     plt.plot(xList, yList2)
     #plt.title('Moving speed of the cat')
-    plt.xlabel(xlabel, fontsize=LABEL_SIZE)
-    plt.ylabel(ylabel, fontsize=LABEL_SIZE)
+    plt.xlabel(xlabel) #, fontsize=LABEL_SIZE)
+    plt.ylabel(ylabel) #, fontsize=LABEL_SIZE)
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
     plt.title(title_name)
@@ -62,8 +71,8 @@ def plotOneScatter(xList, yList, xlabel, ylabel, title_name):
     plt.figure()
     plt.scatter(xList, yList)
     #plt.title('Moving speed of the cat')
-    plt.xlabel(xlabel, fontsize=LABEL_SIZE)
-    plt.ylabel(ylabel, fontsize=LABEL_SIZE)
+    plt.xlabel(xlabel) # , fontsize=LABEL_SIZE)
+    plt.ylabel(ylabel) #, fontsize=LABEL_SIZE)
     plt.title(title_name)
     plt.grid(True)
     
@@ -74,8 +83,8 @@ def plotOneScatterLine(xList, yList, xlabel, ylabel, title_name):
     plt.plot(xList, yList)
     plt.scatter(xList, yList)
     #plt.title('Moving speed of the cat')
-    plt.xlabel(xlabel, fontsize=LABEL_SIZE)
-    plt.ylabel(ylabel, fontsize=LABEL_SIZE)
+    plt.xlabel(xlabel) # , fontsize=LABEL_SIZE)
+    plt.ylabel(ylabel) # , fontsize=LABEL_SIZE)
     plt.title(title_name)
     plt.grid(True)
     
@@ -88,8 +97,8 @@ def plotOneBar(xList, yList, xlabel, ylabel, title_name):
     plt.bar(xList, yList)
     #plt.title('Moving speed of the cat')
     plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(3))
-    plt.xlabel(xlabel, fontsize=LABEL_SIZE)
-    plt.ylabel(ylabel, fontsize=LABEL_SIZE)
+    plt.xlabel(xlabel) # , fontsize=LABEL_SIZE)
+    plt.ylabel(ylabel) # , fontsize=LABEL_SIZE)
     plt.title(title_name)
     plt.grid(True)
 
@@ -103,8 +112,8 @@ def plot_bar_distribution(y_out, out_file_path, xlabel, ylabel, title):
     print ("unique, counts: ", unique, counts)
 
     
-    plt.xlabel(xlabel, fontsize=LABEL_SIZE)
-    plt.ylabel(ylabel, fontsize=LABEL_SIZE)
+    plt.xlabel(xlabel) # , fontsize=LABEL_SIZE)
+    plt.ylabel(ylabel) #, fontsize=LABEL_SIZE)
     plt.title(title)
     #plt.show()
     plt.savefig(out_file_path)
