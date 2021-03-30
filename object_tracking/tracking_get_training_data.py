@@ -53,7 +53,7 @@ video_dir_lst = ['sample_video_json_01/', 'sample_video_json_02/', \
 reso_list = ["1120x832", "960x720", "640x480",  "480x352", "320x240"] 
 
 max_jump_number = 25  # float('inf')  # 10  # float('inf')  # 25
-min_acc_threshold = 0.90  # 0.92
+min_acc_threshold = 0.90  # 0.92, 0.94
 interval_frm = 5
 
 #same_car_threshold = 0.7     # overlapping threshold
@@ -402,6 +402,61 @@ class DataGenerate(object):
     
         return aver_object_size
     
+    def get_object_size_change(self, dict_detection_reso_video, current_frm_indx, ans_reso_indx, last_frm_indx, last_reso_indx):
+        
+        curre_reso = reso_list[ans_reso_indx]
+        dict_cars_each_jumped_frm_curr_reso = dict_detection_reso_video[curre_reso][str(current_frm_indx)]['car']
+
+        #print ("dict_cars_each_jumped_frm_curr_reso: ", dict_cars_each_jumped_frm_curr_reso)
+        
+        curre_reso_int = int(curre_reso.split('x')[0]) * int(curre_reso.split('x')[1])
+        normalized_object_size_ratio = 0
+        
+        curr_aver_object_size = 0.0
+        for car_id, car_pos in dict_cars_each_jumped_frm_curr_reso.items():
+            
+            #print("car_id: ", car_id, car_pos)
+            
+            area = (car_pos[2] - car_pos[0]) * (car_pos[3]-car_pos[1])
+            
+            normalized_object_size_ratio = area/curre_reso_int
+            #print("normalized_object_size_ratio: ", normalized_object_size_ratio, area, curre_reso_int)
+            
+            curr_aver_object_size += normalized_object_size_ratio
+        
+        #print("curr_aver_object_size: ", curr_aver_object_size)
+        
+        if len(dict_cars_each_jumped_frm_curr_reso) != 0:
+            curr_aver_object_size = curr_aver_object_size/len(dict_cars_each_jumped_frm_curr_reso)
+    
+    
+        curre_reso = reso_list[last_reso_indx]
+        dict_cars_each_jumped_frm_curr_reso = dict_detection_reso_video[curre_reso][str(last_frm_indx)]['car']
+
+        #print ("dict_cars_each_jumped_frm_curr_reso: ", dict_cars_each_jumped_frm_curr_reso)
+        
+        curre_reso_int = int(curre_reso.split('x')[0]) * int(curre_reso.split('x')[1])
+        normalized_object_size_ratio = 0
+        
+        prev_aver_object_size = 0.0
+        for car_id, car_pos in dict_cars_each_jumped_frm_curr_reso.items():
+            
+            #print("car_id: ", car_id, car_pos)
+            
+            area = (car_pos[2] - car_pos[0]) * (car_pos[3]-car_pos[1])
+            
+            normalized_object_size_ratio = area/curre_reso_int
+            #print("normalized_object_size_ratio: ", normalized_object_size_ratio, area, curre_reso_int)
+            
+            prev_aver_object_size += normalized_object_size_ratio
+        
+        #print("prev_aver_object_size: ", prev_aver_object_size)
+        
+        if len(dict_cars_each_jumped_frm_curr_reso) != 0:
+            prev_aver_object_size = prev_aver_object_size/len(dict_cars_each_jumped_frm_curr_reso)
+            
+        return curr_aver_object_size - prev_aver_object_size
+
 
     def get_data_instances(self, one_video_input_dir, max_jump_number = 10, min_acc_threshold = 0.95, speed_type = 'ema', interval_frm = 10):
         # read input_dir
@@ -420,7 +475,7 @@ class DataGenerate(object):
         segment_acc_arr = blist()
         
         ans_reso_indx = 0
-        
+        last_reso_indx = 0
         arr_ema_absolute_velocity = np.zeros((4, 2))
         
         if speed_type == 'ema':
@@ -446,10 +501,11 @@ class DataGenerate(object):
                 
                 #print("abso_velocity_feature_x: ", abso_velocity_feature_x.shape)
                 
-                feature_x_object_size = self.get_object_size_x(dict_detection_reso_video, current_frm_indx, ans_reso_indx)      
+                feature_x_object_size = self.get_object_size_change(dict_detection_reso_video, current_frm_indx, ans_reso_indx, last_frm_indx, last_reso_indx)      # self.get_object_size_x(dict_detection_reso_video, current_frm_indx, ans_reso_indx)      
                 
                 feature_x = np.hstack((arr_movement_feature, feature_x_object_size))
                     
+                last_reso_indx = ans_reso_indx
                 ans_jfr, ans_reso_indx, aver_acc = self.predict_next_configuration_jumping_frm_reso(dict_detection_reso_video, min_acc_threshold, current_frm_indx, FRM_NO)
                 # predict how many frame jumped from this starting point
                 
@@ -479,7 +535,7 @@ class DataGenerate(object):
 
 
 
-    def getDataExamples(self):
+    def getDataExamples_features(self, single_featue):
     
         """
         #all_arr_estimated_speed_2_jump_number = blist()  # all video
@@ -511,13 +567,21 @@ class DataGenerate(object):
             print("eeeeeeall_arr_estimated_speed_2_jump_number: ", arr_estimated_velocity_2_jumpingNumber_reso.shape,  all_arr_estimated_speed_2_reso.shape)
             #out_pickle_dir =  data_dir + video_dir + "/jumping_number_result/" + "/resolution_selection/"
             
-            sub_dir_1 = data_dir + video_dir + "jumping_number_result/" 
+            if single_featue == 'objectSizeChange':
+                sub_dir_1 = data_dir + video_dir + "jumping_number_result_" + single_featue + "/"
+            else:
+                sub_dir_1 = data_dir + video_dir + "jumping_number_result/"
+                
             #out_pickle_dir =  data_dir + video_dir + "jumping_number_result_each_frm/" + "jumpingNumber_resolution_selection/"
 
             if not os.path.exists(sub_dir_1):
                 os.mkdir(sub_dir_1)
 
-            sub_dir_2 = sub_dir_1  + "jumpingNumber_resolution_selection/"
+            if single_featue == 'objectSizeChange':
+                sub_dir_2 = sub_dir_1  + "jumpingNumber_resolution_selection_" + single_featue + "/"
+            else:
+                sub_dir_2 = sub_dir_1  + "jumpingNumber_resolution_selection/"
+
 
             if not os.path.exists(sub_dir_2):
                 os.mkdir(sub_dir_2)
@@ -530,12 +594,20 @@ class DataGenerate(object):
             out_data_pickle_file = out_pickle_dir + "data_instance_speed_jumpingNumber_resolution_objectSizeRatio_xy.pkl" 
             write_pickle_data(arr_estimated_velocity_2_jumpingNumber_reso, out_data_pickle_file)
             
-            
-        write_out_dir_1 = data_dir + "jumping_number_result/"   # data_dir + "jumping_number_result_each_frm/"   
+        
+        if single_featue == 'objectSizeChange':
+            write_out_dir_1 = data_dir + "jumping_number_result_" + single_featue + "/"   # data_dir + "jumping_number_result_each_frm/"
+        else:
+            write_out_dir_1 = data_dir + "jumping_number_result/"   # data_dir + "jumping_number_result_each_frm/"
+
         if not os.path.exists(write_out_dir_1):
             os.mkdir(write_out_dir_1)
                 
-        write_out_dir_2 = write_out_dir_1 + "dynamic_jumpingNumber_resolution_selection_output/"
+        if single_featue == 'objectSizeChange':
+            write_out_dir_2 = write_out_dir_1 + "dynamic_jumpingNumber_resolution_selection_output_" + single_featue + "/"
+        else:
+            write_out_dir_2 = write_out_dir_1 + "dynamic_jumpingNumber_resolution_selection_output/"
+
         if not os.path.exists(write_out_dir_2):
             os.mkdir(write_out_dir_2)
         
@@ -557,4 +629,8 @@ class DataGenerate(object):
 if __name__== "__main__": 
     
     data_obj = DataGenerate()
-    data_obj.getDataExamples()
+    
+    single_featue = "objectSizeChange"              # "features"
+    data_obj.getDataExamples_features(single_featue)
+
+    

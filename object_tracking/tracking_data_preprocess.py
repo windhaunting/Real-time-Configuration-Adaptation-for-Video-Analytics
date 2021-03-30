@@ -81,7 +81,6 @@ def video_resize_process(input_video_dir):
         video_name = video_input.split('/')[-1].split('.')[0]    # without extension
         
         for reso in reso_list:
-            
             video_output =  input_video_dir + video_name + "_" + reso  + ".mp4"
             
             #print ("video_output: ", video_output)
