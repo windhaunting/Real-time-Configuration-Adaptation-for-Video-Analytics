@@ -28,8 +28,8 @@ modelMethods_cpn = ['a_cpn']  #  'cmu']   # , 'mobilenet_v2_small'] # ['a_cpn'] 
 
 
 # simulate without buffer to check how many accuracy we can achieve and the lag with the segment number
-dataDir1 = '../input_output/mpii_dataset/'
-dataDir2 = '../input_output/diy_video_dataset/'
+#dataDir1 = '../input_output/mpii_dataset/'
+#dataDir2 = '../input_output/diy_video_dataset/'
 
 dataDir3 = '../input_output/one_person_diy_video_dataset/'
 

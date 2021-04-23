@@ -13,11 +13,12 @@ import cv2
 import time
 import os
 
+import numpy as np
 from collections import defaultdict
 
 # video or file preprocess; process video and decode into different resolution with FFMPEG
 
-input_video_dir = "/media/fubao/TOSHIBAEXT/research_bakup/data_video_analytics/input_output/vechicle_tracking/proceesing_videos/"    # "../input_output/vechicle_tracking/"   # /var/fubao/videoAnalytics_poseEstimation/input_output/vechicle_tracking "/media/fubao/TOSHIBAEXT/research_bakup/data_video_analytics/input_output/vechicle_tracking/"
+#  "/media/fubao/TOSHIBAEXT/research_bakup/data_video_analytics/input_output/vechicle_tracking/proceesing_videos/"    # "../input_output/vechicle_tracking/"   # /var/fubao/videoAnalytics_poseEstimation/input_output/vechicle_tracking "/media/fubao/TOSHIBAEXT/research_bakup/data_video_analytics/input_output/vechicle_tracking/"
 
 
 def video_to_frame(input_loc, output_loc):
@@ -41,7 +42,7 @@ def video_to_frame(input_loc, output_loc):
     video_length =  int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
     print ("Number of frames: ", video_length, input_loc, output_loc)
     count = 0
-    print ("Converting video..\n")
+    print ("Converting video..\n",  cap.isOpened())
     # Start converting the video
     
     while cap.isOpened():
@@ -61,10 +62,14 @@ def video_to_frame(input_loc, output_loc):
             print ("It took %d seconds forconversion." % (time_end-time_start))
             break
 
+
 def extract_video_frames(input_dir):
-    input_video_loc = '/'.join(input_dir.split('/')[:-2]) + '/' + 'sample_05.mp4'
-    output_loc = '/'.join(input_dir.split('/')[:-2]) + '/' + input_video_loc.split('/')[-1].split('.')[0] + '_frames'
-    video_to_frame(input_video_loc, output_loc)
+    
+    lst_input_video_loc = sorted(glob.glob(input_dir + '*.mp4'))
+    for input_video_loc in lst_input_video_loc:
+        #input_video_loc = '/'.join(input_dir.split('/')[:-1]) + '/' + 'car_traffic_01.mp4'
+        output_loc = '/'.join(input_dir.split('/')[:-1]) + '/' + input_video_loc.split('/')[-1].split('.')[0] + '_frames'
+        video_to_frame(input_video_loc, output_loc)
         
 
 def video_resize_process(input_video_dir):
@@ -120,6 +125,18 @@ def read_pickle_data(pickle_file):
         
     return out
 
+def write_numpy_into_file(arr, out_file_path):
+    
+    with open(out_file_path, 'wb') as f:
+        np.save(f, arr)
+    
+    
+
+def read_numpy(npy_file):
+    arr = np.load(npy_file)
+    return arr
+
+
 def read_json_dir(one_video_input_dir):
     # read json to a dictionary or numpy
     # output: dictionary out of json
@@ -150,4 +167,9 @@ def read_json_dir(one_video_input_dir):
 
 if __name__ == '__main__':
     
-    video_resize_process(input_video_dir)
+    #input_video_dir = "/var/fubao/videoAnalytics_objectTracking/input_output/vehicle_tracking/"
+    
+    input_video_dir = "/var/fubao/videoAnalytics_objectTracking/input_output/object_tracking/sample_video_out/sample_video_json_03/"
+    #video_resize_process(input_video_dir)
+    
+    extract_video_frames(input_video_dir)
