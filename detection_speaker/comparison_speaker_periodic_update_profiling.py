@@ -23,6 +23,7 @@ import time
 from data_preproc import input_dir
 from data_preproc import bb_intersection_over_union
 from data_preproc import write_numpy_into_file
+from data_preproc import write_pickle_data
 
 from read_feature_speaker import get_data_numpy
 from read_feature_speaker import file_dir_lst
@@ -279,6 +280,95 @@ class OfflineOnceTimeProfiling(object):
         return acc, spent_time  
 
 
+    def execute_video_peridoic_update_profiling_one_second(self, predicted_video_dir, min_acc_thres, interval_len_time, segment_len_time):
+                
+        
+        output_pickle_dir = input_dir + predicted_video_dir + "data_instance_xy/minAcc_" + str(min_acc_thres) + "/"
+
+        speaker_box_arr, acc_frame_arr, spf_frame_arr = get_data_numpy(input_dir + predicted_video_dir)
+
+        print ("get_prediction_acc_delay input_dir: ", speaker_box_arr.shape, acc_frame_arr.shape, spf_frame_arr.shape)
+        
+        out_dir_new_config_arr =  input_dir + predicted_video_dir + "out_dir_new_config_arr/"
+        if not os.path.exists(out_dir_new_config_arr):
+            os.mkdir(out_dir_new_config_arr)
+            speaker_box_arr, acc_frame_arr, spf_frame_arr = self.extend_expensive_config_to_all_configs(speaker_box_arr, acc_frame_arr, spf_frame_arr, out_dir_new_config_arr)
+        else:
+            speaker_box_arr, acc_frame_arr, spf_frame_arr = get_data_numpy(out_dir_new_config_arr)
+        
+        FRM_LEN = speaker_box_arr.shape[1]
+        
+        #periodic update profiling
+        
+        frm_start_indx = 0
+        
+        acc_lst = []
+        time_spf_lst = []
+        profiling_time_accumulate = 0.0
+        
+        pareto_bound_flag = 0
+        while (frm_start_indx < FRM_LEN-(interval_len_time*PLAYOUT_RATE)):  # neglect the last interval for convenience of simulation
+            
+            # profile to get ocnfiguration
+            reso_indx, profiling_time = self.select_optimal_configuration_above_accuracy(min_acc_thres, acc_frame_arr, spf_frame_arr, frm_start_indx, segment_len_time, pareto_bound_flag)
+            
+            acc_lst  += [1.0] * segment_len_time * PLAYOUT_RATE  # profiling accuracy is 1.0
+            
+            rest_segment_frm_len = (interval_len_time - segment_len_time) * PLAYOUT_RATE
+            acc_lst += list(acc_frame_arr[reso_indx, frm_start_indx: frm_start_indx+rest_segment_frm_len])
+            
+            profiling_time_accumulate += profiling_time
+            
+            time_spf_lst += [profiling_time/(segment_len_time * PLAYOUT_RATE)] * (segment_len_time * PLAYOUT_RATE)
+            
+            
+            time_spf_lst += list(spf_frame_arr[reso_indx, frm_start_indx: frm_start_indx+rest_segment_frm_len])
+            
+            frm_start_indx += (segment_len_time * PLAYOUT_RATE )
+            # rest of segment time
+                     
+            frm_start_indx += rest_segment_frm_len
+            # use predicted result to apply to this new video and get delay and accuracy
+            # get the average acc with this frame index   # get the average acc with this frame index
+        
+        tmp_acc_lst = []
+        i = 0
+        interval_sec_frm = 25    # 1 sec 25 frame
+        while (i < len(acc_lst)):
+            if i+ interval_sec_frm < len(acc_lst):
+                
+                tmp_acc_lst.append(sum(acc_lst[i:i+interval_sec_frm])/interval_sec_frm)
+            
+            i += interval_sec_frm
+                
+        tmp_spf_lst = []
+        i = 0
+        interval_sec_frm = 25    # 1 sec 25 frame
+        while (i < len(time_spf_lst)):
+            if i+ interval_sec_frm < len(time_spf_lst):
+                
+                tmp_spf_lst.append(sum(time_spf_lst[i:i+interval_sec_frm]))     # interval total processing time
+            
+            i += interval_sec_frm
+        
+        
+        arr_acc = np.asarray(tmp_acc_lst)
+        arr_spf = np.asarray(tmp_spf_lst)
+        print("arr_acc: ", arr_acc, arr_spf)
+            
+        detect_out_result_dir = output_pickle_dir + "video_applied_detection_result/"
+        if not os.path.exists(detect_out_result_dir):
+            os.mkdir(detect_out_result_dir)
+
+        arr_acc_segment_file = detect_out_result_dir + "periodic_adaptation_arr_acc_segment_.pkl"
+        arr_spf_segment_file = detect_out_result_dir + "periodic_adaptation_arr_spf_segment_.pkl"
+        write_pickle_data(arr_acc, arr_acc_segment_file)
+        write_pickle_data(arr_spf, arr_spf_segment_file)
+        
+        return arr_acc, arr_spf  
+    
+    
+    
     def execute_video_analytics_simulation(self):
         segment_len_time = 1  # 1 sec
         interval_len_time = 4 # 4 sec
@@ -287,7 +377,7 @@ class OfflineOnceTimeProfiling(object):
         acc_lst = []
         SPF_spent_lst = []
         
-        for min_acc_thres in min_acc_threshold_lst:
+        for min_acc_thres in min_acc_threshold_lst[1:2]:
             
             acc_average = 0.0
             spf_average = 0.0
@@ -297,7 +387,11 @@ class OfflineOnceTimeProfiling(object):
                 
                 print ("predicted_video_frm_dir: ", predicted_video_frm_dir)  # ../input_output/speaker_video_dataset/sample_03_frames/
                             
-                acc, spf = self.execute_video_peridoic_update_profiling(predicted_video_dir, min_acc_thres, interval_len_time, segment_len_time)
+                #acc, spf = self.execute_video_peridoic_update_profiling(predicted_video_dir, min_acc_thres, interval_len_time, segment_len_time)
+                
+                acc, spf = self.execute_video_peridoic_update_profiling_one_second(predicted_video_dir, min_acc_thres, interval_len_time, segment_len_time)
+                
+                xx
                 acc_average += acc
                 spf_average += spf
             

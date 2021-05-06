@@ -83,7 +83,7 @@ class VideoApply(object):
         test_x_instances_file = output_pickle_dir + "trained_x_instances.pkl"
         X = read_pickle_data(test_x_instances_file)
 
-        pca = PCA(n_components=3).fit(X)
+        pca = PCA(n_components=min(n_components, X.shape[1])).fit(X)
         
         model = joblib.load(model_file)
         ModelRegressionObj = ModelRegression()
@@ -327,7 +327,7 @@ class VideoApply(object):
         test_x_instances_file = output_pickle_dir + "trained_x_instances.pkl"
         X = read_pickle_data(test_x_instances_file)
 
-        pca = PCA(n_components=3).fit(X)
+        pca = PCA(n_components=min(n_components, X.shape[1])).fit(X)
         ModelRegressionObj = ModelRegression()
         model = joblib.load(model_file)
 
@@ -424,6 +424,138 @@ class VideoApply(object):
         
         return acc_average, time_spf
 
+
+
+    def show_speaker_bounding_box_detection_result_each_second(self, predicted_video_dir, min_acc, imagePathLst, write_detection_box_flag):
+        #detect speaker after applying the predictive model for configuration adaptation
+        #not real apply to video; use profiling results to simulate 
+        # get bounding box of the test video in different resolutions (i.e profiling result of the video)
+        # then draw on the frame when doing video analytics
+        
+        if write_detection_box_flag:
+            img_path = imagePathLst[0]   # get a random image path
+            img_out_parent_dir = '/'.join(img_path.split('/')[:-2]) + "/" + img_path.split('/')[-2] + "_boundingbox_out/"
+            
+            if not os.path.exists(img_out_parent_dir):
+                os.mkdir(img_out_parent_dir)
+        
+        
+        speaker_box_arr, acc_arr, spf_arr = get_data_numpy(input_dir + predicted_video_dir)
+
+        output_pickle_dir = input_dir + predicted_video_dir + "data_instance_xy/minAcc_" + str(min_acc) + "/"
+        
+        
+        model_file = output_pickle_dir + "model_regression.joblib" + "_exclusive_" + str(predicted_video_dir[:-1])  + ".pkl"       # with other videos
+                
+        # read the model 
+        #model_dir = input_dir + "all_data_instance_xy/minAcc_" + str(min_acc) +"/"
+        #model_file = model_dir + "model_regression.joblib_all_videos.pkl"    
+        
+        
+        #print ("speaker_box_arr:", speaker_box_arr[0])
+        
+        test_x_instances_file = output_pickle_dir + "trained_x_instances.pkl"
+        X = read_pickle_data(test_x_instances_file)
+
+        pca = PCA(n_components=min(n_components, X.shape[1])).fit(X)
+        ModelRegressionObj = ModelRegression()
+        model = joblib.load(model_file)
+
+
+        reso_no = spf_arr.shape[0]
+        frm_no = spf_arr.shape[1] #   min(len(imagePathLst), spf_arr.shape[1])
+        
+        acc_accumulate = 0.0
+        time_spf_accumulate = 0.0
+        calculated_frm_num = 0
+        
+        ans_reso_indx = 0
+        k = 25     # 
+        frm_lst_indx = 0
+        # draw first segment use default resolution and index
+        if write_detection_box_flag:
+            self.draw_boundingbox_write(imagePathLst, img_out_parent_dir, speaker_box_arr, frm_lst_indx, ans_reso_indx, k, [0, 0])
+        
+        acc_tmp, time_spf_tmp, calc_frm_num_tmp  = self.get_online_video_analytics_accuracy_spf(speaker_box_arr, spf_arr, frm_lst_indx, ans_reso_indx, k, [0, 0])
+        
+        acc_accumulate += acc_tmp
+        time_spf_accumulate += time_spf_tmp
+        calculated_frm_num += calc_frm_num_tmp
+        
+        frm_curr_indx = k          # traverse from frame kth (index starts at 0)
+        ema_absolute_curr = 0.0
+        
+        # initially used resolution
+        last_frm_box = speaker_box_arr[ans_reso_indx][frm_lst_indx]   # initialize
+          
+        # use predicted result to apply to this new video and get delay and accuracy
+        #delay_arr = []      
+        #up_to_delay = max(0, spf_arr[ans_reso_indx][0] - 1.0/PLAYOUT_RATE)         # up to current delay, processing time - streaming time
+        
+        
+        while(frm_curr_indx < frm_no):
+            
+            # calculate the relative feature
+            
+            curre_frm_box = speaker_box_arr[ans_reso_indx][frm_curr_indx]
+            
+            cur_absolute_speed = get_absolute_speed(last_frm_box, frm_lst_indx, curre_frm_box, frm_curr_indx)
+             
+            ema_absolute_curr = get_ema_absolute_speed(ema_absolute_curr, cur_absolute_speed)
+             
+            normalized_object_ratio = get_object_size(curre_frm_box)
+            #print ("normalized_object_ratio: " , normalized_object_ratio)
+    
+            feature_x = np.hstack((ema_absolute_curr, normalized_object_ratio))
+            #print ("feature_x cur_absolute_speed: " , cur_absolute_speed)
+            
+            
+            
+            #jumping_frm_number, current_aver_acc = estimate_frame_rate(speaker_box_arr, acc_arr, frm_curr_indx, ans_reso_indx, max_jump_number, min_acc_threshold)
+            #ans_reso_indx, average_acc = get_reso_selected(speaker_box_arr, current_aver_acc, frm_curr_indx, jumping_frm_number, min_acc_threshold)
+            
+            #print ("jumping_frm_number:feature_x,  ", jumping_frm_number, feature_x, ans_reso_indx)
+            
+            predicted_y = ModelRegressionObj.test_on_data_y_unknown(model, feature_x, pca)
+            
+            #print ("get_prediction_y: ", predicted_y)
+            
+            
+            jumping_frm_number = int(predicted_y[0][0])
+            
+            ans_reso_indx = int(predicted_y[0][1])
+            
+            
+            # get delay up to this segment
+            #up_to_delay = max(0, spf_arr[ans_reso_indx][frm_curr_indx] - (1.0/PLAYOUT_RATE) * jumping_frm_number)
+            #delay_arr.append(up_to_delay)
+            
+            #print ("jumping_frm_number: ", jumping_frm_number, ans_reso_indx, frm_curr_indx)
+
+            #draw bounding box on the image and output frm image with bounding box
+            if write_detection_box_flag:
+                self.draw_boundingbox_write(imagePathLst, img_out_parent_dir, speaker_box_arr, frm_curr_indx, ans_reso_indx, jumping_frm_number, cur_absolute_speed)
+            
+            acc_tmp, time_spf_tmp, calc_frm_num_tmp = self.get_online_video_analytics_accuracy_spf(speaker_box_arr, spf_arr,  frm_curr_indx, ans_reso_indx, jumping_frm_number, cur_absolute_speed)
+            
+            acc_accumulate += acc_tmp
+            time_spf_accumulate += time_spf_tmp
+            calculated_frm_num += calc_frm_num_tmp
+            #curr_detect_time += spf_arr[ans_reso_indx][frm_curr_indx]
+    
+            last_frm_box = curre_frm_box
+            
+            frm_curr_indx += jumping_frm_number  #
+            #EMA_absolute_prev = EMA_absolute_curr   # update EMA
+        
+        acc_average = acc_accumulate/(calculated_frm_num)
+        time_spf = time_spf_accumulate/calculated_frm_num
+     
+        print ("acc_average, time_spf: ", acc_average, time_spf)
+        
+        return acc_average, time_spf
+
+
     def get_acc_spf_under_different_minThreshold(self):
         min_acc_threshold_lst = [0.9, 0.92, 0.94, 0.96, 0.98, 1.0]
         acc_lst = []
@@ -444,6 +576,7 @@ class VideoApply(object):
                 write_detection_box_flag = True  # False
                 acc, spf = videoApplyObj.show_speaker_bounding_box_detection_result(predicted_video_dir, min_acc_thres, imagePathLst, write_detection_box_flag)
     
+                xx
                 acc_average += acc
                 spf_average += spf
             

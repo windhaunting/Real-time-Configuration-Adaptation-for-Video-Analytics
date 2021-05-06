@@ -137,7 +137,7 @@ class OfflineOnceTimeProfiling(object):
 
 
 
-    def execute_video_once_time_offline_profiling_each_frame(self, data_dir, predicted_video_dir, min_acc_thres, interval_len_time):
+    def execute_video_once_time_offline_profiling_each_second(self, data_dir, predicted_video_dir, min_acc_thres, interval_len_time):
                 
             # get each frame's accuracy and processing speed
         
@@ -153,7 +153,7 @@ class OfflineOnceTimeProfiling(object):
 
 
             #use 10 second to decide a configuration
-            frm_no = 1000  # test only 10000 for paper ploting experiment len(dict_detection_reso_video[reso_list[0]])  #   min(len(imagePathLst), spf_arr.shape[1])
+            frm_no = 3000  # test only 10000 for paper ploting experiment len(dict_detection_reso_video[reso_list[0]])  #   min(len(imagePathLst), spf_arr.shape[1])
             
             ans_jfr, ans_reso_indx, aver_acc = data_obj.predict_next_configuration_jumping_frm_reso(dict_detection_reso_video, min_acc_thres, 1, frm_no)
         
@@ -185,7 +185,7 @@ class OfflineOnceTimeProfiling(object):
         
                     
                 #aver_acc = get_numpy_arr_all_jumpingFrameInterval_resolution(dict_detection_reso_video, current_frm_indx, ans_jfr, highest_reso, curre_reso)
-        
+                
                 arr_acc_lst += acc_lst
                 arr_time_lst += time_lst
                 
@@ -193,8 +193,31 @@ class OfflineOnceTimeProfiling(object):
 
                 current_frm_indx += ans_jfr
             
-            arr_acc = np.asarray(arr_acc_lst)
-            arr_spf = np.asarray(arr_time_lst)
+            
+            tmp_acc_lst = []
+            i = 0
+            interval_sec_frm = 25    # 1 sec 25 frame
+            while (i < len(arr_acc_lst)):
+                if i+ interval_sec_frm < len(arr_acc_lst):
+                    
+                    tmp_acc_lst.append(sum(arr_acc_lst[i:i+interval_sec_frm])/interval_sec_frm)
+                
+                i += interval_sec_frm
+                
+                
+            tmp_spf_lst = []
+            i = 0
+            interval_sec_frm = 25    # 1 sec 25 frame
+            while (i < len(arr_time_lst)):
+                if i+ interval_sec_frm < len(arr_time_lst):
+                    
+                    tmp_spf_lst.append(sum(arr_time_lst[i:i+interval_sec_frm]))
+                
+                i += interval_sec_frm
+                
+                
+            arr_acc = np.asarray(tmp_acc_lst)
+            arr_spf = np.asarray(tmp_spf_lst)
             print("arr_acc: ", arr_acc, arr_spf)
             
 
@@ -228,7 +251,7 @@ class OfflineOnceTimeProfiling(object):
                 
                 print ("predicted_video_frm_dir: ", predicted_video_frm_dir)  # ../input_output/speaker_video_dataset/sample_03_frames/
                             
-                acc, spf = self.execute_video_once_time_offline_profiling_each_frame(data_dir, predicted_video_dir, min_acc_thres, interval_len_time)
+                acc, spf = self.execute_video_once_time_offline_profiling_each_second(data_dir, predicted_video_dir, min_acc_thres, interval_len_time)
                 
                 
                 acc_average += acc

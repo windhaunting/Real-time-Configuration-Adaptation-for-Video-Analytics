@@ -26,7 +26,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.model_selection import cross_val_score, GridSearchCV
 from skopt import BayesSearchCV
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, f1_score, precision_recall_fscore_support
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, f1_score, precision_recall_fscore_support, accuracy_score
 from sklearn.decomposition import PCA
 
 from sklearn.svm import SVR
@@ -229,7 +229,8 @@ class ModelClassifier(object):
         #print ("test_on_data_y_unknown y_test_pred r2: ", X_test,  y_test_pred)
         
         return y_test_pred
-    
+
+
     def test_on_data_y_known(self, model, X_test, y_test, pca):
         # test on a test data with model already trained, y label is known
         
@@ -518,6 +519,21 @@ class ModelClassifier(object):
         
         return mor1, pca1, mor2, pca2
 
+    
+    def test_on_data_y_unknown_two_models(self, model1, X_test1, pca1, model2, X_test2, pca2):
+        # test on a test data with model already trained, y label is known
+        
+        X_test1 = pca1.transform(X_test1)
+        y_test_pred_1 = model1.predict(X_test1)
+        #y_test_pred = list(map(lambda ele: round(ele), y_test_pred))
+        #print ("rf_train_test y predicted config: ", X_test, y_test, y_test_pred)
+        
+        X_test2 = pca2.transform(X_test2)
+        y_test_pred_2 = model2.predict(X_test2)
+        
+        
+        return y_test_pred_1, y_test_pred_2
+        
 
     def test_on_data_y_known_two_models(self, model1, X_test1, y_test1, pca1, model2, X_test2, y_test2, pca2):
         # test on a test data with model already trained, y label is known
@@ -551,9 +567,13 @@ class ModelClassifier(object):
         mean_macro_f1 /= 2
         mean_micro_f1 /= 2
         
-        print ("test_on_data_y_known_two_models mean_macro_f1 mean_micro_f1:", mean_macro_f1, mean_micro_f1)
         
-        return mean_macro_f1, mean_micro_f1
+        acc_fr = accuracy_score(y_test_pred_1, y_test1)
+        acc_res = accuracy_score(y_test_pred_2, y_test2)
+        aver_cc = (acc_fr + acc_res) / 2.0
+        print ("test_on_data_y_known_two_models mean_macro_f1 mean_micro_f1:", mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_cc)
+            
+        return mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_cc
     
     
     def train_rest_test_one_video_two_models(self, video_dir_lst, predicted_video_dir, min_acc_threshold, single_featue):
@@ -618,14 +638,13 @@ class ModelClassifier(object):
         
         #rfr = self.search_best_model(x_input_arr, y_arr)
         
-        if single_featue != 'all':
-            write_subDir = predicted_video_dir +  "data_instance_xy_" + single_featue + "/minAcc_" + str(min_acc_threshold) + "/"
-            if not os.path.exists(predicted_video_dir +  "data_instance_xy_" + single_featue):
-                os.mkdir(predicted_video_dir +  "data_instance_xy_" + single_featue)            
-        else:
-            write_subDir = predicted_video_dir +  "data_instance_xy/"  + "minAcc_" + str(min_acc_threshold) + "/"
-            if not os.path.exists(predicted_video_dir +  "data_instance_xy/"):
-                os.mkdir(predicted_video_dir +  "data_instance_xy/")
+        write_subDir = predicted_video_dir +  "data_instance_xy_" + single_featue + "/minAcc_" + str(min_acc_threshold) + "/"
+        if not os.path.exists(predicted_video_dir +  "data_instance_xy_" + single_featue):
+            os.mkdir(predicted_video_dir +  "data_instance_xy_" + single_featue)            
+        #else:
+        #    write_subDir = predicted_video_dir +  "data_instance_xy/"  + "minAcc_" + str(min_acc_threshold) + "/"
+        #    if not os.path.exists(predicted_video_dir +  "data_instance_xy/"):
+        #        os.mkdir(predicted_video_dir +  "data_instance_xy/")
             
         
         if not os.path.exists(write_subDir):
@@ -643,6 +662,10 @@ class ModelClassifier(object):
         _ = joblib.dump(mor2, model_file, compress=4)
         
         
+        x_input_arr_file = write_subDir + "trained_x_instances.pkl"
+        write_pickle_data(x_input_arr, x_input_arr_file)
+        
+        
         # total is 114 size,  dimension is 
         if single_featue == 'keypoint_velocity_removed':
             X_test = X_test[:, 12:]
@@ -657,9 +680,9 @@ class ModelClassifier(object):
 
         #pca_component = 3
         #X_test1, y_test1, X_test2, y_test2 = self.unbalanced_processing(X_test, y_test)
-        mean_macro_f1, mean_micro_f1 = self.test_on_data_y_known_two_models(mor1, X_test, y_test[:, 0], pca1, mor2, X_test, y_test[:, 1], pca2)
+        mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_cc = self.test_on_data_y_known_two_models(mor1, X_test, y_test[:, 0], pca1, mor2, X_test, y_test[:, 1], pca2)
         
-        return mean_macro_f1, mean_micro_f1
+        return mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_cc
     
     
         
@@ -681,28 +704,29 @@ if __name__== "__main__":
     
     average_mean_macro_f1 = 0.0
     average_mean_micro_f1 = 0.0
-
-    video_dir_lst_tested = data_obj.video_dir_lst[0:2]    # [5:6]   # [5, 15]
+    average_acc = 0.0
+    video_dir_lst_tested = data_obj.video_dir_lst[0:5]    # [5:6]   # [5, 15]
     # prediction on one video
     for predicted_video_dir in video_dir_lst_tested:
-                    
+
         predicted_video_dir = predicted_video_dir + '/'
         #predicted_video_dir = 'output_021_dance/'     # select different video id for testing
-        single_featue = 'objectSizeChange_removed' # 'keypoint_velocity_removed'   # 'all'  # 'objectSizeChange'   # 'all', velocity
+        single_featue = 'all'  # objectSizeChange_removed' # 'keypoint_velocity_removed'   # 'all'  # 'objectSizeChange'   # 'all', velocity
         #mean_macro_f1, mean_micro_f1 = model_obj.train_rest_test_one_video_one_model(data_obj.video_dir_lst, predicted_video_dir, min_acc_threshold, single_featue)
-        mean_macro_f1, mean_micro_f1 = model_obj.train_rest_test_one_video_two_models(data_obj.video_dir_lst, predicted_video_dir, min_acc_threshold, single_featue)
+        mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_cc = model_obj.train_rest_test_one_video_two_models(data_obj.video_dir_lst, predicted_video_dir, min_acc_threshold, single_featue)
         
         # get applied result's acc and delay
         #model_obj.get_prediction_acc_delay(predicted_video_dir, min_acc_threshold)
         average_mean_macro_f1 += mean_macro_f1
         average_mean_micro_f1 += mean_micro_f1
-        
+        average_acc += aver_cc
 
 
     average_mean_macro_f1 /= len(video_dir_lst_tested) 
     average_mean_micro_f1 /= len(video_dir_lst_tested) 
     
-    print ("final average f1 score ",  average_mean_macro_f1, average_mean_micro_f1)
+    average_acc /= len(video_dir_lst_tested)
+    print ("final average f1 score ",  average_mean_macro_f1, average_mean_micro_f1, average_acc)
     
 
     

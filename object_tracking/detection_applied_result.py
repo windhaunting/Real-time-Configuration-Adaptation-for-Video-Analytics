@@ -438,7 +438,7 @@ class VideoApply(object):
     
 
         print("mor1, mor2: ", mor1, mor2)
-        frm_no = 1000  # test only 10000 for paper ploting experiment len(dict_detection_reso_video[reso_list[0]])  #   min(len(imagePathLst), spf_arr.shape[1])
+        frm_no = 3000  # test only 10000 for paper ploting experiment len(dict_detection_reso_video[reso_list[0]])  #   min(len(imagePathLst), spf_arr.shape[1])
         
         acc_accumulate = 0.0
         time_spf_accumulate = 0.0
@@ -572,6 +572,27 @@ class VideoApply(object):
             #EMA_absolute_prev = EMA_absolute_curr   # update EMA
             
             
+            
+        tmp_acc_lst = []
+        i = 0
+        interval_sec_frm = 25    # 1 sec 25 frame
+        while (i < len(acc_pred_arr)):
+            if i+ interval_sec_frm < len(acc_pred_arr):
+                
+                tmp_acc_lst.append(sum(acc_pred_arr[i:i+interval_sec_frm])/interval_sec_frm)
+            
+            i += interval_sec_frm
+            
+            
+        tmp_spf_lst = []
+        i = 0
+        interval_sec_frm = 25    # 1 sec 25 frame
+        while (i < len(spf_arr)):
+            if i+ interval_sec_frm < len(spf_arr):
+                
+                tmp_spf_lst.append(sum(spf_arr[i:i+interval_sec_frm]))
+            
+            i += interval_sec_frm
             
         acc_pred_arr = np.asarray(acc_pred_arr)
         spf_arr = np.asarray(spf_arr)
@@ -721,7 +742,7 @@ class VideoApply(object):
         #print("arr_acc_interval: ", arr_acc_interval)
 
         end_time = time.time()
-        time_accumualate += end_time - start_time
+        time_accumualate += (end_time - start_time)  # /max_frm_interval   # total time here
         
         return acc_accumulate, time_accumualate, calculated_frm_num
     
@@ -778,7 +799,13 @@ class VideoApply(object):
         return acc_lst, time_lst, calculated_frm_num
 
 
-    def show_vehicle_bounding_box_detection_result(self, predicted_video_dir, min_acc, imagePathLst, write_detection_box_flag):
+
+    def get_ground_truth_configuration(self, data_dir, dict_detection_reso_video, current_frm_indx):
+        # get the ground truth configuration which satisfies the standard
+        x = 1
+        
+        
+    def show_vehicle_bounding_box_detection_result(self, data_dir, predicted_video_dir, min_acc, imagePathLst, write_detection_box_flag, feature_removed):
         #detect speaker after applying the predictive model for configuration adaptation
         #not real apply to video; use profiling results to simulate 
         # get bounding box of the test video in different resolutions (i.e profiling result of the video)
@@ -795,31 +822,47 @@ class VideoApply(object):
                 os.mkdir(img_out_parent_dir)
         
         
+        video_frame_dir =  predicted_video_dir   # +  '*_frames'  # 'car_traffic_' + str(video_id) + '_frames'
+        
+        for root, subdirs, files in os.walk(video_frame_dir):
+            flag = False
+            for frame_folder_name in subdirs:
+                if '_frames' in frame_folder_name:
+                    video_frame_dir = video_frame_dir + frame_folder_name
+                    flag = True
+                    break
+            if flag:
+                break
+            
         
         # speaker_box_arr, acc_arr, spf_arr = get_data_numpy(input_dir + predicted_video_dir)
-        dict_detection_reso_video = read_json_dir(data_dir + predicted_video_dir)
+        dict_detection_reso_video = read_json_dir(predicted_video_dir)
         
-        output_pickle_dir = data_dir + predicted_video_dir + "data_instance_xy/minAcc_" + str(min_acc) + "/"
         
-        model_file = output_pickle_dir + "model_classifier.joblib" + "_exclusive_" + str(predicted_video_dir[:-1])  + ".pkl"       # with other videos
-                        
+        print ("ppppredicted_video_dir: ", predicted_video_dir)
+        output_pickle_dir = predicted_video_dir + "data_instance_xy_" + feature_removed + "/minAcc_" + str(min_acc) + "/"
         
+        model_file_fr = output_pickle_dir + "model_classifier_frame_rate_joblib_exclusive_" + str(predicted_video_dir.split('/')[-2])  + ".pkl"       # with other videos
+        model_file_reso = output_pickle_dir + "model_classifier_resolution_joblib_exclusive_" + str(predicted_video_dir.split('/')[-2])  + ".pkl"       # with other videos
         #print ("model_file:", model_file)
         
         
-        test_x_instances_file = output_pickle_dir + "all_other_trained_x_instances.pkl"
+        test_x_instances_file = output_pickle_dir + "trained_x_instances.pkl"
         X = read_pickle_data(test_x_instances_file)
         #print ("X shape:", X.shape)
         
         pca = PCA(n_components=min(n_components, X.shape[1])).fit(X)
         ModelClassifyObj = ModelClassifier()
-        model = joblib.load(model_file)
-
+        mor_fr = joblib.load(model_file_fr)
+        mor_reso = joblib.load(model_file_reso)
 
         frm_no = len(dict_detection_reso_video[reso_list[0]])  #   min(len(imagePathLst), spf_arr.shape[1])
         
         acc_accumulate = 0.0
-        time_spf_accumulate = 0.0
+        time_spf_accumulate_image_process = 0.0
+        
+        time_spf_accumulate_ml_prediction = 0.0
+        
         calculated_frm_num = 0
         
         ans_reso_indx = 0
@@ -828,7 +871,7 @@ class VideoApply(object):
         last_frm_indx = 1
         current_frm_indx = interval_frm + 1                     # 1  starting index = 0  left frame no = 1
         
-        DataGenerateObj = DataGenerate()  
+        DataGenerateObj = DataGenerate(data_dir)  
         # draw first segment use default resolution and index
         if write_detection_box_flag:
             car_bounding_boxes = dict_detection_reso_video[reso_list[ans_reso_indx]][str(last_frm_indx)][object_name]
@@ -845,7 +888,7 @@ class VideoApply(object):
         acc_tmp, time_spf_tmp, calc_frm_num_tmp = self.get_online_video_analytics_accuracy_spf(data_dir, dict_detection_reso_video, last_frm_indx, interval_frm, highest_reso, curre_reso)
         
         acc_accumulate += acc_tmp
-        time_spf_accumulate += time_spf_tmp
+        time_spf_accumulate_image_process += time_spf_tmp
         calculated_frm_num += calc_frm_num_tmp
                 
         # initially used resolution
@@ -858,9 +901,10 @@ class VideoApply(object):
         #up_to_delay = max(0, spf_arr[ans_reso_indx][0] - 1.0/PLAYOUT_RATE)             # up to current delay, processing time - streaming time
 
         arr_ema_absolute_velocity = np.zeros((4, 2))
-
+        
         while(current_frm_indx < frm_no):
             
+            start_time = time.time()
             # calculate the relative feature
             
             frm_reso = reso_list[ans_reso_indx]
@@ -877,11 +921,20 @@ class VideoApply(object):
             #feature_x_object_size = DataGenerateObj.get_object_size_x(dict_detection_reso_video, current_frm_indx, ans_reso_indx)      
             
             feature_x_object_size = DataGenerateObj.get_object_size_change(dict_detection_reso_video, current_frm_indx, ans_reso_indx, last_frm_indx, last_reso_indx)
-            #optical_flow_next_pt = self.get_optical_flow_feature(video_frame_dir, dict_detection_reso_video, current_frm_indx, ans_reso_indx, last_frm_indx, last_reso_indx)
+            optical_flow_next_pt = DataGenerateObj.get_optical_flow_feature(video_frame_dir, dict_detection_reso_video, current_frm_indx, ans_reso_indx, last_frm_indx, last_reso_indx)
 
+            feature_x = np.hstack((arr_movement_feature, feature_x_object_size, optical_flow_next_pt)).reshape(1, -1)
+            
+            
+            if feature_removed == 'keypoint_velocity_removed':
+                feature_x = feature_x[:, 12:]
+                #y_arr = y_arr[:, 12:]
+            elif feature_removed == 'objectSizeChange_removed':
+                feature_x = np.hstack((feature_x[:, 0:12], feature_x[:, 14:]))   # X_test[:, 12:14]
+                #y_arr = np.hstack((y_arr[:, 0:12], y_arr[:, 14:]))
+            elif feature_removed == 'opticalFlow_removed':
+                feature_x = feature_x[:, 0:14]   #  114
                 
-                
-            feature_x = np.hstack((arr_movement_feature, feature_x_object_size))
             
             #ans_jfr, ans_reso_indx, aver_acc = self.predict_next_configuration_jumping_frm_reso(dict_detection_reso_video, min_acc_threshold, curent_frm_indx, FRM_NO)
             # predict how many frame jumped from this starting point
@@ -889,10 +942,13 @@ class VideoApply(object):
             #print ("feature_x cur_absolute_speed: " , cur_absolute_speed)
         
             #print ("feature_x : ", feature_x.shape, feature_x)
-            predicted_y = ModelClassifyObj.test_on_data_y_unknown(model, feature_x, pca)
             
-            jumping_frm_number = int(predicted_y[0][0])
-            ans_reso_indx = int(predicted_y[0][1])
+            jumping_frm_number, ans_reso_indx =  ModelClassifyObj.test_on_data_y_unknown_two_models(mor_fr, feature_x, pca, mor_reso, feature_x, pca)
+        
+            jumping_frm_number = int(jumping_frm_number)
+            ans_reso_indx = int(ans_reso_indx)
+            #jumping_frm_number = int(predicted_y[0][0])
+            #ans_reso_indx = int(predicted_y[0][1])
             
             last_reso_indx = ans_reso_indx
             # get delay up to this segment
@@ -900,7 +956,10 @@ class VideoApply(object):
             #delay_arr.append(up_to_delay)
             
             #print ("jumping_frm_number: ", jumping_frm_number, ans_reso_indx)
-
+            
+            end_time = time.time()
+    
+            time_spf_accumulate_ml_prediction += (end_time - start_time)
             #draw bounding box on the image and output frm image with bounding box
             if write_detection_box_flag:
                 car_bounding_boxes = dict_detection_reso_video[reso_list[ans_reso_indx]][str(current_frm_indx)][object_name]
@@ -911,7 +970,7 @@ class VideoApply(object):
             acc_tmp, time_spf_tmp, calc_frm_num_tmp = self.get_online_video_analytics_accuracy_spf(data_dir, dict_detection_reso_video, current_frm_indx, jumping_frm_number, highest_reso, curre_reso)
             #print ("feature_x : ", feature_x.shape, feature_x, acc_tmp, jumping_frm_number, ans_reso_indx)
             acc_accumulate += acc_tmp
-            time_spf_accumulate += time_spf_tmp
+            time_spf_accumulate_image_process += time_spf_tmp
             calculated_frm_num += calc_frm_num_tmp
             #curr_detect_time += spf_arr[ans_reso_indx][frm_curr_indx]
     
@@ -921,23 +980,27 @@ class VideoApply(object):
             
         
         acc_average = acc_accumulate/(calculated_frm_num)
-        time_spf = time_spf_accumulate/calculated_frm_num
-     
+        image_time_spf = time_spf_accumulate_image_process/calculated_frm_num
+        
+        ml_time_spf = time_spf_accumulate_ml_prediction/calculated_frm_num
         #print ("acc_average, time_spf: ", acc_average, time_spf)
         
-        return acc_average, time_spf
+        return acc_average, image_time_spf, ml_time_spf
+
 
 
     def get_acc_spf_under_different_minThreshold(self, data_dir, video_dir_lst):
         min_acc_threshold_lst = [0.9, 0.92, 0.94, 0.96, 0.98]  # , 1.0]
         acc_lst = []
         SPF_spent_lst = []
-            
+        ml_spf_spent_lst = []
+        
         for min_acc_thres in min_acc_threshold_lst[1:2]:
                 
             acc_average = 0.0
             spf_average = 0.0
-            analyzed_video_lst = video_dir_lst[0:1]    # [0:10]
+            ml_spf_average = 0.0
+            analyzed_video_lst = video_dir_lst[0:2]   # [0:10]
             for predicted_video_dir in analyzed_video_lst:
                 predicted_video_dir = predicted_video_dir + '/' 
                 
@@ -951,17 +1014,20 @@ class VideoApply(object):
                 
                 # get one del
                 #self.get_one_video_spf_latency(data_dir, predicted_video_dir, min_acc_thres, imagePathLst)
-                self.get_one_video_spf_spf_each_frm(data_dir, predicted_video_dir, min_acc_thres, imagePathLst)
-                #acc, spf = self.show_vehicle_bounding_box_detection_result(predicted_video_dir, min_acc_thres, imagePathLst, write_detection_box_flag)
-                #acc_average += acc
-                #spf_average += spf
+                #self.get_one_video_spf_spf_each_frm(data_dir, predicted_video_dir, min_acc_thres, imagePathLst)
+               
+                feature_removed = "all"   # objectSizeChange_removed"  # "objectSizeChange_removed"   # "all" 
+                acc, img_spf, ml_spf = self.show_vehicle_bounding_box_detection_result(data_dir, predicted_video_dir, min_acc_thres, imagePathLst, write_detection_box_flag, feature_removed)
+                acc_average += acc
+                spf_average += img_spf
+                ml_spf_average += ml_spf
                 
-                xx
             acc_lst.append(acc_average/len(analyzed_video_lst))
                 
             SPF_spent_lst.append(spf_average/len(analyzed_video_lst))
-                
-            print("acc_lst, SPF_spent_lst: ", acc_lst, SPF_spent_lst)
+            ml_spf_spent_lst.append(ml_spf_average/len(analyzed_video_lst))
+            
+        print("acc_lst, SPF_spent_lst: ", acc_lst, SPF_spent_lst, ml_spf_spent_lst)
 
 
 

@@ -61,17 +61,17 @@ def read_write_operation():
     dataDir_MoTrack =  "../input_output/speaker_video_dataset/sample_video_out/sample_01_out/data_instance_xy/minAcc_0.92/video_applied_detection_result/"
 
 
-    
+    """
     input_file_path = dataDir_MoTrack + "arr_acc_segment_.pkl"
-    out_file_path = dataDir_MoTrack + "Segment_arr_traffic.tsv"
+    out_file_path = dataDir_MoTrack + "MOTrack_segment_arr_traffic.tsv"
 
     read_acc_pickle_and_write_file(input_file_path, out_file_path)
 
     # read delay
     input_file_path = dataDir_MoTrack + "arr_delay_up_to_segment_.pkl"
-    out_file_path = dataDir_MoTrack + "Segment_delay_traffic.tsv"
+    out_file_path = dataDir_MoTrack + "MOTrack_segment_delay_traffic.tsv"
     read_acc_pickle_and_write_file(input_file_path, out_file_path)
-    
+    """
     
     # read acc
     input_file_path = dataDir_MoTrack + "no_adaptation_arr_acc_segment_.pkl"
@@ -79,8 +79,19 @@ def read_write_operation():
     read_acc_pickle_and_write_file(input_file_path, out_file_path)
 
     # read delay
-    input_file_path = dataDir_MoTrack + "no_adaptation_arr_delay_up_to_segment_.pkl"
-    out_file_path = dataDir_MoTrack + "no_adaptation_segment_delay_traffic.tsv"
+    input_file_path = dataDir_MoTrack + "no_adaptation_arr_spf_segment_.pkl"
+    out_file_path = dataDir_MoTrack + "no_adaptation_segment_spf_traffic.tsv"
+    read_acc_pickle_and_write_file(input_file_path, out_file_path)
+    
+    
+        # read acc
+    input_file_path = dataDir_MoTrack + "periodic_adaptation_arr_acc_segment_.pkl"
+    out_file_path = dataDir_MoTrack + "periodic_adaptation_segment_arr_traffic.tsv"
+    read_acc_pickle_and_write_file(input_file_path, out_file_path)
+
+    # read delay
+    input_file_path = dataDir_MoTrack + "periodic_adaptation_arr_spf_segment_.pkl"
+    out_file_path = dataDir_MoTrack + "periodic_adaptation_segment_spf_traffic.tsv"
     read_acc_pickle_and_write_file(input_file_path, out_file_path)
     
     

@@ -64,7 +64,7 @@ class DataGenerate(object):
         #data_dir = "../input_output/vehicle_tracking/sample_video_out/"
         
         #print("data_dir: ", data_dir)
-        video_dir_lst = sorted(glob.glob(data_dir + '*sample_video_json*'))
+        video_dir_lst = sorted(glob.glob(data_dir + '*json*'))
         
         return video_dir_lst
     
@@ -366,7 +366,7 @@ class DataGenerate(object):
         # We dont know each car in highest resolution frame correspoinding to each car in lower resolution frame; naive way is to use two loops
         # detect if the bounding box overlapping >= 0.5, think it maybe detecting the same car?
         
-        same_car_IOU_threshold = 0.7
+        same_car_IOU_threshold = 0.6
         aver_acc = 0.0
         count = 0.0
         for high_reso_bounding_box in dict_cars_each_jumped_frm_higest_reso.values():

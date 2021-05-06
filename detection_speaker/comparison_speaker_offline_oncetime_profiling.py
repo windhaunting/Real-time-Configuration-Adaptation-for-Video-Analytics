@@ -316,7 +316,77 @@ class OfflineOnceTimeProfiling(object):
             return arr_acc, arr_delay
         
         
+    def execute_video_once_time_no_comparison_arr_spf_each_second(self, predicted_video_dir, min_acc_thres, interval_len_time):
+                
+            
+            output_pickle_dir = input_dir + predicted_video_dir + "data_instance_xy/minAcc_" + str(min_acc_thres) + "/"
+
+            speaker_box_arr, acc_frame_arr, spf_frame_arr = get_data_numpy(input_dir + predicted_video_dir)
+
+            print ("get_prediction_acc_delay input_dir: ", speaker_box_arr.shape, acc_frame_arr.shape, spf_frame_arr.shape)
+            
+            out_dir_new_config_arr =  input_dir + predicted_video_dir + "out_dir_new_config_arr/"
+            if not os.path.exists(out_dir_new_config_arr):
+                os.mkdir(out_dir_new_config_arr)
+                speaker_box_arr, acc_frame_arr, spf_frame_arr = self.extend_expensive_config_to_all_configs(speaker_box_arr, acc_frame_arr, spf_frame_arr, out_dir_new_config_arr)
+            else:
+                speaker_box_arr, acc_frame_arr, spf_frame_arr = get_data_numpy(out_dir_new_config_arr)
+            
+            # profile to get ocnfiguration
+            pareto_bound_flag = 0
+            reso_indx, profiling_time = self.select_optimal_configuration_above_accuracy(min_acc_thres, acc_frame_arr, spf_frame_arr, interval_len_time, pareto_bound_flag)
+            
+            
+            # use predicted result to apply to this new video and get delay and accuracy
+            #get the 
+            # get the average acc with this frame index
+            frm_len = acc_frame_arr.shape[1]
+            
+            
+            arr_acc = np.hstack((np.asarray([1]*(interval_len_time *PLAYOUT_RATE)), acc_frame_arr[reso_indx][interval_len_time *PLAYOUT_RATE:]))
+            
+            acc_frame_arr[reso_indx]
+            arr_spf = np.hstack((np.asarray([profiling_time/(interval_len_time *PLAYOUT_RATE)] *(interval_len_time *PLAYOUT_RATE)), spf_frame_arr[reso_indx][interval_len_time *PLAYOUT_RATE:]))
+            
+            print("arr_acc: ", reso_indx, arr_acc, arr_spf)
+            
+            
+            tmp_acc_lst = []
+            i = 0
+            interval_sec_frm = 25    # 1 sec 25 frame
+            while (i < len(arr_acc)):
+                if i+ interval_sec_frm < len(arr_acc):
+                    
+                    tmp_acc_lst.append(sum(arr_acc[i:i+interval_sec_frm])/interval_sec_frm)
+                
+                i += interval_sec_frm
+                
+                
+            tmp_spf_lst = []
+            i = 0
+            interval_sec_frm = 25    # 1 sec 25 frame
+            while (i < len(arr_spf)):
+                if i+ interval_sec_frm < len(arr_spf):
+                    
+                    tmp_spf_lst.append(sum(arr_spf[i:i+interval_sec_frm]))     # interval total processing time
+                
+                i += interval_sec_frm
+            
+            detect_out_result_dir = output_pickle_dir + "video_applied_detection_result/"
+            if not os.path.exists(detect_out_result_dir):
+                os.mkdir(detect_out_result_dir)
+    
+            arr_acc_segment_file = detect_out_result_dir + "no_adaptation_arr_acc_segment_.pkl"
+            arr_spf_segment_file = detect_out_result_dir + "no_adaptation_arr_spf_segment_.pkl"
+            write_pickle_data(arr_acc, arr_acc_segment_file)
+            write_pickle_data(arr_spf, arr_spf_segment_file)
+            
+            
+            
+            return arr_acc, arr_spf        
         
+        
+
     def execute_video_analytics_simulation(self):
         interval_len_time = 10
         min_acc_threshold_lst = [0.9, 0.92, 0.94, 0.96, 0.98, 1.0]
@@ -324,7 +394,7 @@ class OfflineOnceTimeProfiling(object):
         acc_lst = []
         SPF_spent_lst = []
         
-        for min_acc_thres in min_acc_threshold_lst[3:4]:
+        for min_acc_thres in min_acc_threshold_lst[1:2]:
             
             acc_average = 0.0
             spf_average = 0.0
@@ -336,8 +406,8 @@ class OfflineOnceTimeProfiling(object):
                             
                 #acc, spf = self.execute_video_once_time_offline_profiling(predicted_video_dir, min_acc_thres, interval_len_time)
                 
-                acc, spf = self.execute_video_once_time_no_comparison_arr_spf(predicted_video_dir, min_acc_thres, interval_len_time)
-
+                #acc, spf = self.execute_video_once_time_no_comparison_arr_spf(predicted_video_dir, min_acc_thres, interval_len_time)
+                acc, spf = self.execute_video_once_time_no_comparison_arr_spf_each_second(predicted_video_dir, min_acc_thres, interval_len_time)
                 
                 xx
                 acc_average += acc

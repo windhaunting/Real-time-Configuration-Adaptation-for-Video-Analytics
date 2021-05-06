@@ -23,7 +23,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.model_selection import cross_val_score, GridSearchCV
 #from skopt import BayesSearchCV
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, f1_score, precision_recall_fscore_support
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, f1_score, precision_recall_fscore_support, accuracy_score
 from sklearn.decomposition import PCA
 
 from sklearn import svm
@@ -465,13 +465,13 @@ class ModelRegression(object):
             #y_test = y_test[:, 0:59]   # total     
             
         #pca_component = 10
-        mean_macro_f1, mean_micro_f1 = self.test_on_data_y_known(rfr, X_test, y_test, pca)
+        mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_acc = self.test_on_data_y_known(rfr, X_test, y_test, pca)
         
         #write_subDir = dataDir3 + predicted_video_dir + "jumping_number_result/"  + "jumpingNumber_resolution_selection/intervalFrm-10_speedType-ema_minAcc-0.92/"
         #out_data_pickle_file = write_subDir + "predicted_y_out.pkl"       # with other videos
         #write_pickle_data(y_test_pred, out_data_pickle_file)
      
-        return mean_macro_f1, mean_micro_f1
+        return mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_acc
 
     def test_on_data_y_unknown(self, model, X_test, pca):
         # test on a test data with model already trained, y label unknown
@@ -520,9 +520,13 @@ class ModelRegression(object):
             
         mean_macro_f1 /= y_test.shape[1]
         mean_micro_f1 /= y_test.shape[1]
-        print ("test_on_data_y_known testing mean_macro_f1 mean_micro_f1:", mean_macro_f1, mean_micro_f1)
         
-        return mean_macro_f1, mean_micro_f1
+        acc_fr = accuracy_score(y_test[:, 0], y_test_pred[:, 0])
+        acc_res = accuracy_score(y_test[:, 1], y_test_pred[:, 1])
+        aver_acc = (acc_fr + acc_res) / 2.0
+        print ("test_on_data_y_known_two_models mean_macro_f1 mean_micro_f1:", mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_acc)
+            
+        return mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_acc
 
 
     def get_prediction_acc_delay(self, predicted_video_dir, min_acc):
@@ -689,22 +693,23 @@ if __name__== "__main__":
     # prediction on one video
     average_mean_macro_f1 = 0.0
     average_mean_micro_f1 = 0.0
-
+    aver_accur = 0.0 
     video_dir_lst_tested = video_dir_lst[0:5]
     for predicted_video_dir in video_dir_lst_tested:
                     
         #predicted_video_dir = 'output_021_dance/'     # select different video id for testing
-        single_featue = 'relative_velocity_removed' # 'all'
+        single_featue = 'all' # 'relative_velocity_removed' # 'all'
         
-        mean_macro_f1, mean_micro_f1 = model_obj.train_rest_test_one_video(predicted_video_dir, min_acc_threshold, single_featue)
+        mean_macro_f1, mean_micro_f1, acc_fr, acc_res, aver_acc = model_obj.train_rest_test_one_video(predicted_video_dir, min_acc_threshold, single_featue)
         #model_obj.get_prediction_acc_delay(predicted_video_dir, min_acc_threshold)
         
         
         average_mean_macro_f1 += mean_macro_f1
         average_mean_micro_f1 += mean_micro_f1
-
+        aver_accur += aver_acc
+        
     average_mean_macro_f1 /= len(video_dir_lst_tested) 
     average_mean_micro_f1 /= len(video_dir_lst_tested) 
-    
-    print ("final average f1 score ",  average_mean_macro_f1, average_mean_micro_f1)
+    aver_accur /= len(video_dir_lst_tested)
+    print ("final average f1 score ",  average_mean_macro_f1, average_mean_micro_f1, aver_accur)
     

@@ -143,7 +143,7 @@ class OfflineOnceTimeProfiling(object):
         
 
 
-    def execute_video_peridoic_update_profiling_each_frm(self, data_dir, predicted_video_dir, min_acc_thres, interval_len_time, segment_len_time):
+    def execute_video_peridoic_update_profiling_each_second(self, data_dir, predicted_video_dir, min_acc_thres, interval_len_time, segment_len_time):
                 
             
         dict_detection_reso_video = read_json_dir(predicted_video_dir)
@@ -162,7 +162,7 @@ class OfflineOnceTimeProfiling(object):
         #ans_jfr, ans_reso_indx, aver_acc = data_obj.predict_next_configuration_jumping_frm_reso(dict_detection_reso_video, min_acc_thres, 1, frm_no)
     
         
-        frm_no = 1000  # test only 10000 for paper ploting experiment len(dict_detection_reso_video[reso_list[0]])  #   min(len(imagePathLst), spf_arr.shape[1])
+        frm_no = 3000  # test only 10000 for paper ploting experiment len(dict_detection_reso_video[reso_list[0]])  #   min(len(imagePathLst), spf_arr.shape[1])
         
         #periodic update profiling
         
@@ -187,6 +187,29 @@ class OfflineOnceTimeProfiling(object):
             
             current_frm_indx += (interval_len_time*PLAYOUT_RATE) 
 
+
+        tmp_acc_lst = []
+        i = 0
+        interval_sec_frm = 25    # 1 sec 25 frame
+        while (i < len(arr_acc_lst)):
+            if i+ interval_sec_frm < len(arr_acc_lst):
+                
+                tmp_acc_lst.append(sum(arr_acc_lst[i:i+interval_sec_frm])/interval_sec_frm)
+            
+            i += interval_sec_frm
+            
+            
+        tmp_spf_lst = []
+        i = 0
+        interval_sec_frm = 25    # 1 sec 25 frame
+        while (i < len(arr_time_lst)):
+            if i+ interval_sec_frm < len(arr_time_lst):
+                
+                tmp_spf_lst.append(sum(arr_time_lst[i:i+interval_sec_frm]))     # interval total processing time
+            
+            i += interval_sec_frm
+                
+                
         arr_acc = np.asarray(arr_acc_lst)
         arr_spf = np.asarray(arr_time_lst)
         print("arr_acc: ", arr_acc, arr_spf)
@@ -225,7 +248,7 @@ class OfflineOnceTimeProfiling(object):
                             
                 predicted_video_dir = predicted_video_dir + '/'
 
-                acc, spf = self.execute_video_peridoic_update_profiling_each_frm(data_dir, predicted_video_dir, min_acc_thres, interval_len_time, segment_len_time)
+                acc, spf = self.execute_video_peridoic_update_profiling_each_second(data_dir, predicted_video_dir, min_acc_thres, interval_len_time, segment_len_time)
                 
                 xx
                 acc_average += acc

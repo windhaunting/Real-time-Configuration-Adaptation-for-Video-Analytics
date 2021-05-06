@@ -50,7 +50,7 @@ def video_to_frame(input_loc, output_loc):
     video_length =  int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
     print ("Number of frames: ", video_length, input_loc, output_loc)
     count = 0
-    print ("Converting video..\n")
+    print ("Converting video..\n", cap.isOpened())
     # Start converting the video
     
     while cap.isOpened():
@@ -69,10 +69,11 @@ def video_to_frame(input_loc, output_loc):
             print ("Done extracting frames.\n%d frames extracted" % count)
             print ("It took %d seconds forconversion." % (time_end-time_start))
             break
+        
 
-def extract_video_frames(input_dir):
-    input_video_loc = '/'.join(input_dir.split('/')[:-2]) + '/' + 'sample_05.mp4'
-    output_loc = '/'.join(input_dir.split('/')[:-2]) + '/' + input_video_loc.split('/')[-1].split('.')[0] + '_frames'
+def extract_video_frames(input_video_loc):
+    #input_video_loc = '/'.join(input_dir.split('/')[:-1]) + '/' + file_name # 'sample_05.mp4'
+    output_loc = '/'.join(input_video_loc.split('/')[:-1]) + '/' + input_video_loc.split('/')[-1].split('.')[0] + '_frames'
     video_to_frame(input_video_loc, output_loc)
 
 
@@ -121,8 +122,7 @@ def get_accuracy_time_py(data_dir):
         #print ("get_accuracy_time_py file_name: ", file_name)
         for i, reso in enumerate(resoStrLst):
             if reso in file_name:
-                #print ("pickle_lst: ",i, json_file)
-                
+                #print ("pickle_lst: ",i, json_file)                
                 
                 # read the json file: format: "168": {"time(s)": 0.2048, "person": [[125, 255, 196, 300]], "screen": [[13, 5, 185, 165]]}, "169": {"time(s)": 0.2022, "person": [[127, 255, 192, 300]], "screen": [[13, 5, 185, 165]]}, "170": {"time(s)": 0.2038, "person": [[128, 254, 196, 300]], "screen": [[13, 5, 185
                                                 # , 165]]}, "171": {"time(s)": 0.2031, "person": [[128, 257, 193, 300]], "screen": [[13, 5, 185, 165]]},
@@ -257,7 +257,10 @@ def transfer_data_numpy():
 if __name__== "__main__": 
 
     
-    transfer_data_numpy()
+    #transfer_data_numpy()
+    input_video_loc = "/var/fubao/videoAnalytics_objectTracking/input_output/speaker_video_dataset/sample_02.mp4"
+    #file_name = "sample_01.mp4"
+    extract_video_frames(input_video_loc)
     
     
     

@@ -367,13 +367,14 @@ class ModelRegression(object):
             
         rfr, pca = self.get_rf_model_train(x_input_arr, y_arr)   
         print("trained finished test shape:" , x_input_arr.shape, y_arr.shape, X_test.shape, y_test.shape)
-        write_subDir = input_dir + predicted_video_dir +  "data_instance_xy/"  + "minAcc_" + str(min_acc) + "/"
+        
+        write_subDir = input_dir + predicted_video_dir +  "data_instance_xy_" + single_featue  + "/minAcc_" + str(min_acc) + "/"
         model_file = write_subDir + "model_regression.joblib" + "_exclusive_" + str(predicted_video_dir[:-1])  + ".pkl"
+        _ = joblib.dump(rfr, model_file, compress=4)
         
         x_input_arr_file = write_subDir + "trained_x_instances.pkl"
         write_pickle_data(x_input_arr, x_input_arr_file)
         
-        _ = joblib.dump(rfr, model_file, compress=4)
         
         
         # total is 114 size,  dimension is 
