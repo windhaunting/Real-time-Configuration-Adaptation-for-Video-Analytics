@@ -1,4 +1,4 @@
-cd /home/fubao/Desktop/workDir/ResearchProjects/IOTVideoAnalysis/videoAnalytics_poseEstimation
+cd /home/fubao/workDir/researchProject/videoAnalytics_objectTracking
 #git commit $1
 git commit -a -m  $1
-git push origin master
+git push origin main
