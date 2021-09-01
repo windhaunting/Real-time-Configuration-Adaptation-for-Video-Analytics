@@ -5,7 +5,9 @@ import slidingwindow as sw
 
 import cv2
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 import time
 
 from tf_pose import common
@@ -545,6 +547,7 @@ class TfPoseEstimator:
 
         t = time.time()
         humans = PoseEstimator.estimate_paf(peaks, self.heatMat, self.pafMat)
+        print("humanshumanshumanshumans: ", img.shape, humans)
         logger.debug('estimate time=%.5f' % (time.time() - t))
         return humans
 

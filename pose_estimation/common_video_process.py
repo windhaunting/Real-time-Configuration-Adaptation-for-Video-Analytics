@@ -114,7 +114,7 @@ def draw_video_frames(pose_est_frm, frame_jpg_list, out_data_dir):
     frm_indx = 0
     frame_num = pose_est_frm.shape[0]
     
-    while(frm_indx < 2500):  # frame_num):  # frame_num):
+    while(frm_indx < 2500):  #part of video clips for test; frame_num):  # frame_num):
         curr_frm_path = frame_jpg_list[frm_indx]
         # print("curr_frm_path: ", curr_frm_path)
         isFile = os.path.isfile(curr_start_frm_path) 
@@ -158,14 +158,14 @@ def execute_draw_video():
                         'output_007_yoga/', 'output_008_cardio/', \
                         'output_009_cardio/', 'output_010_cardio/']
             
-    for video_dir in video_dir_lst[3:4]:    # [2:3]:   #[1:2]:  # [1:2]:  #[0:1]:        #[1:2]:
+    for video_dir in video_dir_lst[4:5]:    # [2:3]:   #[1:2]:  # [1:2]:  #[0:1]:        #[1:2]:
         
         data_pickle_dir = dataDir3 + video_dir + 'jumping_number_result/'
         subDir = data_pickle_dir + "intervalFrm-1_speedType-ema_minAcc-0.95/"
         
         # read pose estimation result
         data_file =  subDir + "pose_est_frm.pkl"
-        frm_input_dir = dataDir3 + "004_dance_frames/"
+        frm_input_dir = dataDir3 + "005_dance_frames_bakup/"
         
         # from training data
         pose_est_detected_frm = read_pose_estimation(data_file)

@@ -12,6 +12,7 @@ import json
 import cv2
 import time
 import os
+import csv
 
 import numpy as np
 from collections import defaultdict
@@ -137,6 +138,14 @@ def read_numpy(npy_file):
     return arr
 
 
+def write_lst_to_csv(columnName_lst, val_lst, fileName):
+    # write into csv file;  one column assumed
+    with open(fileName, 'w') as myfile:
+        wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+        wr.writerow(columnName_lst)
+        for val in val_lst:
+            wr.writerow([val])
+    
 def read_json_dir(one_video_input_dir):
     # read json to a dictionary or numpy
     # output: dictionary out of json

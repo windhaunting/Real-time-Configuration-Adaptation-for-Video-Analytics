@@ -5,7 +5,8 @@ import sys
 import abc
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
+# import tensorflow.contrib.slim as slim
+import tf_slim as slim
 
 from tf_pose.common import to_str
 from tf_pose import common
@@ -13,11 +14,12 @@ from tf_pose import common
 DEFAULT_PADDING = 'SAME'
 
 
-_init_xavier = tf.contrib.layers.xavier_initializer()
-_init_norm = tf.truncated_normal_initializer(stddev=0.01)
+
+_init_xavier = tf.initializers.glorot_uniform()
+_init_norm = tf.keras.initializers.TruncatedNormal(stddev=0.01)
 _init_zero = slim.init_ops.zeros_initializer()
-_l2_regularizer_00004 = tf.contrib.layers.l2_regularizer(0.00004)
-_l2_regularizer_convb = tf.contrib.layers.l2_regularizer(common.regularizer_conv)
+_l2_regularizer_00004 = tf.keras.regularizers.L2(0.00004)
+_l2_regularizer_convb = tf.keras.regularizers.L2(common.regularizer_conv)
 
 
 def layer(op):

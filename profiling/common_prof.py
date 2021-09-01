@@ -18,7 +18,7 @@ from glob import glob
 from collections import defaultdict
 from skimage import io
 
-frameRates = [25, 15, 10, 5, 2, 1]    # test only [25, 10, 5, 2, 1]   # [5]   #          #  [25]    #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
+frameRates = [25, 15, 10, 5, 2, 1]    # not 5 frame rates only now, now 1,2,3,.., to 25 test only [25, 10, 5, 2, 1]   # [5]   #          #  [25]    #  [25, 10, 5, 2, 1]    # [30],  [30, 10, 5, 2, 1] 
 resoStrLst_OpenPose = ["1120x832", "960x720", "640x480",  "480x352", "320x240"]   # for openPose models [720, 600, 480, 360, 240]   # [240] #     # [240]       # [720, 600, 480, 360, 240]    #   [720]     # [720, 600, 480, 360, 240]  #  [720]    # [720, 600, 480, 360, 240]            #  16: 9
 resoStrLst_cpn = ["384x288", "256x192"]   # for cpn models, only two resolutions pretrained available
 

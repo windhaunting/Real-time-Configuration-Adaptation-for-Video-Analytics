@@ -32,6 +32,9 @@ PLAYOUT_RATE = 25
 ALPHA = 0.8
 
 #data_dir = "../input_output/vehicle_tracking/sample_video_out/"
+
+
+home_dir = "/home/fubao/workDir/researchProject/videoAnalytics_objectTracking/object_tracking/"
 data_dir = "../input_output/object_tracking/sample_video_out/"
 
 
@@ -63,8 +66,8 @@ class DataGenerate(object):
         # read all the json file in teh directory
         #data_dir = "../input_output/vehicle_tracking/sample_video_out/"
         
-        #print("data_dir: ", data_dir)
-        video_dir_lst = sorted(glob.glob(data_dir + '*json*'))
+        video_dir_lst = sorted(glob.glob(home_dir + data_dir + '*json*'))
+        #print("data_dir: ", data_dir, video_dir_lst)
         
         return video_dir_lst
     
@@ -267,14 +270,14 @@ class DataGenerate(object):
 
     def get_numpy_arr_all_jumpingFrameInterval_resolution(self, dict_detection_reso_video, current_frm_indx, max_frm_interval, highest_reso, curre_reso):
         
-        dict_cars_each_jumped_frm_higest_reso =  dict_detection_reso_video[highest_reso][str(current_frm_indx)][object_name]
-        
-        
         jumping_frame_interval = 0
         arr_acc_interval = []   # np.zeros(jumping_frame_interval)       # the maximum 25 frame interval's acc in an array
         while(jumping_frame_interval < max_frm_interval):
             next_frm_indx = current_frm_indx + jumping_frame_interval
-            dict_cars_each_jumped_frm_curr_reso = dict_detection_reso_video[curre_reso][str(next_frm_indx)][object_name]
+            dict_cars_each_jumped_frm_higest_reso =  dict_detection_reso_video[highest_reso][str(next_frm_indx)][object_name]
+            
+            # use current_frm_indx result to pass later video analytics result
+            dict_cars_each_jumped_frm_curr_reso = dict_detection_reso_video[curre_reso][str(current_frm_indx)][object_name]
             
             #dict_cars_each_jumped_frm_other_reso = dict_detection_reso_video[curr_reso][str(next_frm_indx)][object_name]
             #print("dict_cars_each_jumped_frm_higest_reso: ", dict_cars_each_jumped_frm_higest_reso)
@@ -284,12 +287,12 @@ class DataGenerate(object):
                 #print("predict_next_configuration_jumping_frm_reso dict_cars_each_jumped_frm_higest_reso: ", dict_cars_each_jumped_frm_higest_reso)
                 curr_acc = self.calculate_accuray_with_highest_reso(dict_cars_each_jumped_frm_higest_reso, highest_reso, dict_cars_each_jumped_frm_curr_reso, curre_reso, min_acc_threshold)
                                     
-                #print ("curr_acc: ", curr_acc)
-            arr_acc_interval.append(curr_acc)
+                #print ("dict_cars_each_jumped_frm_higest_reso curr_acc: ",  curr_acc)
             
+            arr_acc_interval.append(curr_acc)
             jumping_frame_interval += 1
             
-            #print("arr_acc_interval: ", arr_acc_interval)
+            # print("arr_acc_interval: ", arr_acc_interval)
 
         #if len(arr_acc_interval) == 0:
         #    print("xxxxxxxxxxxxxxxxxx empty: ", arr_acc_interval)
@@ -365,8 +368,8 @@ class DataGenerate(object):
         
         # We dont know each car in highest resolution frame correspoinding to each car in lower resolution frame; naive way is to use two loops
         # detect if the bounding box overlapping >= 0.5, think it maybe detecting the same car?
-        
-        same_car_IOU_threshold = 0.6
+        # print ("high_reso_bounding_box: ", dict_cars_each_jumped_frm_other_reso.values())
+        same_car_IOU_threshold = 0.9
         aver_acc = 0.0
         count = 0.0
         for high_reso_bounding_box in dict_cars_each_jumped_frm_higest_reso.values():
@@ -388,15 +391,16 @@ class DataGenerate(object):
         
         #print ("aver_acc: ", aver_acc)
         if aver_acc == 0.0 and len(dict_cars_each_jumped_frm_higest_reso) != 0:   # no vechicle count
-            aver_acc = 0
+            aver_acc = 0.0
         elif aver_acc == 0.0:
             aver_acc = min_acc_threshold
-            
+        
+            #print("cccccalculate_accuray_with_highest_reso: ", aver_acc)
         return aver_acc
 
 
     def get_object_size_x(self, dict_detection_reso_video, current_frm_indx, ans_reso_indx):
-        
+        # get object size 
         curre_reso = reso_list[ans_reso_indx]
         dict_cars_each_jumped_frm_curr_reso = dict_detection_reso_video[curre_reso][str(current_frm_indx)][object_name]
 

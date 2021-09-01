@@ -5,8 +5,9 @@ import numpy as np
 import scipy.stats as st
 import pdb
 
-import tensorflow as tf
-
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 def layer(op):
     def layer_decorated(self, *args, **kwargs):
