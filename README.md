@@ -1,7 +1,31 @@
-# video_analytics system
 
-Pose estimation
+# Real-time Configuration Adaptation for Video Analytics
+We explore the configuration adaptation with video analytics based on object moving features.
+We proposed a machine learning-based classification method to dynamic predict the configuration for future frames.
+We test on three applications: Pose estimation, Speaker detection and Traffic tracking with high performance.
 
-Speaker detection
 
-Traffic tracking
+## Table of content
+
+- [Installation](#installation)
+- [Datasets](#datasets)
+
+## Installation  
+
+- python 3.3 or more
+- opencv 3.4 or more  
+- Keras
+- TFLearn
+- Pytorch
+
+
+## Datasets
+Human Workout Videos
+Speaker Videos
+Traffic Video
+
+
+
+
+
+
