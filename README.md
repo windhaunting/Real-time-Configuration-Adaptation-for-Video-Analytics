@@ -1,8 +1,8 @@
 
 # Real-time Configuration Adaptation for Video Analytics
-We explore the configuration adaptation with video analytics based on object moving features.
+We explored the configuration adaptation with video analytics based on object moving features.
 We proposed a machine learning-based classification method to dynamic predict the configuration for future frames.
-We test on three applications: Pose estimation, Speaker detection and Traffic tracking with high performance.
+We experimented on three applications: Pose estimation, Speaker detection and Traffic tracking with high performance.
 
 
 ## Table of content
