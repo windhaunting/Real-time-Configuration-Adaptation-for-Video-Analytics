@@ -20,9 +20,9 @@ We test on three applications: Pose estimation, Speaker detection and Traffic tr
 
 
 ## Datasets
-Human Workout Videos
-Speaker Videos
-Traffic Video
+- Human Workout Videos
+- Speaker Videos
+- Traffic Video
 
 
 
