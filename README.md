@@ -20,6 +20,7 @@ We experimented on three applications: Pose estimation, Speaker detection and Tr
 
 
 ## Datasets
+
 - Human Workout Videos
 - Speaker Videos
 - Traffic Video
